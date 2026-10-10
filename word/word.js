@@ -2,7 +2,9 @@
 (function(){
 const CDN={
   mammoth:'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js',
-  htmldocx:'https://cdn.jsdelivr.net/npm/html-docx-js@0.3.1/dist/html-docx.js'
+  docx:'https://cdn.jsdelivr.net/npm/docx@9.5.1/dist/index.iife.js',
+  jszip:'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
+  docxio:'word/docx-io.js'
 };
 const libs={};
 function lib(n,test){
@@ -73,8 +75,7 @@ const CSS=`
 .wd .hf:hover{outline:1px dashed #9ab}
 .wd .hf:focus{outline:1px dashed #2b579a;background:rgba(43,87,154,.06);color:#000}
 .wd .hf:empty:not(:focus):hover::before{content:attr(data-ph);color:#999}
-@media print{.wd .hfl{display:none}}
-@media print{.wd .pgap{height:0!important;margin:0!important;background:none!important;break-after:page}}
+@media print{.wd .hf{outline:none!important;background:none!important;color:#555!important}.wd .hf:empty::before{content:none!important}.wd .pgap{background:none!important}.wd .sheet{zoom:1!important}}
 .wd .page p{margin:0 0 var(--ps,8pt)}
 .wd .page h1,.wd .g1{font:400 16pt var(--hf);color:var(--hc);margin:12pt 0 0}
 .wd .page h2,.wd .g2{font:400 13pt var(--hf);color:var(--hc);margin:2pt 0 0}
@@ -306,7 +307,20 @@ function mount(root,opts={}){
   async function openFile(file){
     const ext=file.name.split('.').pop().toLowerCase();
     try{
-      if(ext==='docx'){await lib('mammoth',()=>window.mammoth);setContent((await mammoth.convertToHtml({arrayBuffer:await file.arrayBuffer()})).value);}
+      hdr=ftr='';
+      if(ext==='docx'){
+        const buf=await file.arrayBuffer();
+        await lib('mammoth',()=>window.mammoth);setContent((await mammoth.convertToHtml({arrayBuffer:buf})).value);
+        try{  /* header, footer, dan tata letak halaman asli dibaca terpisah dari isi */
+          await lib('jszip',()=>window.JSZip);await lib('docxio',()=>window.WordDocx);
+          const r=await WordDocx.readDocx(buf,window.JSZip);
+          hdr=r.hdr;ftr=r.ftr;
+          if(r.size){cfg.size=r.size;cfg.land=r.land;}
+          if(r.m)cfg.m=r.m;
+          cfg.cols=r.cols||1;
+        }catch(e){toast('Header/footer asli tidak terbaca: '+e.message);}
+        apply();
+      }
       else if(ext==='txt'){setContent((await file.text()).split(/\n/).map(l=>'<p>'+(esc(l)||'<br>')+'</p>').join(''));}
       else setContent(new DOMParser().parseFromString(await file.text(),'text/html').body.innerHTML);
       setName(file.name.replace(/\.(html?|txt)$/i,'.docx'));
@@ -314,9 +328,11 @@ function mount(root,opts={}){
   }
   async function saveDocx(){
     try{
-      pick(null);await lib('htmldocx',()=>window.htmlDocx);
-      const css=`body{font-family:"${D.b}";font-size:11pt}h1{font:16pt "${D.h}";color:${D.hc}}h2{font:13pt "${D.h}";color:${D.hc}}td,th{border:1px solid #000}.s-title{font-size:28pt}.s-em1,.s-em2{font-style:italic}.s-em3{font-style:italic;font-weight:bold;color:${D.hc}}.s-strong{font-weight:bold}`;
-      const a=document.createElement('a');a.href=URL.createObjectURL(htmlDocx.asBlob(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>${css}</style></head><body>${cleanHTML()}</body></html>`));
+      pick(null);await lib('docx',()=>window.docx);await lib('docxio',()=>window.WordDocx);
+      const bs=$('[data-s=bsty]').value;
+      const blob=await WordDocx.toBlob({page,name,cfg,D,hdr,ftr,rtl:page.dir==='rtl',lineNumbers:page.classList.contains('ln'),
+        border:bs?{style:bs,w:+$('[data-s=bw]').value,color:$('[data-s=bcol]').value}:null,pageColor:paper.style.background});
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);
       a.download=/\.docx$/i.test(name)?name:name+'.docx';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast('Tersimpan: '+a.download);
     }catch(e){toast('Gagal menyimpan: '+e.message);}
   }
@@ -330,7 +346,7 @@ function mount(root,opts={}){
 
 
 /* ===== Paginasi: tiap halaman terpisah, ukuran sama ===== */
-const PG_GAP=16;let pgCount=1,paging=false,pgT=0;
+let PG_GAP=16;let pgCount=1,paging=false,pgT=0;
 const cleanHTML=()=>{const c=page.cloneNode(true);c.querySelectorAll('.pgap').forEach(x=>x.remove());return c.innerHTML;};
 function sched(){clearTimeout(pgT);pgT=setTimeout(paginate,120);}
 function paginate(){
@@ -363,6 +379,17 @@ function paginate(){
 }
 page.addEventListener('load',sched,true);
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(sched);
+
+/* Cetak: susun ulang tanpa celah antarhalaman supaya tiap halaman pas dengan kertas, lengkap dengan header/footer */
+function printDoc(){
+  const[w,h]=dims();let st=document.getElementById('wd-print');
+  if(!st){st=document.createElement('style');st.id='wd-print';document.head.appendChild(st);}
+  st.textContent=`@page{size:${w}px ${h}px;margin:0}`;
+  PG_GAP=0;paginate();
+  const done=()=>{removeEventListener('afterprint',done);PG_GAP=16;paginate();};
+  addEventListener('afterprint',done);
+  window.print();
+}
 
 /* ===== Header, Footer, Nomor Halaman, tanda sudut tiap halaman ===== */
 let hdr='',ftr='';
@@ -580,7 +607,7 @@ function bib(){
   const acts={
     menu(){menu.hidden=!menu.hidden;},
     new(){setName('Dokumen1.docx');hdr=ftr='';setContent('');focus();},
-    open(){fin.click();},save:saveDocx,print(){pick(null);window.print();},home(){opts.onHome&&opts.onHome();},
+    open(){fin.click();},save:saveDocx,print(){pick(null);printDoc();},home(){opts.onHome&&opts.onHome();},
     async paste(){focus();try{document.execCommand('insertText',false,await navigator.clipboard.readText());}catch{toast('Gunakan Ctrl+V untuk menempel');}},
     painter(){painting={bold:document.queryCommandState('bold'),italic:document.queryCommandState('italic'),underline:document.queryCommandState('underline'),
       font:(document.queryCommandValue('fontName')||'Calibri').replace(/["']/g,''),size:curSize(),color:document.queryCommandValue('foreColor')};toast('Pilih teks untuk menerapkan format');},
