@@ -23,6 +23,7 @@ function initPdfjs(){
     catch{pdfjsLib.GlobalWorkerOptions.workerSrc=CDN.worker;}
   })().catch(e=>{pdfjsReady=null;throw e;}));
 }
+const DOCS={list:[],active:null,seq:0}; /* daftar berkas terbuka; tiap berkas punya riwayat undo/redo sendiri */
 const store={get(k,d){try{const v=localStorage.getItem('pdf.'+k);return v==null?d:JSON.parse(v);}catch{return d;}},set(k,v){try{localStorage.setItem('pdf.'+k,JSON.stringify(v));}catch{}}};
 
 /* ====================== fungsi murni (bisa diuji tanpa DOM) ====================== */
@@ -532,6 +533,13 @@ const CSS=`
 .pd .menu button{display:block;width:100%;background:none;border:0;color:#fff;text-align:left;padding:12px 24px;cursor:pointer;font-size:14px}
 .pd .menu button:hover{background:rgba(255,255,255,.18)}
 .pd .menu hr{border:0;border-top:1px solid rgba(255,255,255,.3);margin:6px 0}
+.pd .menu{overflow:auto}
+.pd .menu .ofl .lbl{font-size:11px;opacity:.75;padding:4px 24px;text-transform:uppercase;letter-spacing:.04em}
+.pd .menu .ofl .of{display:flex;align-items:center}
+.pd .menu .ofl .of.on{background:rgba(255,255,255,.22)}
+.pd .menu .ofl .ofn{flex:1;width:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:10px 8px 10px 24px;font-size:13px}
+.pd .menu .ofl .ofx{flex:none;width:40px;padding:10px 0;text-align:center;font-size:18px;line-height:1}
+.pd .menu .ofl .ofx:hover{background:rgba(255,255,255,.3)}
 .pd .toast{position:absolute;right:16px;bottom:36px;background:#323130;color:#fff;padding:8px 14px;z-index:40;max-width:min(360px,calc(100% - 32px))}
 .pd .ov{position:absolute;inset:0;background:rgba(0,0,0,.25);z-index:30;display:grid;place-items:center}
 .pd .dg{background:#fff;border:1px solid #888;box-shadow:0 4px 18px rgba(0,0,0,.3);padding:14px 16px;min-width:min(340px,92vw);max-width:92%}
@@ -581,7 +589,7 @@ function mount(root,opts={}){
     <div class="menu" hidden>
       <button data-a="blank">📄  PDF kosong baru</button><button data-a="open">📂  Buka…</button>
       <button data-a="save">💾  Simpan sebagai .pdf</button><button data-a="print">🖨  Cetak</button>
-      <hr><button data-a="home">⬅  Kembali ke menu utama</button></div>
+      <hr><button data-a="home">⬅  Kembali ke menu utama</button><div class="ofl"></div></div>
   </div>`;
   const $=s=>root.querySelector(s),$$=s=>[...root.querySelectorAll(s)];
   const pd=$('.pd'),desk=$('.desk'),pgs=$('.pgs'),menu=$('.menu'),fd=$('.find'),fqIn=$('.fq');
@@ -1021,26 +1029,68 @@ function mount(root,opts={}){
     await fn(doc,PDFLib);
     const nb=await doc.save();pristine=false;await apply(nb,page);
   }
+  /* ---------- banyak berkas: tiap berkas menyimpan state & riwayat undo/redo sendiri ---------- */
+  const D=DOCS;
+  function snap(){
+    const d=D.list.find(x=>x.id===D.active);if(!d)return;
+    Object.assign(d,{name,bytes,annots:clone(annots),hist,hi,dirty,pristine,cur,zoom,autoFit,top:desk.scrollTop});
+  }
+  async function enter(d){
+    fq='';fm=[];fi=-1;fd.hidden=true;
+    name=d.name;bytes=d.bytes;annots=clone(d.annots);hist=d.hist;hi=d.hi;dirty=d.dirty;pristine=d.pristine;
+    cur=d.cur;zoom=d.zoom;autoFit=d.autoFit;selId=null;D.active=d.id;
+    setName(name);btns();
+    await load(bytes,{page:cur});
+    if(d.top)desk.scrollTop=d.top;
+    renderList();
+  }
+  async function addDoc(o){
+    snap();const prev=D.list.find(x=>x.id===D.active);
+    const d={id:'d'+(++D.seq),name:'Untitled1.pdf',bytes:null,annots:[],hist:[],hi:-1,dirty:false,pristine:false,cur:0,zoom:100,autoFit:true,top:0,...o};
+    D.list.push(d);
+    try{await enter(d);return true;}
+    catch(e){
+      console.error(e);D.list=D.list.filter(x=>x!==d);D.active=prev?prev.id:null;
+      if(prev)await enter(prev).catch(()=>{});
+      toast('Tidak bisa membuka PDF: '+(e&&e.message||e));return false;
+    }
+  }
+  function renderList(){
+    const el=$('.ofl');if(!el)return;
+    el.innerHTML=D.list.length?'<hr><div class="lbl">Berkas terbuka</div>'+D.list.map(d=>{
+      const on=d.id===D.active,nm=on?name:d.name,dt=on?dirty:d.dirty;
+      return`<div class="of${on?' on':''}"><button class="ofn" data-a="sw" data-v="${d.id}" title="${esc(nm)}">${esc(nm)}${dt?' •':''}</button><button class="ofx" data-a="cl" data-v="${d.id}" title="Tutup berkas ini" aria-label="Tutup ${esc(nm)}">×</button></div>`;
+    }).join(''):'';
+  }
+  async function closeDoc(id){
+    const d=D.list.find(x=>x.id===id);if(!d)return;
+    const isA=id===D.active,nm=isA?name:d.name;
+    if((isA?dirty:d.dirty)&&!confirm('"'+nm+'" punya perubahan yang belum disimpan. Tutup tanpa menyimpan?'))return;
+    const i=D.list.indexOf(d);D.list.splice(i,1);
+    if(!isA){renderList();return;}
+    if(!D.list.length){D.active=null;menu.hidden=true;opts.onHome&&opts.onHome();return;}
+    await enter(D.list[Math.min(i,D.list.length-1)]);
+  }
+  function nextName(){
+    const used=new Set(D.list.map(x=>x.id===D.active?name:x.name));
+    let n=1;while(used.has('Untitled'+n+'.pdf'))n++;return 'Untitled'+n+'.pdf';
+  }
   async function newPdf(buildFn,label){
-    if(dirty&&!confirm('Dokumen saat ini punya perubahan yang belum disimpan dan akan diganti. Lanjutkan?'))return;
     await lib('pdflib',()=>window.PDFLib);
     const doc=await PDFLib.PDFDocument.create();await buildFn(doc,PDFLib);
     if(!doc.getPageCount())return;
-    const nb=await doc.save();hist=[];hi=-1;pristine=false;cur=0;autoFit=true;annots=[];bytes=nb;push();dirty=false;
-    await load(nb,{page:0});if(label)setName(label);
+    const nb=await doc.save();
+    await addDoc({name:label||nextName(),bytes:nb,hist:[{bytes:nb,annots:[]}],hi:0});
   }
   async function blankDoc(){
-    if(dirty&&!confirm('Dokumen saat ini punya perubahan yang belum disimpan dan akan diganti. Lanjutkan?'))return;
     await lib('pdflib',()=>window.PDFLib);
     const doc=await PDFLib.PDFDocument.create();doc.addPage([595.28,841.89]);
-    const nb=await doc.save();hist=[];hi=-1;annots=[];cur=0;autoFit=true;bytes=nb;push();dirty=false;pristine=true;
-    await load(nb,{page:0});setName('Untitled1.pdf');
+    const nb=await doc.save();
+    await addDoc({name:nextName(),bytes:nb,hist:[{bytes:nb,annots:[]}],hi:0,pristine:true});
   }
   async function openBytes(buf,fname){
-    if(String.fromCharCode(...buf.slice(0,5))!=='%PDF-'){toast('Berkas bukan PDF yang valid');return;}
-    hist=[];hi=-1;annots=[];cur=0;autoFit=true;bytes=buf;push();dirty=false;pristine=false;
-    try{await load(buf,{page:0});}catch(e){toast('Tidak bisa membuka PDF: '+(e&&e.message||e));return;}
-    setName(fname);
+    if(String.fromCharCode(...buf.slice(0,5))!=='%PDF-'){toast('Berkas bukan PDF yang valid: '+fname);return;}
+    await addDoc({name:fname,bytes:buf,hist:[{bytes:buf,annots:[]}],hi:0});
   }
   async function openFile(f){await openBytes(new Uint8Array(await f.arrayBuffer()),f.name);}
   async function embedImg(doc,f){
@@ -1153,10 +1203,12 @@ function mount(root,opts={}){
   const acts={
     async save(){if(!needDoc())return;await run(async()=>{await commit();dl(new Blob([bytes],{type:'application/pdf'}),/\.pdf$/i.test(name)?name:name+'.pdf');dirty=false;toast('Tersimpan: '+name);});},
     undo(){run(()=>restore(hi-1));},redo(){run(()=>restore(hi+1));},
-    menu(){menu.hidden=!menu.hidden;},
-    home(){opts.onHome&&opts.onHome();},
-    blank(){run(blankDoc);},
-    async open(){const f=(await pickFiles('.pdf,application/pdf'))[0];if(!f)return;if(dirty&&!confirm('Perubahan yang belum disimpan akan hilang. Lanjutkan?'))return;run(()=>openFile(f));},
+    menu(){menu.hidden=!menu.hidden;if(!menu.hidden)renderList();},
+    home(){snap();opts.onHome&&opts.onHome();},
+    sw(id){if(id===D.active){menu.hidden=true;return;}run(async()=>{snap();menu.hidden=true;await enter(D.list.find(x=>x.id===id));});},
+    cl(id){run(()=>closeDoc(id));},
+    blank(){menu.hidden=true;run(blankDoc);},
+    async open(){const fs=await pickFiles('.pdf,application/pdf',true);if(!fs.length)return;menu.hidden=true;run(async()=>{for(const f of fs)await openFile(f);});},
     async print(){if(!needDoc())return;await run(async()=>{
       await commit();const pr=note('Menyiapkan cetak…'),box=document.createElement('div');box.className='pd-print';
       try{for(let i=0;i<pages.length;i++){const im=new Image();im.src=(await renderCanvas(i,2)).toDataURL('image/jpeg',.92);await im.decode().catch(()=>{});box.appendChild(im);}}finally{pr.end();}
@@ -1173,7 +1225,7 @@ function mount(root,opts={}){
         const out=await PDFLib.PDFDocument.create(),srcs=[];if(pdfDoc&&!pristine)srcs.push(bytes);
         for(const f of fs)srcs.push(new Uint8Array(await f.arrayBuffer()));
         for(const b of srcs){const s=await PDFLib.PDFDocument.load(b,{ignoreEncryption:true});(await out.copyPages(s,s.getPageIndices())).forEach(p=>out.addPage(p));}
-        const nb=await out.save();pristine=false;await apply(nb,0);if(name==='Untitled1.pdf')setName('Gabungan.pdf');toast(`Digabung: ${out.getPageCount()} halaman`);});
+        const nb=await out.save();pristine=false;await apply(nb,0);if(/^Untitled\d+\.pdf$/.test(name))setName('Gabungan.pdf');toast(`Digabung: ${out.getPageCount()} halaman`);});
     },
     /* Page layout */
     insblank(){if(!needDoc())return;run(()=>edit((d)=>{const p=d.getPage(cur),{width,height}=p.getSize();d.insertPage(cur+1,[width,height]);},cur+1));},
@@ -1313,10 +1365,12 @@ function mount(root,opts={}){
   if(window.ResizeObserver){let rt=0;new ResizeObserver(()=>{clearTimeout(rt);rt=setTimeout(()=>{if(!root.isConnected||!pages.length||!autoFit)return;const v=Math.max(10,Math.min(100,fitW()));if(v!==zoom)setZoom(v,false);},80);}).observe(desk);}
   if(matchMedia('(max-width:700px)').matches){$$('.tab[data-tab]').forEach(x=>x.classList.remove('on'));$$('[data-pane]').forEach(p=>p.hidden=true);}
 
-  setName(opts.file?opts.file.name:'Untitled1.pdf');
   drawFavs();setTool('select');btns();
   (async()=>{
     try{
+      const last=D.list.find(x=>x.id===D.active)||D.list[D.list.length-1];
+      if(last)await enter(last); /* pulihkan berkas yang terbuka sebelum kembali ke menu utama */
+      else D.active=null;
       if(opts.file)await openFile(opts.file);else await blankDoc();
     }catch(e){console.error(e);toast('Gagal memuat pustaka PDF: '+(e&&e.message||e)+'. Periksa koneksi internet.');}
     pd.focus();
