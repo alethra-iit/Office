@@ -1,1 +1,76 @@
-test
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Office Web</title>
+<style>
+:root{--bg:#f3f2f1;--ink:#201f1e;--mut:#605e5c;--card:#fff;--line:#e1dfdd}
+@media (prefers-color-scheme:dark){:root{--bg:#1b1a19;--ink:#f3f2f1;--mut:#a19f9d;--card:#292827;--line:#3b3a39}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:"Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+#home{max-width:880px;margin:0 auto;padding:56px 24px}
+h1{font-weight:600;font-size:28px;margin:0 0 6px}
+p.sub{color:var(--mut);margin:0 0 32px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:20px;border-top:4px solid var(--c)}
+.card .ic{width:44px;height:44px;border-radius:4px;background:var(--c);color:#fff;font-weight:700;font-size:24px;display:grid;place-items:center;margin-bottom:14px}
+.card h2{font-size:17px;margin:0 0 4px}
+.card small{color:var(--mut);display:block;margin-bottom:16px}
+.card button{font:inherit;font-size:13px;padding:6px 12px;border:1px solid var(--c);background:var(--c);color:#fff;border-radius:2px;cursor:pointer;margin-right:6px}
+.card button.o{background:transparent;color:var(--c)}
+.card button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+#app{height:100%}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div id="home">
+  <h1>Office Web</h1>
+  <p class="sub">Pilih format berkas, lalu buat baru atau buka berkas yang sudah ada.</p>
+  <div class="grid" id="grid"></div>
+</div>
+<div id="app" hidden></div>
+<input type="file" id="picker" hidden>
+<script>
+const FORMATS=[
+ {id:'word', name:'Word', desc:'Dokumen (.docx)', c:'#2b579a', l:'W', accept:'.docx,.html,.htm,.txt'},
+ {id:'excel',name:'Excel',desc:'Lembar kerja (.xlsx)',c:'#217346',l:'X', accept:'.xlsx,.csv'},
+ {id:'ppt',  name:'PowerPoint',desc:'Presentasi (.pptx)',c:'#b7472a',l:'P', accept:'.pptx'},
+ {id:'pdf',  name:'PDF',desc:'Dokumen PDF (.pdf)',c:'#c4262e',l:'A', accept:'.pdf'}
+];
+const home=document.getElementById('home'), app=document.getElementById('app'), picker=document.getElementById('picker');
+window.Apps=window.Apps||{};
+
+document.getElementById('grid').innerHTML=FORMATS.map(f=>`
+ <div class="card" style="--c:${f.c}">
+  <div class="ic">${f.l}</div><h2>${f.name}</h2><small>${f.desc}</small>
+  <button data-new="${f.id}">Baru</button><button class="o" data-open="${f.id}">Buka</button>
+ </div>`).join('');
+
+function loadModule(id){
+  if(Apps[id]) return Promise.resolve();
+  return new Promise((ok,err)=>{
+    const s=document.createElement('script');
+    s.src=id+'/'+id+'.js'; s.onload=ok; s.onerror=()=>err(new Error('Gagal memuat '+s.src));
+    document.head.appendChild(s);
+  });
+}
+async function start(id,file){
+  await loadModule(id);
+  home.hidden=true; app.hidden=false; app.innerHTML='';
+  Apps[id].mount(app,{file,onHome:goHome});
+  history.replaceState(null,'','#'+id);
+}
+function goHome(){ app.hidden=true; app.innerHTML=''; home.hidden=false; document.title='Office Web'; history.replaceState(null,'',location.pathname); }
+
+document.getElementById('grid').addEventListener('click',e=>{
+  const n=e.target.dataset.new, o=e.target.dataset.open;
+  if(n) start(n,null);
+  if(o){ picker.accept=FORMATS.find(f=>f.id===o).accept; picker.onchange=()=>{ if(picker.files[0]) start(o,picker.files[0]); picker.value=''; }; picker.click(); }
+});
+const h=location.hash.slice(1); if(FORMATS.some(f=>f.id===h)) start(h,null);
+</script>
+</body>
+</html>
