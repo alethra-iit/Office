@@ -75,6 +75,40 @@ const CSS=`
 .wd .hf:hover{outline:1px dashed #9ab}
 .wd .hf:focus{outline:1px dashed #2b579a;background:rgba(43,87,154,.06);color:#000}
 .wd .hf:empty:not(:focus):hover::before{content:attr(data-ph);color:#999}
+/* ===== Responsif: tablet & ponsel ===== */
+.wd .tabs{overflow-x:auto;scrollbar-width:none}.wd .tabs::-webkit-scrollbar{display:none}
+.wd .tab{flex:none;white-space:nowrap}
+.wd .ribbon{-webkit-overflow-scrolling:touch}
+.wd .qat .fn{max-width:calc(100% - 240px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wd.rc .ribbon{display:none}
+.wd .dg{min-width:min(340px,92vw)}.wd .db input,.wd .db select{max-width:100%}
+.wd .toast{max-width:calc(100% - 32px)}
+@media (pointer:coarse){
+ .wd .qat{height:36px}.wd .qat button{width:34px;height:32px;font-size:16px}
+ .wd .tabs{height:36px}.wd .tab{height:36px;padding:0 16px;font-size:13px}.wd .tab.on{height:37px}
+ .wd .ribbon{height:112px}
+ .wd .row{height:36px}.wd .b{min-width:34px;height:34px}.wd .b.rw{height:26px}.wd .rows{gap:4px}
+ .wd .b.big{height:78px;min-width:56px}
+ .wd select{height:34px;font-size:16px}.wd .clr{width:36px;height:34px}
+ .wd .gal{height:84px}.wd .sty{height:78px}
+ .wd .status{height:30px}.wd .status button{width:28px;height:28px;font-size:16px}
+ .wd .menu{top:72px;bottom:30px}.wd .menu button{padding:16px 24px}
+ .wd .find input[type=text],.wd .db input,.wd .db select,.wd input[type=number]{font-size:16px;height:34px}
+ .wd .find button,.wd .dbt button,.wd .db button{height:34px;padding:0 14px}
+}
+@media (max-width:900px){
+ .wd .rbar{display:none}
+}
+@media (max-width:700px){
+ .wd .qat .fn{max-width:calc(100% - 150px)}
+ .wd .menu{width:min(260px,86vw)}
+ .wd .status .s{gap:10px}.wd .status .s>span:nth-child(3){display:none}.wd .zr{width:70px!important}
+ .wd .find{left:8px;right:8px;top:auto;bottom:40px;grid-template-columns:auto 1fr}
+ .wd .find .fb{flex-wrap:wrap}
+ .wd .sp{right:8px;top:80px;width:min(220px,80vw)}
+ .wd .desk{padding:8px 0 16px}
+}
+@media (max-height:500px){.wd .desk{padding:6px 0 12px}}
 @media print{.wd .hf{outline:none!important;background:none!important;color:#555!important}.wd .hf:empty::before{content:none!important}.wd .pgap{background:none!important}.wd .sheet{zoom:1!important}}
 .wd .page p{margin:0 0 var(--ps,8pt)}
 .wd .page h1,.wd .g1{font:400 16pt var(--hf);color:var(--hc);margin:12pt 0 0}
@@ -206,12 +240,12 @@ review:
  G('Pemeriksaan',B('✔','Ejaan','spell','big')+B('123','Hitung kata','wordcount','big'))+G('Mode',B('📖','Mode baca','read','big')),
 view:
  G('Tampilan',B('📖','Mode baca','read','big'))+G('Tampilkan',B('📏','Penggaris','ruler','big')+B('¶','Tanda paragraf','marks','big'))+
- G('Zoom',B('🔍','100%','zoom:100','big')+B('🔎','75%','zoom:75','big')+B('🔬','150%','zoom:150','big'))
+ G('Zoom',B('🔍','100%','zoom:100','big')+B('🔎','75%','zoom:75','big')+B('🔬','150%','zoom:150','big')+B('↔','Lebar halaman','zoom:fit','big'))
 };
 
 function mount(root,opts={}){
   if(!document.getElementById('wd-css')){const s=document.createElement('style');s.id='wd-css';s.textContent=CSS;document.head.appendChild(s);}
-  let name='Dokumen1.docx',zoom=100,lastRange=null,painting=null;
+  let name='Dokumen1.docx',zoom=100,lastRange=null,painting=null,autoFit=true;
   const cfg={size:'a4',land:false,m:[...MG.normal],cols:1};
   root.innerHTML=`<div class="wd">
     <div class="qat"><div class="l"><span class="w">W</span><button data-a="save" title="Simpan (Ctrl+S)">💾</button><button data-a="undo" title="Urungkan (Ctrl+Z)">↶</button><button data-a="redo" title="Ulangi (Ctrl+Y)">↷</button></div><span class="fn"></span></div>
@@ -225,7 +259,7 @@ function mount(root,opts={}){
     <div class="sp" hidden></div>
     <div class="status"><div class="s"><span class="pg">Halaman 1 dari 1</span><span class="wc">0 kata</span><span>Bahasa Indonesia</span></div>
       <div class="s"><button class="on" title="Tata letak cetak">▭</button><button data-a="read" title="Mode baca">📖</button>
-      <span><button data-a="zoomd:-10">−</button><input type="range" min="40" max="200" value="100" class="zr"><button data-a="zoomd:10">+</button> <span class="zv">100%</span></span></div></div>
+      <span><button data-a="zoomd:-10">−</button><input type="range" min="20" max="200" value="100" class="zr"><button data-a="zoomd:10">+</button> <span class="zv">100%</span></span></div></div>
     <div class="menu" hidden>
       <button data-a="new">📄  Dokumen kosong baru</button><button data-a="open">📂  Buka…</button>
       <button data-a="save">💾  Simpan sebagai .docx</button><button data-a="print">🖨  Cetak / simpan PDF</button>
@@ -291,7 +325,7 @@ function mount(root,opts={}){
     Object.assign(page.style,{width:w+'px',minHeight:h+'px',padding:`${mt}px ${mr}px ${mb}px ${ml}px`,columnCount:cfg.cols>1?cfg.cols:'auto',columnGap:'36px'});
     page.style.setProperty('--ph',h+'px');page.classList.toggle('col',cfg.cols>1);
     [['--mt',mt],['--mr',mr],['--mb',mb],['--ml',ml]].forEach(([k,v])=>paper.style.setProperty(k,v+'px'));
-    drawRuler();stats();
+    drawRuler();if(autoFit)fit();stats();
   }
   ruler.addEventListener('mousedown',e=>{
     const mk=e.target.closest('.mk');if(!mk)return;e.preventDefault();
@@ -300,6 +334,13 @@ function mount(root,opts={}){
       if(side==='l')cfg.m[3]=Math.round(Math.max(0,Math.min(x,w-cfg.m[1]-120)));else cfg.m[1]=Math.round(Math.max(0,Math.min(w-x,w-cfg.m[3]-120)));apply();};
     addEventListener('mousemove',mv);addEventListener('mouseup',()=>removeEventListener('mousemove',mv),{once:true});
   });
+  const desk=$('.desk');
+  /* sesuaikan lebar halaman dengan layar (ponsel/tablet); tidak pernah memperbesar lewat 100% */
+  function fit(){
+    const avail=desk.clientWidth-12;if(avail<=0)return;
+    const v=Math.max(20,Math.min(100,Math.floor(avail/(dims()[0]+2)*100)));
+    if(v!==zoom)setZoom(v);
+  }
   function setZoom(v){zoom=v;sheet.style.zoom=ruler.style.zoom=v/100;$('.zr').value=v;$('.zv').textContent=v+'%';}
 
   /* berkas */
@@ -636,7 +677,7 @@ function bib(){
     wordcount(){const t=page.innerText;toast(`${t.trim()?t.trim().split(/\s+/).length:0} kata · ${t.replace(/\n/g,'').length} karakter · ${page.querySelectorAll('p,h1,h2,h3,li').length} paragraf`);},
     read(){const e=page.isContentEditable;page.contentEditable=e?'false':'true';toast(e?'Mode baca':'Mode edit');},
     ruler(){root.querySelector('.rbar').hidden=!root.querySelector('.rbar').hidden;},
-    zoom(v){setZoom(+v);},zoomd(d){setZoom(Math.min(200,Math.max(40,zoom+ +d)));}
+    zoom(v){if(v==='fit'){autoFit=true;fit();}else{autoFit=false;setZoom(+v);}},zoomd(d){autoFit=false;setZoom(Math.min(200,Math.max(20,zoom+ +d)));}
   };
   const caseOf=(t,m)=>m==='upper'?t.toUpperCase():m==='lower'?t.toLowerCase():t.toLowerCase().replace(/(^|\s)\S/g,c=>c.toUpperCase());
   const sels={
@@ -677,7 +718,11 @@ function bib(){
   root.addEventListener('mousedown',e=>{if(e.target.closest('.b,.sty,.tab,.status button'))e.preventDefault();});
   root.addEventListener('click',e=>{
     const t=e.target.closest('[data-a],[data-tab]');if(!t)return;
-    if(t.dataset.tab){$$('.tab[data-tab]').forEach(x=>x.classList.toggle('on',x===t));$$('[data-pane]').forEach(p=>p.hidden=p.dataset.pane!==t.dataset.tab);return;}
+    if(t.dataset.tab){
+      const small=matchMedia('(max-width:700px),(max-height:500px)').matches,wd=$('.wd');
+      if(small&&t.classList.contains('on')&&!wd.classList.contains('rc')){wd.classList.add('rc');t.classList.remove('on');return;}  /* ketuk tab aktif = ciutkan pita */
+      wd.classList.remove('rc');
+      $$('.tab[data-tab]').forEach(x=>x.classList.toggle('on',x===t));$$('[data-pane]').forEach(p=>p.hidden=p.dataset.pane!==t.dataset.tab);return;}
     const[k,v]=t.dataset.a.split(':');
     if(CMDS.has(k))exec(k);else if(acts[k])acts[k](v);
     if(k!=='menu')menu.hidden=true;
@@ -687,7 +732,8 @@ function bib(){
     if(e.target.type==='color')e.target.previousElementSibling.style.borderBottomColor=e.target.value;};
   root.addEventListener('change',onSel);root.addEventListener('input',onSel);
   $('.desk').addEventListener('mousedown',()=>menu.hidden=true);
-  $('.zr').oninput=e=>setZoom(+e.target.value);
+  $('.zr').oninput=e=>{autoFit=false;setZoom(+e.target.value);};
+  if(window.ResizeObserver){let rt=0;new ResizeObserver(()=>{clearTimeout(rt);rt=setTimeout(()=>{if(!root.isConnected)return;if(autoFit)fit();},80);}).observe(desk);}
   fin.onchange=()=>{if(fin.files[0])openFile(fin.files[0]);fin.value='';};
   $('.img').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>exec('insertImage',r.result);r.readAsDataURL(f);e.target.value='';};
   page.addEventListener('input',stats);
@@ -704,6 +750,7 @@ function bib(){
 
   document.execCommand('styleWithCSS',false,true);
   $('[data-s=font]').value='Calibri';$('[data-s=size]').value=11;
+  if(matchMedia('(max-width:700px),(max-height:500px)').matches){$('.wd').classList.add('rc');$$('.tab[data-tab]').forEach(x=>x.classList.remove('on'));}
   setName(opts.file?opts.file.name:'Dokumen1.docx');
   setContent('');apply();
   applyDesign(store.get('design',{}));setSel('cstyle',cstyle);
