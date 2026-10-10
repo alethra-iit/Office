@@ -68,6 +68,12 @@ const CSS=`
 .wd .page{--hc:#2f5496;outline:none;font:11pt/var(--lh,1.08) var(--bf);color:#000;word-wrap:break-word}
 .wd .page.col{background-image:repeating-linear-gradient(to bottom,transparent 0,transparent calc(var(--ph) - 2px),#c9c9c9 calc(var(--ph) - 2px),#c9c9c9 var(--ph))}
 .wd .pgap{user-select:none;pointer-events:none;display:flow-root}
+.wd .hfl{position:absolute;inset:0;pointer-events:none}
+.wd .hf{position:absolute;pointer-events:auto;font:10pt/1.2 var(--bf);color:#555;outline:none;overflow:hidden;min-height:18px;cursor:text;word-wrap:break-word}
+.wd .hf:hover{outline:1px dashed #9ab}
+.wd .hf:focus{outline:1px dashed #2b579a;background:rgba(43,87,154,.06);color:#000}
+.wd .hf:empty:not(:focus):hover::before{content:attr(data-ph);color:#999}
+@media print{.wd .hfl{display:none}}
 @media print{.wd .pgap{height:0!important;margin:0!important;background:none!important;break-after:page}}
 .wd .page p{margin:0 0 var(--ps,8pt)}
 .wd .page h1,.wd .g1{font:400 16pt var(--hf);color:var(--hc);margin:12pt 0 0}
@@ -166,7 +172,9 @@ insert:
  G('Halaman',B('⤓','Pemisah halaman','pagebreak','big'))+G('Tabel',B('▦','Tabel','table','big'))+
  G('Ilustrasi',B('🖼','Gambar','image','big'))+G('Tautan',B('🔗','Tautan','link','big'))+
  G('Simbol',B('―','Garis horizontal','insertHorizontalRule','big')+S('sym',[['','Ω Simbol'],'©','®','™','°','±','×','÷','€','£','→','←','✓'],80,'Sisipkan simbol',1))+
- G('Teks',B('📅','Tanggal & waktu','date','big')),
+ G('Teks',B('📅','Tanggal & waktu','date','big'))+
+ G('Header & Footer',R2(S('hdrs',[['','Header ▾'],['blank','Header kosong'],['title','Judul dokumen'],['three','Tiga kolom'],['rm','Hapus header']],118,'Header',1)+S('ftrs',[['','Footer ▾'],['blank','Footer kosong'],['title','Judul dokumen'],['three','Tiga kolom'],['rm','Hapus footer']],118,'Footer',1),
+  S('pnum',[['','Nomor Halaman ▾'],['bc','Bawah – tengah'],['br','Bawah – kanan'],['bl','Bawah – kiri'],['tr','Atas – kanan'],['pc','Halaman X dari Y'],['rm','Hapus nomor halaman']],140,'Nomor halaman',1))),
 design:
  G('Pemformatan dokumen',R2(
   S('thm',[['','Tema: Office'],['ion','Tema: Ion'],['facet','Tema: Facet'],['retro','Tema: Retrospect'],['serif','Tema: Serif'],['mono','Tema: Mono']],110,'Tema')+
@@ -209,7 +217,7 @@ function mount(root,opts={}){
     <div class="tabs"><button class="tab file" data-a="menu">BERKAS</button>${TABS.map((t,i)=>`<button class="tab${i?'':' on'}" data-tab="${t[0]}">${t[1]}</button>`).join('')}</div>
     ${TABS.map((t,i)=>`<div class="ribbon" data-pane="${t[0]}"${i?' hidden':''}>${RIB[t[0]]}</div>`).join('')}
     <div class="rbar"><div class="ruler"></div></div>
-    <div class="desk"><div class="sheet"><div class="paper"><i class="cm a"></i><i class="cm b"></i><i class="cm c"></i><i class="cm d"></i>
+    <div class="desk"><div class="sheet"><div class="paper"><div class="hfl"></div>
       <div class="page" contenteditable="true" spellcheck="true"></div></div></div></div>
     <div class="find" hidden><span>Cari:</span><input type="text" class="f1"><span>Ganti:</span><input type="text" class="f2">
       <div class="fb"><button data-a="fnext">Berikutnya</button><button data-a="frep">Ganti</button><button data-a="frall">Ganti semua</button><button data-a="fclose">Tutup</button></div></div>
@@ -236,7 +244,8 @@ function mount(root,opts={}){
     const s=getSelection(); if(s.rangeCount&&page.contains(s.anchorNode)) lastRange=s.getRangeAt(0).cloneRange();
   });
   function focus(){
-    const s=getSelection(),inside=s.rangeCount&&page.contains(s.anchorNode);
+    const s=getSelection();if(s.rangeCount&&root.querySelector('.hfl').contains(s.anchorNode))return;
+    const inside=s.rangeCount&&page.contains(s.anchorNode);
     page.focus({preventScroll:true});
     if(!inside&&lastRange){s.removeAllRanges();s.addRange(lastRange);}
   }
@@ -329,7 +338,7 @@ function paginate(){
   paging=true;
   page.querySelectorAll('.pgap').forEach(x=>x.remove());
   const h=dims()[1],mt=cfg.m[0],mr=cfg.m[1],mb=cfg.m[2],ml=cfg.m[3],G=PG_GAP,T=h+G,ch=h-mt-mb;
-  if(cfg.cols>1){page.style.minHeight=h+'px';paging=false;return;}
+  if(cfg.cols>1){page.style.minHeight=h+'px';pgCount=Math.max(1,Math.ceil(page.offsetHeight/h));paging=false;renderHF(pgCount,0);return;}
   const sc=()=>page.offsetHeight?page.getBoundingClientRect().height/page.offsetHeight:1;
   const Y=el=>(el.getBoundingClientRect().top-page.getBoundingClientRect().top)/sc(),H=el=>el.getBoundingClientRect().height/sc();
   const units=[];[...page.children].forEach(c=>{if(/^(UL|OL)$/.test(c.tagName))units.push(...c.children);else units.push(c);});
@@ -349,11 +358,50 @@ function paginate(){
   }
   pgCount=Math.max(1,Math.ceil((lastBot+mb+G)/T));
   page.style.minHeight=(pgCount*T-G)+'px';
-  paging=false;
+  paging=false;renderHF(pgCount,G);
   $('.pg').textContent='Halaman 1 dari '+pgCount;
 }
 page.addEventListener('load',sched,true);
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(sched);
+
+/* ===== Header, Footer, Nomor Halaman, tanda sudut tiap halaman ===== */
+let hdr='',ftr='';
+const pnHTML=(html,k,n)=>{const t=document.createElement('div');t.innerHTML=html;t.querySelectorAll('.pn').forEach(x=>x.textContent=k+1);t.querySelectorAll('.pt').forEach(x=>x.textContent=n);return t.innerHTML;};
+function renderHF(n,G){
+  const L=$('.hfl');if(!L||L.contains(document.activeElement))return;
+  const[w,h]=dims(),[mt,mr,mb,ml]=cfg.m;let o='';
+  const cm=(x,y,bw)=>`<i class="cm" style="left:${x}px;top:${y}px;border-width:${bw}"></i>`;
+  for(let k=0;k<n;k++){
+    const b=k*(h+G),bx=`left:${ml}px;width:${Math.max(40,w-ml-mr)}px;`;
+    o+=cm(ml-30,b+mt-30,'0 1px 1px 0')+cm(w-mr,b+mt-30,'0 0 1px 1px')+cm(ml-30,b+h-mb,'1px 1px 0 0')+cm(w-mr,b+h-mb,'1px 0 0 1px');
+    o+=`<div class="hf" data-t="h" contenteditable="true" data-ph="Header" style="${bx}top:${b+36}px;max-height:${Math.max(20,mt-44)}px">${pnHTML(hdr,k,n)}</div>`;
+    o+=`<div class="hf" data-t="f" contenteditable="true" data-ph="Footer" style="${bx}top:${b+h-mb+14}px;max-height:${Math.max(20,mb-20)}px">${pnHTML(ftr,k,n)}</div>`;
+  }
+  L.innerHTML=o;
+}
+$('.hfl').addEventListener('input',e=>{
+  const el=e.target.closest('.hf');if(!el)return;
+  const c=el.cloneNode(true);c.querySelectorAll('.pn,.pt').forEach(x=>x.textContent='#');
+  const html=c.innerHTML==='<br>'?'':c.innerHTML;if(el.dataset.t==='h')hdr=html;else ftr=html;
+  [...$('.hfl').querySelectorAll(`.hf[data-t="${el.dataset.t}"]`)].forEach((o,k)=>{if(o!==el)o.innerHTML=pnHTML(html,k,pgCount);});
+});
+const HFT={blank:'<div><br></div>',title:()=>`<div style="text-align:center">${esc(name.replace(/\.docx$/i,''))}</div>`,three:'<div style="display:flex;justify-content:space-between"><span>[Kiri]</span><span>[Tengah]</span><span>[Kanan]</span></div>'};
+const redoHF=()=>renderHF(pgCount,cfg.cols>1?0:PG_GAP);
+function setHF(t,v){
+  if(!v)return;const html=v==='rm'?'':typeof HFT[v]==='function'?HFT[v]():HFT[v];
+  if(t==='h')hdr=html;else ftr=html;redoHF();
+  const el=$(`.hf[data-t="${t}"]`);if(el&&html){el.scrollIntoView({block:'center'});el.focus();}
+}
+const PNM={bc:['f','center'],br:['f','right'],bl:['f','left'],tr:['h','right'],pc:['f','center',1]};
+function pageNum(v){
+  if(!v)return;
+  const strip=html=>{const d=document.createElement('div');d.innerHTML=html;[...d.children].forEach(c=>{if(c.querySelector('.pn')||c.classList.contains('pn'))c.remove();});return d.innerHTML;};
+  if(v==='rm'){hdr=strip(hdr);ftr=strip(ftr);}
+  else{const[t,al,tot]=PNM[v],pn='<span class="pn" contenteditable="false">#</span>',
+    row=`<div style="text-align:${al}">${tot?`Halaman ${pn} dari <span class="pt" contenteditable="false">#</span>`:pn}</div>`;
+    if(t==='h')hdr=strip(hdr)+row;else ftr=strip(ftr)+row;}
+  redoHF();
+}
 
 /* ===== Desain, Tata Letak, Referensi ===== */
 const store={get(k,d){try{const v=localStorage.getItem('wd.'+k);return v===null?d:JSON.parse(v);}catch{return d;}},set(k,v){try{localStorage.setItem('wd.'+k,JSON.stringify(v));}catch{}}};
@@ -531,7 +579,7 @@ function bib(){
   const showFind=()=>{fd.hidden=false;f1.focus();f1.select();};
   const acts={
     menu(){menu.hidden=!menu.hidden;},
-    new(){setName('Dokumen1.docx');setContent('');focus();},
+    new(){setName('Dokumen1.docx');hdr=ftr='';setContent('');focus();},
     open(){fin.click();},save:saveDocx,print(){pick(null);window.print();},home(){opts.onHome&&opts.onHome();},
     async paste(){focus();try{document.execCommand('insertText',false,await navigator.clipboard.readText());}catch{toast('Gunakan Ctrl+V untuk menempel');}},
     painter(){painting={bold:document.queryCommandState('bold'),italic:document.queryCommandState('italic'),underline:document.queryCommandState('underline'),
@@ -592,6 +640,7 @@ function bib(){
     rot(v){if(!v)return;const o=need();if(!o)return;const d=o.dataset;let r=+d.r||0,fx=+d.fx||1,fy=+d.fy||1;
       if(v==='cw')r+=90;else if(v==='ccw')r-=90;else if(v==='fh')fx*=-1;else fy*=-1;
       Object.assign(d,{r,fx,fy});o.style.transform=`rotate(${r}deg) scale(${fx},${fy})`;},
+    hdrs:v=>setHF('h',v),ftrs:v=>setHF('f',v),pnum:pageNum,
     addtxt(v){if(v){exec('formatBlock',v==='p'?'P':v.toUpperCase());blocks().forEach(b=>b.className='');}},
     cstyle(v){cstyle=v;store.set('cs',v);refreshCites();},
     margin(v){cfg.m=[...MG[v]];apply();},orient(v){cfg.land=v==='l';apply();},pgsize(v){cfg.size=v;apply();},cols(v){cfg.cols=+v;apply();}
