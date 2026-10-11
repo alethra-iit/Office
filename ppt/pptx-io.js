@@ -48,6 +48,7 @@ function parseParas(html,o){
   const fmtOf=el=>{
     const t=el.tagName.toLowerCase(),f={},s=el.style||{};
     if(t==='b'||t==='strong')f.bold=1;if(t==='i'||t==='em')f.italic=1;if(t==='u')f.underline=1;if(t==='s'||t==='strike'||t==='del')f.strike=1;
+    if(t==='a'&&/^https?:\/\//i.test(el.getAttribute('href')||''))f.link=el.getAttribute('href');
     if(t==='font'){if(el.getAttribute('face'))f.font=el.getAttribute('face');const c=hex6(el.getAttribute('color'));if(c)f.color=c;}
     if(s.fontWeight)f.bold=s.fontWeight==='bold'||+s.fontWeight>=600?1:0;
     if(s.fontStyle)f.italic=s.fontStyle==='italic'?1:0;
@@ -93,7 +94,7 @@ function textItems(o){
     runs.forEach((r,i)=>{
       const f=r.f,op=Object.assign({},po,{fontFace:f.font||D.font,fontSize:Math.max(1,+(f.size||D.size).toFixed(1)),color:f.color||D.color,breakLine:i===runs.length-1});
       if(p.bul)op.bullet=p.bul==='n'?{type:'number'}:true;
-      if(f.bold)op.bold=true;if(f.italic)op.italic=true;if(f.underline)op.underline={style:'sng'};if(f.strike)op.strike='sngStrike';if(f.spc)op.charSpacing=f.spc;
+      if(f.link)op.hyperlink={url:f.link};if(f.bold)op.bold=true;if(f.italic)op.italic=true;if(f.underline)op.underline={style:'sng'};if(f.strike)op.strike='sngStrike';if(f.spc)op.charSpacing=f.spc;
       items.push({text:r.t,options:op});
     });
   });
@@ -116,7 +117,18 @@ async function write(data,PptxGenJS,JSZip,type){
     if(s.bg){const c=hex6(s.bg);if(c)sl.background={color:c};}
     s.objs.forEach(o=>{
       const line=o.shape==='line'||o.shape==='arrow',rot=o.rot||0,common={rotate:rot||undefined,flipH:o.fh?true:undefined,flipV:o.fv?true:undefined};
+      if(/<table/i.test(o.html||'')){                       // tabel (sisipan dari menu SISIPKAN)
+        const d=document.createElement('div');d.innerHTML=o.html;const tb=d.querySelector('table');
+        if(tb&&tb.rows.length){
+          const rows=[...tb.rows].map(r=>[...r.cells].map(c=>{const st=c.style,op={fontFace:o.ts.font||'Calibri',fontSize:+o.ts.size||18,color:hex6(st.color)||hex6(o.ts.color)||'000000',valign:'top',border:{type:'solid',pt:1,color:'FFFFFF'}};
+            const bg=hex6(st.backgroundColor||st.background);if(bg)op.fill={color:bg};
+            if(st.fontWeight==='bold'||+st.fontWeight>=600)op.bold=true;
+            return{text:c.textContent.replace(/\u00a0/g,' ').trim(),options:op};}));
+          const nc=Math.max(...rows.map(r=>r.length));rows.forEach(r=>{while(r.length<nc)r.push({text:'',options:{}});});
+          sl.addTable(rows,{x:inch(o.x),y:inch(o.y),w:inch(o.w),colW:Array(nc).fill(inch(o.w)/nc),rowH:Array(rows.length).fill(inch(o.h)/rows.length)});}
+        return;}
       if(o.img){
+        if(!/^data:/.test(o.img))return;                    // gambar dari URL (tanpa data) dilewati
         sl.addImage(Object.assign({data:o.img.replace(/^data:/,''),x:inch(o.x),y:inch(o.y),w:inch(o.w),h:inch(o.h)},common));return;}
       if(line){
         const st=hex6(o.stroke)||'5B9BD5',lo={color:st,width:+o.sw||2.25};
