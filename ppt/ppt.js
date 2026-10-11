@@ -260,6 +260,35 @@ const CSS=`
 .pp .dlg .cs2 .cb{display:flex;flex-direction:column;gap:4px}
 .pp .dlg .cs2 button{height:26px;border:1px solid #aaa;background:#f3f3f3;cursor:pointer;padding:0 8px}
 .pp .shsel{height:22px;width:150px}
+.pp .gn{position:relative}
+.pp .gn .gl{position:absolute;right:-2px;bottom:0;width:14px;height:14px;line-height:10px;font-size:11px;border:0;background:none;color:#666;cursor:pointer;padding:0}
+.pp .gn .gl:hover{color:#b7472a}
+.pp .b.big svg{display:block}
+.pp .vview{flex:1;overflow:auto;background:#f2f2f2;padding:14px 24px}
+.pp .vview[hidden]{display:none}
+.pp .olr{display:flex;gap:12px;background:#fff;border:1px solid #ddd;margin:0 auto 10px;max-width:900px;padding:8px 12px}
+.pp .oln{width:28px;color:#b7472a;font-weight:600;cursor:pointer;padding-top:4px;flex:none}
+.pp .olc{flex:1;min-width:0}
+.pp .olt{font-size:18px;font-weight:600;outline:none;padding:3px 4px}
+.pp .olt.dim{color:#aaa;font-weight:400}
+.pp .olb{font-size:14px;outline:none;padding:3px 4px 3px 22px;white-space:pre-wrap}
+.pp .olt:empty::before,.pp .olb:empty::before{content:attr(data-ph);color:#aaa}
+.pp .olt:focus,.pp .olb:focus{background:#fdf6f2}
+.pp .npg{display:flex;flex-direction:column;align-items:center;gap:8px;background:#fff;border:1px solid #ddd;margin:0 auto 14px;max-width:720px;padding:14px}
+.pp .npn{align-self:flex-start;color:#888;font-size:12px}
+.pp .npth{pointer-events:none;display:flex}.pp .npth .n{display:none}
+.pp .npx{align-self:stretch;min-height:90px;border-top:1px solid #ddd;padding:8px;font-size:13px;outline:none;user-select:text;-webkit-user-select:text}
+.pp .npx:empty::before{content:attr(data-ph);color:#999}
+.pp .olt,.pp .olb{user-select:text;-webkit-user-select:text}
+.pp .rl{position:absolute;background:#fff;border:1px solid #bbb;overflow:hidden;pointer-events:none;z-index:7}
+.pp .rlh{left:0;top:-20px;height:18px}.pp .rlv{left:-20px;top:0;width:18px}
+.pp .gridov{position:absolute;inset:0;pointer-events:none;z-index:4;background-image:linear-gradient(to right,rgba(0,0,0,.2) 1px,transparent 1px),linear-gradient(to bottom,rgba(0,0,0,.2) 1px,transparent 1px)}
+.pp .gd{position:absolute;z-index:8}
+.pp .gd::after{content:'';position:absolute;border:0 dashed #d24726}
+.pp .gx{top:0;bottom:0;width:9px;cursor:ew-resize}.pp .gx::after{left:4px;top:0;bottom:0;border-left-width:1px}
+.pp .gy{left:0;right:0;height:9px;cursor:ns-resize}.pp .gy::after{top:4px;left:0;right:0;border-top-width:1px}
+.pp.vw-gray .stg,.pp.vw-gray .thumbs .tv,.pp.vw-gray .sorter .tv,.pp.vw-gray .vview .tv{filter:grayscale(1)}
+.pp.vw-bw .stg,.pp.vw-bw .thumbs .tv,.pp.vw-bw .sorter .tv,.pp.vw-bw .vview .tv{filter:grayscale(1) contrast(20)}
 .pp .main{position:relative}
 .pp .cpane{width:250px;flex:none;border-left:1px solid #ddd;background:#fafafa;display:flex;flex-direction:column;font-size:12px}
 .pp .cpane[hidden]{display:none}
@@ -618,11 +647,44 @@ const RIB_REVIEW=
  G('Bandingkan',RB(RV_IC.cmp,'Bandingkan','rvcmp')+RB(RV_IC.acc,'Terima','rvacc','cmpn',1)+RB(RV_IC.rej,'Tolak','rvrej','cmpn',1)+
    `<div class="rows">${RS('◀','Sebelumnya','rvprev','cmpn')}${RS('▶','Berikutnya','rvnext','cmpn')}${RS('☰','Panel Peninjauan','rvrpane','')}</div>`+RB(RV_IC.end,'Akhiri<br>Peninjauan','rvend','cmp'));
 
+const VW=(inner)=>`<svg width="30" height="24" viewBox="0 0 30 24" fill="none" stroke="#555" stroke-width="1.2">${inner}</svg>`;
+const VWI={
+ normal:VW('<rect x="1.5" y="2.5" width="27" height="19" fill="#fff"/><rect x="4" y="5" width="6" height="14" stroke="#2b6cb0"/><rect x="12" y="5" width="14" height="9" stroke="#2b6cb0"/><path d="M12 17h14" stroke="#999"/>'),
+ outline:VW('<rect x="1.5" y="2.5" width="27" height="19" fill="#fff"/><path d="M5 7h20M9 11h16M9 15h16M5 19h12" stroke="#2b6cb0"/>'),
+ sorter:VW('<rect x="2.5" y="3.5" width="11" height="7" fill="#fff"/><rect x="16.5" y="3.5" width="11" height="7" fill="#fff"/><rect x="2.5" y="13.5" width="11" height="7" fill="#fff"/><rect x="16.5" y="13.5" width="11" height="7" fill="#fff"/>'),
+ notes:VW('<rect x="6.5" y="1.5" width="17" height="21" fill="#fff"/><rect x="9" y="4" width="12" height="7" stroke="#2b6cb0"/><path d="M9 14h12M9 17h12M9 20h8" stroke="#999"/>'),
+ read:VW('<path d="M3 5l12 2 12-2v15l-12 2-12-2z" fill="#fff"/><path d="M15 7v15" stroke="#555"/><path d="M6 10l6 1M6 13l6 1M18 11l6-1M18 14l6-1" stroke="#2b6cb0"/>'),
+ sm:VW('<rect x="3.5" y="2.5" width="23" height="19" fill="#fff"/><rect x="6" y="5" width="18" height="4" stroke-dasharray="2 1" stroke="#2b6cb0"/><rect x="6" y="11" width="18" height="8" stroke-dasharray="2 1" stroke="#2b6cb0"/>'),
+ hm:VW('<rect x="5.5" y="1.5" width="19" height="21" fill="#fff"/><rect x="8" y="4" width="6" height="5" stroke="#2b6cb0" stroke-dasharray="2 1"/><rect x="16" y="4" width="6" height="5" stroke="#2b6cb0" stroke-dasharray="2 1"/><rect x="8" y="12" width="6" height="5" stroke="#2b6cb0" stroke-dasharray="2 1"/><rect x="16" y="12" width="6" height="5" stroke="#2b6cb0" stroke-dasharray="2 1"/>'),
+ nm:VW('<rect x="5.5" y="1.5" width="19" height="21" fill="#fff"/><rect x="8" y="4" width="14" height="7" stroke="#2b6cb0" stroke-dasharray="2 1"/><path d="M8 14h14M8 17h14M8 20h9" stroke="#2b6cb0" stroke-dasharray="2 1"/>'),
+ notesb:VW('<rect x="3.5" y="2.5" width="23" height="19" fill="#fff"/><rect x="6" y="14" width="18" height="5" stroke="#2b6cb0" fill="#cfe2f3"/>'),
+ zoom:'<span style="font-size:22px">🔍</span>',
+ fit:VW('<rect x="3.5" y="3.5" width="23" height="17" fill="#fff"/><path d="M8 8l4 0M8 8l0 4M22 8l-4 0M22 8l0 4M8 16l4 0M8 16l0-4M22 16l-4 0M22 16l0-4" stroke="#2b6cb0"/>'),
+ neww:VW('<rect x="2.5" y="3.5" width="16" height="12" fill="#fff"/><rect x="10.5" y="9.5" width="16" height="12" fill="#fff"/><path d="M10.5 12h16" stroke="#2b6cb0"/>'),
+ sw:VW('<rect x="2.5" y="3.5" width="12" height="9" fill="#fff"/><rect x="15.5" y="3.5" width="12" height="9" fill="#fff"/><rect x="9.5" y="12.5" width="12" height="9" fill="#fff"/>'),
+ mac:VW('<rect x="3.5" y="2.5" width="23" height="19" fill="#fff"/><path d="M3.5 7h23" stroke="#555"/><path d="M8 11h6M8 14h10M8 17h7" stroke="#e08a00"/>')};
+const SWT=(c)=>`<svg width="22" height="16" viewBox="0 0 22 16">${c}</svg>`;
+const VWC={color:SWT('<rect x="1" y="1" width="20" height="4.6" fill="#d9534f"/><rect x="1" y="5.7" width="20" height="4.6" fill="#5b9bd5"/><rect x="1" y="10.4" width="20" height="4.6" fill="#70ad47"/>'),
+ gray:SWT('<rect x="1" y="1" width="20" height="4.6" fill="#ddd"/><rect x="1" y="5.7" width="20" height="4.6" fill="#999"/><rect x="1" y="10.4" width="20" height="4.6" fill="#555"/>'),
+ bw:SWT('<rect x="1" y="1" width="20" height="14" fill="#fff" stroke="#333"/><rect x="1" y="1" width="20" height="7" fill="#111"/>')};
+const VB=(ic,lab,a,vw,tip,extra)=>`<button class="b big" title="${(tip||lab).replace(/<br>/g,' ')}" data-a="${a}"${vw?` data-vw="${vw}"`:''}${extra||''}><em>${ic}</em><span>${lab}</span></button>`;
+const VBM=(ic,lab,m)=>`<button class="b big" title="${lab.replace(/<br>/g,' ')}" data-m="${m}"><em>${ic}</em><span>${lab} ▾</span></button>`;
+const VRW=(ic,lab,a,vw,extra)=>`<button class="b rw" title="${lab}" data-a="${a}"${vw?` data-vw="${vw}"`:''}${extra||''}><em style="display:inline-flex">${ic}</em><span>${lab}</span></button>`;
+const VCK=(lab,k)=>`<div class="row"><label><input type="checkbox" data-vc="${k}"> ${lab}</label></div>`;
+const RIB_VIEW=
+ G('Tampilan Presentasi',VB(VWI.normal,'Normal','vnormal','normal')+VB(VWI.outline,'Tampilan<br>Outline','vwoutline','outline')+VB(VWI.sorter,'Penyortir<br>Slide','vsorter','sorter')+VB(VWI.notes,'Halaman<br>Catatan','vwnotes','notes')+VB(VWI.read,'Tampilan<br>Baca','vwread'))+
+ G('Tampilan Master',VB(VWI.sm,'Master<br>Slide','vwsm')+VB(VWI.hm,'Master<br>Handout','vwhm')+VB(VWI.nm,'Master<br>Catatan','vwnm'))+
+ G('Tampilkan<button class="gl" data-a="vwgrid" title="Pengaturan Kisi dan Panduan">⌟</button>',`<div class="rows tmw">${VCK('Penggaris','ruler')}${VCK('Garis Kisi','grid')}${VCK('Panduan','guide')}</div>`+VB(VWI.notesb,'Catatan','notes','notespane'))+
+ G('Zoom',VB(VWI.zoom,'Zoom','vwzoom')+VB(VWI.fit,'Sesuaikan ke<br>Jendela','fit'))+
+ G('Warna/Skala Abu-abu',`<div class="rows">${VRW(VWC.color,'Warna','vwcolor:color','c-color')}${VRW(VWC.gray,'Skala Abu-abu','vwcolor:gray','c-gray')}${VRW(VWC.bw,'Hitam Putih','vwcolor:bw','c-bw')}</div>`)+
+ G('Jendela',VB(VWI.neww,'Jendela<br>Baru','vwnew')+`<div class="rows">${VRW('▤','Susun Semua','vwarr','',' data-vwd="win" disabled')}${VRW('❐','Cascade','vwcas','',' data-vwd="win" disabled')}${VRW('⇔','Pindahkan Pemisah','vwsplit','')}</div>`+VBM(VWI.sw,'Beralih<br>Jendela','vwwin'))+
+ G('Makro',VBM(VWI.mac,'Makro','vwmac'));
+
 function mount(root,opts={}){
   if(!document.getElementById('pp-css')){const s=document.createElement('style');s.id='pp-css';s.textContent=CSS;document.head.appendChild(s);}
   let name='Presentasi1.pptx',scale=.8,autoFit=true,slides=[mkSlide('title')],cur=0,sel=[],hist=[],hi=-1,clip=null,painting=null,lastR=null,lastTx=null,drawing=null,view='normal',fk=-1,timer=0,sortFrom=null;
   let ss={type:'full',loop:0,playNarr:1,noAnim:0,pen:'#ff0000',range:'all',from:1,to:0,custom:'',useTimings:1,mediaCtrl:1,monitor:'auto',presenter:0},customShows=[],cidn=1,scrList=[],scrTried=false;
-  const panes=TABS.map((t,i)=>`<div class="ribbon" data-pane="${t[0]}"${i?' hidden':''}>${t[0]==='home'?RIB_HOME:t[0]==='insert'?RIB_INSERT:t[0]==='design'?RIB_DESIGN:t[0]==='trans'?RIB_TRANS:t[0]==='anim'?RIB_ANIM:t[0]==='show'?RIB_SHOW:t[0]==='review'?RIB_REVIEW:`<div class="soon">Menu ${t[1]} akan ditambahkan pada tahap berikutnya.</div>`}</div>`).join('');
+  const panes=TABS.map((t,i)=>`<div class="ribbon" data-pane="${t[0]}"${i?' hidden':''}>${t[0]==='home'?RIB_HOME:t[0]==='insert'?RIB_INSERT:t[0]==='design'?RIB_DESIGN:t[0]==='trans'?RIB_TRANS:t[0]==='anim'?RIB_ANIM:t[0]==='show'?RIB_SHOW:t[0]==='review'?RIB_REVIEW:t[0]==='view'?RIB_VIEW:`<div class="soon">Menu ${t[1]} akan ditambahkan pada tahap berikutnya.</div>`}</div>`).join('');
   root.innerHTML=`<div class="pp">
     <div class="qat"><div class="l"><span class="w">P</span><button data-a="save" title="Simpan (Ctrl+S)">💾</button><button data-a="undo" title="Urungkan (Ctrl+Z)">↶</button><button data-a="redo" title="Ulangi (Ctrl+Y)">↷</button><button data-a="showfirst" title="Mulai dari awal">▶</button></div><span class="fn"></span></div>
     <div class="tabs"><button class="tab file" data-a="menu">BERKAS</button>${TABS.map((t,i)=>`<button class="tab${i?'':' on'}" data-tab="${t[0]}">${t[1]}</button>`).join('')}</div>
@@ -630,6 +692,7 @@ function mount(root,opts={}){
     <div class="main"><div class="thumbs" tabindex="0"></div>
       <div class="ws"><div class="desk"><div class="holder"><div class="slide stg" tabindex="-1"></div></div></div><div class="notes" contenteditable="true" data-ph="Klik untuk menambahkan catatan"></div></div>
       <div class="sorter" hidden></div>
+      <div class="vview" hidden></div>
       <div class="apane" hidden><div class="ah"><span>Panel Animasi</span><span><button data-a="anprev" title="Putar semua">▶ Putar</button> <button data-a="anpane" title="Tutup">✕</button></span></div><div class="apl"></div></div>
       <div class="cpane" hidden><div class="ah"><span class="cph">Komentar</span><span><button data-a="rvpane" title="Tutup">✕</button></span></div><div class="cpl"></div></div></div>
     <div class="find" hidden><span>Cari:</span><input type="text" class="f1"><span>Ganti:</span><input type="text" class="f2">
@@ -789,7 +852,7 @@ function mount(root,opts={}){
   const selectedText=()=>hasRange()&&!lastR.collapsed;
   function newSlide(l){
     sync();const c=S0().layout;l=l||(c==='title'||c==='section'?'content':c);
-    slides.splice(cur+1,0,mkSlide(l));if(themeOn)styleSlide(slides[cur+1]);if(hfs.all)hfBuild(slides[cur+1],cur+1,hfs,new Date());cur++;sel=[];draw();notes.innerHTML='';commit();
+    slides.splice(cur+1,0,mkSlide(l));if(themeOn)styleSlide(slides[cur+1]);if(vwMaster)vwApplyM(slides[cur+1]);if(hfs.all)hfBuild(slides[cur+1],cur+1,hfs,new Date());cur++;sel=[];draw();notes.innerHTML='';commit();
   }
   function applyLayout(s,l,reset){
     const old=s.objs.filter(o=>o.k==='ph'),nw=layoutObjs(l),used=new Set();
@@ -1653,6 +1716,7 @@ function mount(root,opts={}){
       pp.classList.remove('rc');pp.classList.toggle('ant',t.dataset.tab==='anim');$$('.tab[data-tab]').forEach(x=>x.classList.toggle('on',x===t));$$('[data-pane]').forEach(p=>p.hidden=p.dataset.pane!==t.dataset.tab);return;}
     const i=t.dataset.a.indexOf(':'),k=i<0?t.dataset.a:t.dataset.a.slice(0,i),v=i<0?undefined:t.dataset.a.slice(i+1);
     closePop();
+    if(vwRec&&!/^(vwmac|vwrec|menu$)/.test(k))vwRec.steps.push([k,v]);
     if(CMDS.has(k))cmd(k);else if(acts[k])acts[k](v);
     if(k!=='menu')fm.hidden=true;
   });
@@ -1671,7 +1735,7 @@ function mount(root,opts={}){
   function startMove(e){
     const [sx,sy]=pt(e),l=selObjs(),o0=l.map(o=>[o.x,o.y]);let moved=false;
     drag(ev=>{const [x,y]=pt(ev),dx=x-sx,dy=y-sy;if(!moved&&Math.hypot(dx,dy)*scale<3)return;moved=true;
-      l.forEach((o,i)=>{o.x=Math.round(o0[i][0]+dx);o.y=Math.round(o0[i][1]+dy);const el=elOf(o.id);el.style.left=o.x+'px';el.style.top=o.y+'px';});},
+      l.forEach((o,i)=>{o.x=vsn(Math.round(o0[i][0]+dx));o.y=vsn(Math.round(o0[i][1]+dy));const el=elOf(o.id);el.style.left=o.x+'px';el.style.top=o.y+'px';});},
       ()=>{if(moved)commit();if(painting)applyPaint();});
   }
   function startResize(e,h){
@@ -1992,6 +2056,197 @@ function mount(root,opts={}){
   });
   stg.addEventListener('click',e=>{const c=e.target.closest('.cm');if(!c)return;const ci=+c.dataset.ci;if(!(S0().comments||[])[ci])return;rvA={si:cur,ci};updRev();rvOpen('cm');});
   updRev();updDis();
+
+  /* ===== menu TAMPILAN ===== */
+  const vv=$('.vview');
+  let vwRuler=false,vwGrid=false,vwGuide=false,vwSnap=false,vwGS=48,vwG={x:W/2,y:H/2},vwColor='color',vwWins=[],vwMaster=null,vwRec=null,vwMacros=[];
+  let vwHO={n:6,h:'',f:'',date:1,num:1},vwNO={h:'',f:'',date:1,num:1,fs:14};
+  try{vwMacros=JSON.parse(localStorage.getItem('ppt-macros')||'[]');}catch(e){vwMacros=[];}
+  const vwSave=()=>{try{localStorage.setItem('ppt-macros',JSON.stringify(vwMacros));}catch(e){}};
+  const vsn=v=>vwSnap&&vwGS?Math.round(v/vwGS)*vwGS:v;
+  const objById=id=>{for(const s of slides){const o=s.objs.find(x=>x.id===id);if(o)return o;}return null;};
+
+  function updView(){
+    $$('[data-vw]').forEach(b=>{const k=b.dataset.vw;b.classList.toggle('on',k===view||k==='c-'+vwColor||(k==='notespane'&&!notes.hidden));});
+    $$('[data-vc]').forEach(c=>{c.checked=c.dataset.vc==='ruler'?vwRuler:c.dataset.vc==='grid'?vwGrid:vwGuide;});
+    pp.classList.toggle('vw-gray',vwColor==='gray');pp.classList.toggle('vw-bw',vwColor==='bw');
+    vwWins=vwWins.filter(w=>{try{return !w.closed;}catch(e){return false;}});
+    $$('[data-vwd=win]').forEach(b=>{b.disabled=!vwWins.length;});
+  }
+
+  /* penggaris, kisi, panduan */
+  hold.insertAdjacentHTML('beforeend','<div class="rl rlh" hidden></div><div class="rl rlv" hidden></div><div class="gridov" hidden></div><div class="gd gx" hidden></div><div class="gd gy" hidden></div>');
+  const rlh=hold.querySelector('.rlh'),rlv=hold.querySelector('.rlv'),gov=hold.querySelector('.gridov'),gdx=hold.querySelector('.gx'),gdy=hold.querySelector('.gy');
+  function rulerSVG(w,h,pxcm,vert){
+    const len=vert?h:w,n=Math.floor(len/pxcm*2),step=pxcm<16?2:1;let d='',t='';
+    for(let i=0;i<=n;i++){const p=(i*pxcm/2).toFixed(1),cm=i/2,big=i%2===0,l=big?9:4;
+      d+=vert?`M${17-l} ${p}H17`:`M${p} ${17-l}V17`;
+      if(big&&cm%step===0&&cm>0)t+=vert?`<text x="2" y="${(+p+9).toFixed(1)}" font-size="9" fill="#555">${cm}</text>`:`<text x="${(+p+2).toFixed(1)}" y="9" font-size="9" fill="#555">${cm}</text>`;}
+    return `<svg width="${w}" height="${h}"><path d="${d}" stroke="#777" stroke-width="1" fill="none"/>${t}</svg>`;
+  }
+  function vwLayout(){
+    const w=W*scale,h=H*scale,pxcm=96/2.54*scale;
+    rlh.hidden=rlv.hidden=!vwRuler;
+    if(vwRuler){rlh.style.width=w+'px';rlv.style.height=h+'px';rlh.innerHTML=rulerSVG(w,17,pxcm,false);rlv.innerHTML=rulerSVG(17,h,pxcm,true);}
+    gov.hidden=!vwGrid;if(vwGrid)gov.style.backgroundSize=(vwGS*scale)+'px '+(vwGS*scale)+'px';
+    gdx.hidden=gdy.hidden=!vwGuide;
+    gdx.style.left=(vwG.x*scale-4)+'px';gdy.style.top=(vwG.y*scale-4)+'px';
+    gdx.title=(vwG.x/37.795).toFixed(1)+' cm';gdy.title=(vwG.y/37.795).toFixed(1)+' cm';
+  }
+  if(window.ResizeObserver)new ResizeObserver(()=>vwLayout()).observe(hold);
+  [[gdx,'x',W],[gdy,'y',H]].forEach(([el,k,mx])=>el.addEventListener('mousedown',e=>{e.preventDefault();e.stopPropagation();
+    drag(ev=>{const p=pt(ev);vwG[k]=Math.max(0,Math.min(mx,Math.round(p[k==='x'?0:1])));vwLayout();});}));
+  root.addEventListener('change',e=>{const c=e.target.dataset&&e.target.dataset.vc;if(!c)return;
+    if(c==='ruler')vwRuler=e.target.checked;else if(c==='grid')vwGrid=e.target.checked;else vwGuide=e.target.checked;vwLayout();updView();});
+
+  /* tampilan outline & halaman catatan */
+  function vwEnter(v){
+    commit();view=v;$('.thumbs').hidden=true;$('.ws').hidden=true;sorter.hidden=true;vv.hidden=false;
+    $$('.vb').forEach(b=>b.classList.remove('on'));vv.className='vview '+v;
+    if(v==='outline')vwOutline();else vwNotes();updView();
+  }
+  function vwOutline(){
+    vv.innerHTML=slides.map((s,i)=>{
+      const t=s.objs.find(o=>o.k==='ph'&&o.role==='title'),b=s.objs.filter(o=>o.k==='ph'&&(o.role==='body'||o.role==='sub'));
+      return `<div class="olr"><div class="oln" data-i="${i}" title="Buka slide ${i+1}">${i+1}</div><div class="olc">`+
+        (t?`<div class="olt" contenteditable="true" data-oid="${t.id}" data-ph="(tanpa judul)">${esc(textOf(t.html||''))}</div>`:'<div class="olt dim">(tanpa judul)</div>')+
+        b.map(o=>`<div class="olb" contenteditable="true" data-oid="${o.id}" data-ph="(kosong)">${lines(o.html||'').map(x=>'<div>'+esc(x)+'</div>').join('')}</div>`).join('')+`</div></div>`;}).join('');
+  }
+  function vwNotes(){
+    vv.innerHTML=slides.map((s,i)=>`<div class="npg"><div class="npn">Slide ${i+1}</div>${thumbHTML(s,i,420,'npth')}<div class="npx" contenteditable="true" data-i="${i}" data-ph="Klik untuk menambahkan catatan">${s.notes||''}</div></div>`).join('');
+  }
+  vv.addEventListener('input',e=>{
+    const t=e.target;
+    if(t.dataset.oid){const o=objById(t.dataset.oid);if(!o)return;
+      o.html=t.classList.contains('olt')?(t.textContent.trim()?'<div>'+esc(t.textContent.replace(/\n/g,' '))+'</div>':''):[...t.childNodes].map(n=>n.textContent).join('\n').split('\n').filter(x=>x.trim()).map(x=>'<div>'+esc(x)+'</div>').join('');
+      if(S0().objs.includes(o))draw();commitSoon();}
+    else if(t.classList.contains('npx')){const i=+t.dataset.i;slides[i].notes=t.textContent.trim()?t.innerHTML:'';if(i===cur)notes.innerHTML=slides[i].notes;commitSoon();}
+  });
+  vv.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.classList.contains('olt')){e.preventDefault();const n=e.target.parentElement.querySelector('.olb');if(n)n.focus();}});
+  vv.addEventListener('click',e=>{const n=e.target.closest('.oln');if(n){goSlide(+n.dataset.i);acts.vnormal();}});
+  const _vn=acts.vnormal,_vs=acts.vsorter;
+  acts.vnormal=()=>{vv.hidden=true;_vn();updView();};
+  acts.vsorter=()=>{vv.hidden=true;_vs();updView();};
+  const _nt=acts.notes;acts.notes=e=>{_nt(e);updView();};
+
+  /* master (slide / handout / catatan) */
+  function vwApplyM(s){
+    const m=vwMaster;if(!m)return;
+    s.objs.forEach(o=>{if(o.k!=='ph')return;o.ts=o.ts||{};
+      if(o.role==='title')Object.assign(o.ts,{font:m.tf,size:m.ts,color:m.tc});
+      else if(o.role==='body')Object.assign(o.ts,{font:m.bf,size:m.bs,color:m.bc});
+      else if(o.role==='sub')Object.assign(o.ts,{font:m.bf,color:m.bc});});
+    if(m.useBg)s.bg=m.bg;
+  }
+  const fontSel=(c,v)=>`<select class="${c}">${FONTS.map(f=>`<option${f===v?' selected':''}>${f}</option>`).join('')}</select>`;
+  function vwSlideMaster(){
+    const m=vwMaster||{tf:'Calibri Light',ts:44,tc:'#000000',bf:'Calibri',bs:28,bc:'#000000',bg:'#ffffff',useBg:0};
+    dlg('Master Slide',`<div style="font-size:12px;color:#666;margin-bottom:6px">Atur gaya judul, isi, dan latar. Diterapkan ke semua slide sekarang dan ke slide baru.</div>
+      <fieldset><legend>Judul</legend>${fontSel('tf',m.tf)} <input type="number" class="ts" min="8" max="120" value="${m.ts}"> pt <input type="color" class="tc" value="${m.tc}"></fieldset>
+      <fieldset><legend>Isi</legend>${fontSel('bf',m.bf)} <input type="number" class="bs" min="8" max="96" value="${m.bs}"> pt <input type="color" class="bc" value="${m.bc}"></fieldset>
+      <fieldset><legend>Latar</legend><label><input type="checkbox" class="ub"${m.useBg?' checked':''}> Pakai warna latar</label> <input type="color" class="bg" value="${m.bg}"></fieldset>`,
+      [['Batal'],['Hapus Master',()=>{vwMaster=null;toast('Master dihapus (slide yang sudah berubah tidak dikembalikan)');}],['Terapkan ke Semua',bg=>{
+        const q=c=>bg.querySelector('.'+c);vwMaster={tf:q('tf').value,ts:+q('ts').value||44,tc:q('tc').value,bf:q('bf').value,bs:+q('bs').value||28,bc:q('bc').value,bg:q('bg').value,useBg:q('ub').checked?1:0};
+        sync();slides.forEach(vwApplyM);draw();thumbs();commit();toast('Master diterapkan ke '+slides.length+' slide');},1]]);
+  }
+  function vwPrint(kind){
+    sync();const o=kind==='handout'?vwHO:vwNO,n=kind==='handout'?o.n:1,dt=new Date().toLocaleDateString('id-ID',{dateStyle:'long'});
+    const th=(s,w)=>{const k=w/W;return `<div style="width:${w}px;height:${Math.round(H*k)}px;position:relative;overflow:hidden;border:1px solid #888;flex:none;background:${s.bg||'#fff'}"><div style="position:absolute;left:0;top:0;width:${W}px;height:${H}px;transform:scale(${k});transform-origin:0 0">${s.objs.map(x=>obHTML(x,false)).join('')}</div></div>`;};
+    const cols={1:1,2:1,3:1,4:2,6:2,9:3}[n]||1,rows=Math.ceil(n/cols),W0={1:700,2:560,3:380,4:340,6:340,9:222}[n]||340;
+    const pages=[];for(let i=0;i<slides.length;i+=n)pages.push(slides.slice(i,i+n));
+    const hf=(pg)=>`<div class="hh"><span>${esc(o.h)}</span><span>${o.date?dt:''}</span></div><div class="hf"><span>${esc(o.f)}</span><span>${o.num?'Halaman '+pg:''}</span></div>`;
+    const html=pages.map((P,pi)=>`<div class="pg">${hf(pi+1)}`+(kind==='handout'
+      ?`<div style="position:absolute;left:0;right:0;top:34px;bottom:34px;display:grid;grid-template-columns:repeat(${cols},1fr);grid-auto-rows:${Math.floor(970/rows)}px;gap:6px">${P.map(s=>`<div style="display:flex;gap:12px;align-items:flex-start;padding:6px">${th(s,W0)}${n===3?'<div style="flex:1;padding-top:30px">'+'<div style="border-bottom:1px solid #999;height:34px"></div>'.repeat(5)+'</div>':''}</div>`).join('')}</div>`
+      :`<div style="position:absolute;left:0;right:0;top:40px;bottom:34px;display:flex;flex-direction:column;align-items:center;gap:20px">${th(P[0],520)}<div style="align-self:stretch;font-size:${o.fs}px;line-height:1.5;border-top:1px solid #bbb;padding-top:10px">${lines(P[0].notes||'').map(esc).join('<br>')||'<span style="color:#999">(Tidak ada catatan)</span>'}</div></div>`)+`</div>`).join('');
+    const st=document.createElement('style');
+    st.textContent='@media print{@page{size:A4 portrait;margin:12mm}.pp-print.hp .pg{width:718px;height:1040px;position:relative;overflow:hidden;background:#fff;color:#000;font:12px "Segoe UI",Arial,sans-serif;page-break-after:always;break-after:page}.pp-print.hp .hh,.pp-print.hp .hf{position:absolute;left:0;right:0;display:flex;justify-content:space-between;color:#444}.pp-print.hp .hh{top:0}.pp-print.hp .hf{bottom:0}}';
+    const d=document.createElement('div');d.className='pp-print hp';d.innerHTML=html;document.head.appendChild(st);document.body.appendChild(d);
+    const done=()=>{d.remove();st.remove();removeEventListener('afterprint',done);};addEventListener('afterprint',done);setTimeout(()=>print(),80);
+  }
+  function vwPrintDlg(kind){
+    const o=kind==='handout'?vwHO:vwNO;
+    dlg(kind==='handout'?'Master Handout':'Master Catatan',
+      (kind==='handout'?`<label>Slide per halaman: <select class="hn">${[1,2,3,4,6,9].map(k=>`<option${k===o.n?' selected':''}>${k}</option>`).join('')}</select></label>`:`<label>Ukuran font catatan: <input type="number" class="hs" min="9" max="28" value="${o.fs}"> pt</label>`)+
+      `<label>Header: <input type="text" class="hh" value="${esc(o.h)}" style="width:240px"></label><label>Footer: <input type="text" class="hf" value="${esc(o.f)}" style="width:240px"></label><label><input type="checkbox" class="hd"${o.date?' checked':''}> Tanggal</label> <label><input type="checkbox" class="hp"${o.num?' checked':''}> Nomor halaman</label><div style="font-size:12px;color:#666;margin-top:6px">Mencetak ke kertas A4 tegak lewat dialog cetak browser (bisa disimpan sebagai PDF).</div>`,
+      [['Tutup'],['Simpan',bg=>{vwSet(bg,o);}],['Cetak…',bg=>{vwSet(bg,o);setTimeout(()=>vwPrint(kind),0);},1]]);
+  }
+  function vwSet(bg,o){const q=c=>bg.querySelector('.'+c);o.h=q('hh').value;o.f=q('hf').value;o.date=q('hd').checked?1:0;o.num=q('hp').checked?1:0;if(q('hn'))o.n=+q('hn').value;if(q('hs'))o.fs=+q('hs').value||14;}
+
+  /* zoom, kisi, pemisah */
+  function vwZoom(){
+    const pr=[200,150,100,75,66,50,33,25,10],cur0=Math.round(scale*100);
+    dlg('Zoom',`<div class="dl">${pr.map(v=>`<label><input type="radio" name="zm" value="${v}"${v===cur0?' checked':''}> ${v}%</label>`).join('')}<label><input type="radio" name="zm" value="fit"${autoFit?' checked':''}> Sesuaikan ke jendela</label></div><label>Persen: <input type="number" class="zc" min="10" max="200" value="${cur0}"> %</label>`,
+      [['Batal'],['OK',bg=>{const r=bg.querySelector('[name=zm]:checked'),c=+bg.querySelector('.zc').value;
+        if(r&&r.value==='fit')acts.fit();else if(c&&c!==cur0)acts.zoom(Math.max(10,Math.min(200,c)));else if(r)acts.zoom(+r.value);},1]]);
+  }
+  function vwGridDlg(){
+    dlg('Kisi dan Panduan',`<fieldset><legend>Kisi</legend><label>Jarak: <select class="gs">${[[24,'0,25 inci'],[48,'0,5 inci'],[96,'1 inci'],[38,'1 cm']].map(([v,n])=>`<option value="${v}"${v===vwGS?' selected':''}>${n}</option>`).join('')}</select></label><label><input type="checkbox" class="gsn"${vwSnap?' checked':''}> Tempelkan objek ke kisi saat digeser</label><label><input type="checkbox" class="gsh"${vwGrid?' checked':''}> Tampilkan kisi</label></fieldset><fieldset><legend>Panduan</legend><label><input type="checkbox" class="gdh"${vwGuide?' checked':''}> Tampilkan panduan (seret garis untuk memindahkan)</label><button class="gdr" style="margin-top:4px">Kembalikan ke tengah</button></fieldset>`,
+      [['Batal'],['OK',bg=>{vwGS=+bg.querySelector('.gs').value;vwSnap=bg.querySelector('.gsn').checked;vwGrid=bg.querySelector('.gsh').checked;vwGuide=bg.querySelector('.gdh').checked;vwLayout();updView();},1]]).querySelector('.gdr').onclick=()=>{vwG={x:W/2,y:H/2};vwLayout();};
+  }
+  function vwSplit(){
+    const tw=$('.thumbs').offsetWidth,nh=notes.offsetHeight;
+    const bg=dlg('Pindahkan Pemisah',`<label>Lebar panel slide: <input type="range" class="sw" min="100" max="400" value="${tw}"> <span class="swv">${tw}</span> px</label><label>Tinggi panel catatan: <input type="range" class="sh" min="30" max="300" value="${nh}"> <span class="shv">${nh}</span> px</label>`,
+      [['Bawaan',()=>{$('.thumbs').style.width='';notes.style.height='';if(autoFit)fit();}],['Tutup',null,1]]);
+    bg.querySelector('.sw').oninput=e=>{$('.thumbs').style.width=e.target.value+'px';bg.querySelector('.swv').textContent=e.target.value;if(autoFit)fit();};
+    bg.querySelector('.sh').oninput=e=>{notes.style.height=e.target.value+'px';bg.querySelector('.shv').textContent=e.target.value;if(autoFit)fit();};
+  }
+
+  /* jendela */
+  function vwNewWin(){
+    sync();
+    const w=window.open(location.pathname+'#ppt','_blank','popup=yes,width='+Math.round(screen.availWidth*.6)+',height='+Math.round(screen.availHeight*.85));
+    if(!w)return toast('Pop-up diblokir. Izinkan pop-up untuk membuka jendela baru.',5000);
+    const data=JSON.stringify({slides,cur,name}),idx=vwWins.length+2;let n=0;
+    const iv=setInterval(()=>{try{
+      if(typeof w.__pptImport==='function'){clearInterval(iv);w.__pptImport(data,idx);vwWins.push(w);updView();toast('Jendela baru dibuka (salinan presentasi; perubahan tidak disinkronkan)',5000);}
+    }catch(e){}if(++n>100)clearInterval(iv);},100);
+  }
+  function vwTile(casc){
+    updView();if(!vwWins.length)return;
+    const aw=screen.availWidth,ah=screen.availHeight,n=vwWins.length;let ok=false;
+    vwWins.forEach((w,i)=>{try{
+      if(casc){w.resizeTo(Math.round(aw*.6),Math.round(ah*.7));w.moveTo(40+i*40,40+i*40);}
+      else{const cw=Math.floor(aw/(n+1));w.resizeTo(cw,ah);w.moveTo(cw*(i+1),0);}
+      w.focus();ok=true;}catch(e){}});
+    toast(ok?'Jendela anak ditata. Jendela utama tidak dapat diatur oleh browser.':'Browser tidak mengizinkan penataan jendela',4000);
+  }
+  setInterval(()=>{if(!root.isConnected)return;updView();},2000);
+
+  /* makro */
+  async function vwRun(m){
+    for(const [k,v] of m.steps){try{if(CMDS.has(k))cmd(k);else if(acts[k])acts[k](v);}catch(e){}await new Promise(r=>setTimeout(r,120));}
+    toast('Makro selesai: '+m.name);
+  }
+  function vwMacroDlg(){
+    const bg=dlg('Makro',`<div class="mcl" style="max-height:220px;overflow:auto;border:1px solid #ddd">${vwMacros.length?vwMacros.map((m,i)=>`<div style="display:flex;gap:6px;align-items:center;padding:5px 8px;border-bottom:1px solid #eee"><b style="flex:1">${esc(m.name)}</b><small>${m.steps.length} langkah</small><button data-run="${i}">Jalankan</button><button data-del="${i}">Hapus</button></div>`).join(''):'<div style="padding:10px;color:#888">Belum ada makro. Pilih Rekam Makro, lakukan perintah dengan tombol ribbon, lalu Hentikan Perekaman.</div>'}</div><div style="font-size:12px;color:#666;margin-top:6px">Makro merekam perintah tombol pada ribbon dan menjalankannya ulang berurutan.</div>`,[['Tutup',null,1]]);
+    bg.addEventListener('click',e=>{const r=e.target.closest('[data-run]'),d=e.target.closest('[data-del]');
+      if(r){const m=vwMacros[+r.dataset.run];bg.remove();vwRun(m);}
+      if(d){vwMacros.splice(+d.dataset.del,1);vwSave();bg.remove();vwMacroDlg();}});
+  }
+  MENUS.vwwin=()=>{updView();return [['✓ '+name+' (jendela ini)','vwsw:me'],...vwWins.map((w,i)=>{let t='Jendela '+(i+2);try{t=w.document.title||t;}catch(e){}return ['\u2003'+t,'vwsw:'+i];})];};
+  MENUS.vwmac=()=>[['Lihat Makro…','vwmacros','▤'],vwRec?['⏹ Hentikan Perekaman ('+vwRec.steps.length+' langkah)','vwrecstop']:['⏺ Rekam Makro…','vwrecstart']];
+
+  Object.assign(acts,{
+    vwoutline(){vwEnter('outline');},vwnotes(){vwEnter('notes');},
+    vwread(){const t=ss.type;ss.type='win';try{show(cur);}finally{ss.type=t;}},
+    vwsm:vwSlideMaster,vwhm(){vwPrintDlg('handout');},vwnm(){vwPrintDlg('notes');},
+    vwzoom:vwZoom,vwgrid:vwGridDlg,
+    vwcolor(v){vwColor=v;updView();},
+    vwnew:vwNewWin,vwarr(){vwTile(false);},vwcas(){vwTile(true);},vwsplit:vwSplit,
+    vwsw(v){if(v==='me')return;const w=vwWins[+v];try{w.focus();}catch(e){}},
+    vwmacros:vwMacroDlg,
+    vwrecstart(){dlg('Rekam Makro','<label>Nama makro: <input type="text" class="mn" value="Makro'+(vwMacros.length+1)+'"></label>',[['Batal'],['Mulai Merekam',bg=>{const n=bg.querySelector('.mn').value.trim();if(!n){toast('Beri nama makro');return false;}vwRec={name:n,steps:[]};toast('Merekam… lakukan perintah, lalu Makro ▸ Hentikan Perekaman');},1]]);},
+    vwrecstop(){if(!vwRec)return;const m=vwRec;vwRec=null;if(!m.steps.length)return toast('Tidak ada perintah yang terekam');vwMacros.push(m);vwSave();toast('Makro tersimpan: '+m.name+' ('+m.steps.length+' langkah)');}
+  });
+  /* terapkan master pada slide/tata letak baru */
+  ['layout','reset'].forEach(k=>{const o=acts[k];acts[k]=(...a)=>{o(...a);if(vwMaster){vwApplyM(S0());draw();commit();}};});
+  window.__pptImport=(json,n)=>{
+    const d=JSON.parse(json);slides=d.slides;cur=Math.min(d.cur||0,slides.length-1);let mx=0;
+    slides.forEach(s=>s.objs.forEach(o=>{const k=parseInt(String(o.id).replace(/\D/g,''),10);if(k>mx)mx=k;}));if(mx>=uid)uid=mx+1;
+    themeOn=false;sel=[];hist=[];hi=-1;name=d.name;setName();$('.fn').textContent+=' : '+n;document.title=$('.fn').textContent;
+    draw();thumbs();notes.innerHTML=S0().notes||'';commit();
+  };
+  vwLayout();updView();
 
   /* mulai */
   document.execCommand('styleWithCSS',false,true);
