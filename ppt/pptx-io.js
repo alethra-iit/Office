@@ -117,6 +117,7 @@ async function write(data,PptxGenJS,JSZip,type){
     if(s.bg){const c=hex6(s.bg);if(c)sl.background={color:c};}
     s.objs.forEach(o=>{
       const line=o.shape==='line'||o.shape==='arrow',rot=o.rot||0,common={rotate:rot||undefined,flipH:o.fh?true:undefined,flipV:o.fv?true:undefined};
+      if(o.media)return;
       if(/<table/i.test(o.html||'')){                       // tabel (sisipan dari menu SISIPKAN)
         const d=document.createElement('div');d.innerHTML=o.html;const tb=d.querySelector('table');
         if(tb&&tb.rows.length){

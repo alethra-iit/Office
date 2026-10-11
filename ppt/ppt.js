@@ -154,6 +154,8 @@ const CSS=`
 .pp .ibig{flex-direction:column;height:68px;min-width:50px;gap:2px;font-size:11px;line-height:1.1;white-space:normal;text-align:center;padding:2px 3px}
 .pp .ibig em{font-size:26px;line-height:1.1}
 .pp .ibig span{display:block}
+.pp .ob.tbl .tx{flex:1 1 auto;height:100%}
+.pp .ob.tbl .tx table{height:100%}
 .pp .tx table,.pp-print .tx table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:inherit}
 .pp .tx td,.pp-print .tx td{border:1px solid #fff;padding:4px 8px;vertical-align:top;height:40px;overflow-wrap:anywhere}
 .pp .tx a,.pp-print .tx a{color:#0563c1;text-decoration:underline}
@@ -257,7 +259,7 @@ function txCSS(o){
 }
 function obHTML(o,edit){
   const noTx=o.shape==='line'||o.shape==='arrow';
-  return `<div class="ob ${o.k}${o.media?' mdo':''}" data-id="${o.id}"${o.link?' data-lk="1"':''} style="left:${o.x}px;top:${o.y}px;width:${o.w}px;height:${o.h}px;transform:rotate(${o.rot||0}deg);justify-content:${AN[o.anchor]||'flex-start'}">`+
+  return `<div class="ob ${o.k}${o.media?' mdo':''}${/<table/i.test(o.html||'')?' tbl':''}" data-id="${o.id}"${o.link?' data-lk="1"':''} style="left:${o.x}px;top:${o.y}px;width:${o.w}px;height:${o.h}px;transform:rotate(${o.rot||0}deg);justify-content:${AN[o.anchor]||'flex-start'}">`+
     `<svg class="bg" viewBox="0 0 ${Math.max(1,o.w)} ${Math.max(1,o.h)}" style="${fxCSS(o)}">${shapeSVG(o)}</svg>`+
     (o.img?`<img class="pic" src="${o.img}" alt="" draggable="false" style="${fxCSS(o)}">`:'')+
     (o.media?mediaHTML(o,edit):'')+
@@ -1037,7 +1039,7 @@ function mount(root,opts={}){
     if(!el){getSelection().removeAllRanges();lastR=null;if(document.activeElement&&document.activeElement!==document.body)document.activeElement.blur();
       if(!e.shiftKey){sel=[];decorate();}e.preventDefault();stg.focus({preventScroll:true});startMarquee(e,e.shiftKey);if(painting)applyPaint();return;}
     const o=byId(el.dataset.id),ed=e.target.closest('.ed'),inTx=!!e.target.closest('.tx')&&(o.k!=='sh'||el.classList.contains('edt'));
-    if(ed||(o.k==='sh'&&!el.classList.contains('edt'))){
+    if(ed||((o.k==='sh'||o.media)&&!el.classList.contains('edt'))){
       e.preventDefault();
       if(e.shiftKey)sel=sel.includes(o.id)?sel.filter(x=>x!==o.id):[...sel,o.id];else if(!sel.includes(o.id))sel=[o.id];
       getSelection().removeAllRanges();lastR=null;decorate();stg.focus({preventScroll:true});startMove(e);return;}
