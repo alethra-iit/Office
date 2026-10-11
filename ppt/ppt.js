@@ -1,7 +1,18 @@
 /* PowerPoint editor (gaya PowerPoint 2013) — Apps.ppt.mount(root,{file,onHome})
-   Tahap 1: tab BERANDA (Papan klip, Slide, Font, Paragraf, Gambar, Penyuntingan) + panel slide + kanvas slide. */
+   Tahap 1: tab BERANDA (Papan klip, Slide, Font, Paragraf, Gambar, Penyuntingan) + panel slide + kanvas slide.
+   Buka/Simpan .pptx: lihat pptx-io.js (window.PptxIO). */
 (function(){
 const W=1280,H=720;
+const CDN={
+  jszip:'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
+  pptx:'https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js',
+  pptxio:'ppt/pptx-io.js'
+};
+const libs={};
+function lib(n,test){
+  if(test()) return Promise.resolve();
+  return libs[n]||(libs[n]=new Promise((ok,err)=>{const s=document.createElement('script');s.src=CDN[n];s.onload=ok;s.onerror=()=>{delete libs[n];err(new Error('Gagal memuat '+n));};document.head.appendChild(s);}));
+}
 const CSS=`
 .pp{--acc:#d24726;--ln:#d4d4d4;height:100%;display:flex;flex-direction:column;font:12px "Segoe UI",system-ui,sans-serif;color:#444;background:#fff;position:relative;user-select:none;-webkit-user-select:none}
 .pp *{box-sizing:border-box}
@@ -65,6 +76,7 @@ const CSS=`
 .pp .sorter{flex:1;overflow:auto;padding:16px;display:flex;flex-wrap:wrap;gap:18px;align-content:flex-start;background:#f2f2f2}
 .pp .th2{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer}
 .pp .sc{position:absolute;left:0;top:0;width:${W}px;height:${H}px;transform-origin:0 0}
+.pp .ob>img.pic,.pp-print .ob>img.pic{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;-webkit-user-drag:none}
 .pp .ob{position:absolute;display:flex;flex-direction:column}
 .pp .ob>svg.bg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
 .pp .tx{position:relative;width:100%;outline:none;padding:4.8px 9.6px;word-wrap:break-word;overflow-wrap:anywhere;flex:none;max-height:none}
@@ -129,7 +141,7 @@ const CSS=`
 @media print{
  body>*:not(.pp-print){display:none!important}
  .pp-print{display:block!important}
- .pp-print .pg{position:relative;width:${W}px;height:${H}px;overflow:hidden;page-break-after:always;break-after:page}
+ .pp-print .pg{position:relative;width:${W}px;height:${H}px;overflow:hidden;page-break-after:always;break-after:page;-webkit-print-color-adjust:exact;print-color-adjust:exact}
  @page{size:${W}px ${H}px;margin:0}
 }
 .pp-print{display:none}
@@ -201,6 +213,7 @@ function obHTML(o,edit){
   const noTx=o.shape==='line'||o.shape==='arrow';
   return `<div class="ob ${o.k}" data-id="${o.id}" style="left:${o.x}px;top:${o.y}px;width:${o.w}px;height:${o.h}px;transform:rotate(${o.rot||0}deg);justify-content:${AN[o.anchor]||'flex-start'}">`+
     `<svg class="bg" viewBox="0 0 ${Math.max(1,o.w)} ${Math.max(1,o.h)}" style="${fxCSS(o)}">${shapeSVG(o)}</svg>`+
+    (o.img?`<img class="pic" src="${o.img}" alt="" draggable="false" style="${fxCSS(o)}">`:'')+
     (noTx?'':`<div class="tx"${edit?' contenteditable="true" spellcheck="true"':''} data-ph="${esc(o.ph||'')}" style="${txCSS(o)}">${o.html}</div>`)+`</div>`;
 }
 
@@ -269,12 +282,13 @@ function mount(root,opts={}){
       <div class="s"><button data-a="notes" class="on">☰ CATATAN</button><button data-a="comments">💬 KOMENTAR</button>
       <button data-a="vnormal" class="on vb" title="Normal">▭</button><button data-a="vsorter" class="vb" title="Penyortir Slide">▦</button><button data-a="show" title="Slide Show">▶</button>
       <span><button data-a="zoomd:-10">−</button><input type="range" min="10" max="200" value="80" class="zr"><button data-a="zoomd:10">+</button> <span class="zv">80%</span> <button data-a="fit" title="Sesuaikan ke jendela">⛶</button></span></div></div>
+    <input type="file" class="fin" accept=".pptx" hidden>
     <div class="menu" hidden><button data-a="new">📄  Presentasi kosong baru</button><button data-a="open">📂  Buka…</button><button data-a="save">💾  Simpan sebagai .pptx</button><button data-a="print">🖨  Cetak / simpan PDF</button><hr><button data-a="home">⬅  Kembali ke menu utama</button></div>
   </div>`;
 
   const $=s=>root.querySelector(s),$$=s=>[...root.querySelectorAll(s)];
-  const pp=$('.pp'),stg=$('.stg'),hold=$('.holder'),desk=$('.desk'),notes=$('.notes'),thumbsEl=$('.thumbs'),sorter=$('.sorter'),fm=$('.menu'),fd=$('.find'),f1=$('.f1'),f2=$('.f2'),zr=$('.zr'),zv=$('.zv');
-  const toast=m=>{const t=document.createElement('div');t.className='toast';t.textContent=m;pp.appendChild(t);setTimeout(()=>t.remove(),3000);};
+  const pp=$('.pp'),stg=$('.stg'),hold=$('.holder'),desk=$('.desk'),notes=$('.notes'),thumbsEl=$('.thumbs'),sorter=$('.sorter'),fm=$('.menu'),fd=$('.find'),f1=$('.f1'),f2=$('.f2'),zr=$('.zr'),zv=$('.zv'),fin=$('.fin');
+  const toast=(m,ms)=>{$$('.toast').forEach(x=>x.remove());const t=document.createElement('div');t.className='toast';t.textContent=m;pp.appendChild(t);setTimeout(()=>t.remove(),ms||3000);};
   const setName=()=>{$('.fn').textContent=name.replace(/\.pptx$/i,'')+' - PowerPoint';document.title=$('.fn').textContent;};
   const S0=()=>slides[cur],objs=()=>S0().objs,byId=id=>objs().find(o=>o.id===id),selObjs=()=>sel.map(byId).filter(Boolean);
   const elOf=id=>stg.querySelector(`.ob[data-id="${id}"]`);
@@ -286,18 +300,21 @@ function mount(root,opts={}){
     $$('.stg .ob').forEach(el=>{const o=byId(el.dataset.id),t=el.querySelector('.tx');if(o&&t)o.html=(t.textContent.trim()||t.querySelector('img,li'))?(t.textContent.trim()?t.innerHTML:''):'';});
     S0().notes=notes.textContent.trim()?notes.innerHTML:'';
   }
+  const imgReg=new Map(),imgList=[];     // data gambar disimpan sekali; snapshot hanya memuat rujukan
+  const snap=()=>JSON.stringify({slides,cur},(k,v)=>{if(k==='img'&&typeof v==='string'&&v[0]!=='@'){let i=imgReg.get(v);if(i==null){i=imgList.push(v)-1;imgReg.set(v,i);}return '@img'+i;}return v;});
+  const unsnap=t=>JSON.parse(t,(k,v)=>k==='img'&&typeof v==='string'&&v.startsWith('@img')?imgList[+v.slice(4)]:v);
   function commit(){
     clearTimeout(timer);sync();
-    const s=JSON.stringify({slides,cur});if(hist[hi]===s)return;
+    const s=snap();if(hist[hi]===s)return;
     hist=hist.slice(0,hi+1);hist.push(s);if(hist.length>100)hist.shift();hi=hist.length-1;thumbs();
   }
   const commitSoon=()=>{clearTimeout(timer);timer=setTimeout(commit,500);};
-  function restore(i){const d=JSON.parse(hist[i]);slides=d.slides;cur=Math.min(d.cur,slides.length-1);sel=[];draw();thumbs();notes.innerHTML=S0().notes||'';}
+  function restore(i){const d=unsnap(hist[i]);slides=d.slides;cur=Math.min(d.cur,slides.length-1);sel=[];draw();thumbs();notes.innerHTML=S0().notes||'';}
   const undo=()=>{commit();if(hi>0){hi--;restore(hi);}};
   const redo=()=>{if(hi<hist.length-1){hi++;restore(hi);}};
 
   /* ===== render ===== */
-  function draw(){stg.innerHTML=objs().map(o=>obHTML(o,true)).join('');decorate();status();}
+  function draw(){stg.innerHTML=objs().map(o=>obHTML(o,true)).join('');stg.style.background=S0().bg||'';decorate();status();}
   function decorate(){
     $$('.stg .ob').forEach(el=>{const on=sel.includes(el.dataset.id);el.classList.toggle('sel',on);if(!on)el.classList.remove('edt');el.querySelectorAll('.hd,.ed').forEach(x=>x.remove());});
     if(sel.length===1){const o=byId(sel[0]),el=o&&elOf(o.id);if(el){
@@ -308,7 +325,7 @@ function mount(root,opts={}){
     syncUI();
   }
   function redrawOb(o){sync();const el=elOf(o.id);if(el){el.outerHTML=obHTML(o,true);}decorate();}
-  function thumbHTML(s,i,w,c){const k=w/W;return `<div class="${c}${i===cur?' on':''}" data-i="${i}" draggable="true"><span class="n">${i+1}</span><div class="tv" style="width:${w}px;height:${Math.round(H*k)}px"><div class="sc" style="transform:scale(${k})">${s.objs.map(o=>obHTML(o,false)).join('')}</div></div></div>`;}
+  function thumbHTML(s,i,w,c){const k=w/W;return `<div class="${c}${i===cur?' on':''}" data-i="${i}" draggable="true"><span class="n">${i+1}</span><div class="tv" style="width:${w}px;height:${Math.round(H*k)}px${s.bg?';background:'+s.bg:''}"><div class="sc" style="transform:scale(${k})">${s.objs.map(o=>obHTML(o,false)).join('')}</div></div></div>`;}
   function thumbs(){
     const tp=thumbsEl.scrollTop,secs=slides.map((s,i)=>s.sec!=null?i:-1).filter(i=>i>=0);let h='';
     slides.forEach((s,i)=>{if(s.sec!=null){const nx=secs[secs.indexOf(i)+1];h+=`<div class="sec" data-sec="${i}"><i>▾</i><b>${esc(s.sec)}</b> (${(nx==null?slides.length:nx)-i})</div>`;}h+=thumbHTML(s,i,160,'th');});
@@ -479,7 +496,7 @@ function mount(root,opts={}){
   /* ===== slide show & cetak ===== */
   function show(from){
     sync();let i=from;const ov=document.createElement('div');ov.className='show';ov.tabIndex=0;pp.appendChild(ov);
-    const paint=()=>{const k=Math.min(ov.clientWidth/W,ov.clientHeight/H);ov.innerHTML=`<div class="sv" style="width:${W*k}px;height:${H*k}px"><div class="sc" style="transform:scale(${k})">${slides[i].objs.map(o=>obHTML(o,false)).join('')}</div></div>`;};
+    const paint=()=>{const k=Math.min(ov.clientWidth/W,ov.clientHeight/H);ov.innerHTML=`<div class="sv" style="width:${W*k}px;height:${H*k}px${slides[i].bg?';background:'+slides[i].bg:''}"><div class="sc" style="transform:scale(${k})">${slides[i].objs.map(o=>obHTML(o,false)).join('')}</div></div>`;};
     const close=()=>{document.removeEventListener('fullscreenchange',fc);ov.remove();if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});go(i);};
     const fc=()=>{if(!document.fullscreenElement)close();};
     const next=()=>{if(i<slides.length-1){i++;paint();}else close();},prev=()=>{if(i>0){i--;paint();}};
@@ -490,16 +507,43 @@ function mount(root,opts={}){
   }
   function printAll(){
     sync();const d=document.createElement('div');d.className='pp-print';
-    d.innerHTML=slides.map(s=>`<div class="pg">${s.objs.map(o=>obHTML(o,false)).join('')}</div>`).join('');document.body.appendChild(d);
+    d.innerHTML=slides.map(s=>`<div class="pg"${s.bg?` style="background:${s.bg}"`:''}>${s.objs.map(o=>obHTML(o,false)).join('')}</div>`).join('');document.body.appendChild(d);
     const done=()=>{d.remove();removeEventListener('afterprint',done);};addEventListener('afterprint',done);setTimeout(()=>{print();},50);
   }
+
+  /* ===== berkas .pptx ===== */
+  const PH={title:'Klik untuk menambahkan judul',sub:'Klik untuk menambahkan subjudul',body:'Klik untuk menambahkan teks'};
+  async function openFile(file){
+    if(!/\.pptx$/i.test(file.name))return toast('Hanya berkas .pptx yang bisa dibuka');
+    try{
+      toast('Membuka '+file.name+'…',60000);
+      await lib('jszip',()=>window.JSZip);await lib('pptxio',()=>window.PptxIO);
+      const r=await PptxIO.read(await file.arrayBuffer(),window.JSZip);
+      slides=r.slides.map(s=>{const n={layout:s.layout,notes:s.notes||'',objs:s.objs.map(o=>mk(o.k==='ph'?Object.assign({},o,{ph:PH[o.role]||PH.body}):o))};
+        if(s.bg)n.bg=s.bg;if(s.sec!=null)n.sec=s.sec;return n;});
+      cur=0;sel=[];lastR=null;name=file.name;setName();hist=[];hi=-1;
+      draw();thumbs();notes.innerHTML=S0().notes||'';commit();
+      const w=r.warn,skip=[w.table&&w.table+' tabel',w.chart&&w.chart+' bagan',w.media&&w.media+' gambar (format tidak didukung)',w.other&&w.other+' objek lain'].filter(Boolean);
+      if(skip.length)toast('Dibuka: '+file.name+'. Belum didukung dan dilewati: '+skip.join(', '),7000);else toast('Dibuka: '+file.name);
+    }catch(e){toast('Tidak bisa membuka berkas: '+e.message,6000);}
+  }
+  async function savePptx(){
+    try{
+      sync();toast('Menyiapkan .pptx…',60000);
+      await lib('jszip',()=>window.JSZip);await lib('pptx',()=>window.PptxGenJS);await lib('pptxio',()=>window.PptxIO);
+      const blob=await PptxIO.write({name,slides},window.PptxGenJS,window.JSZip);
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=/\.pptx$/i.test(name)?name:name+'.pptx';
+      document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast('Tersimpan: '+a.download);
+    }catch(e){toast('Gagal menyimpan: '+e.message,6000);}
+  }
+  fin.addEventListener('change',()=>{const f=fin.files[0];fin.value='';if(f)openFile(f);});
 
   /* ===== aksi ===== */
   const acts={
     menu(){fm.hidden=!fm.hidden;},
     new(){slides=[mkSlide('title')];cur=0;sel=[];name='Presentasi1.pptx';setName();hist=[];hi=-1;draw();thumbs();notes.innerHTML='';commit();},
-    open(){toast('Membuka berkas .pptx akan ditambahkan pada tahap berikutnya');},
-    save(){toast('Simpan .pptx akan ditambahkan pada tahap berikutnya — gunakan Cetak untuk PDF');},
+    open(){fin.click();},
+    save:savePptx,
     print:printAll,home(){opts.onHome&&opts.onHome();},undo,redo,
     showfirst(){show(0);},show(){show(cur);},
     cut(){if(selectedText()){target(()=>document.execCommand('cut'));}else if(copyObjs()){delSel();}},
@@ -674,6 +718,7 @@ function mount(root,opts={}){
     if(!(e.ctrlKey||e.metaKey))return;const k=e.key.toLowerCase(),intx=e.target.closest&&e.target.closest('.tx'),inInput=e.target.matches&&e.target.matches('input[type=text],input[type=number],.notes');
     if(k==='z'&&!inInput){e.preventDefault();undo();}else if(k==='y'&&!inInput){e.preventDefault();redo();}
     else if(k==='s'){e.preventDefault();acts.save();}
+    else if(k==='o'){e.preventDefault();acts.open();}
     else if(k==='f'||k==='h'){e.preventDefault();showFind();}
     else if(k==='m'){e.preventDefault();newSlide();}
     else if(!intx&&!inInput&&sel.length&&(k==='c'||k==='x'||k==='v'||k==='d')){
@@ -687,8 +732,8 @@ function mount(root,opts={}){
   document.execCommand('styleWithCSS',false,true);
   $('[data-s=font]').value='Calibri';$('[data-s=size]').value=18;
   if(matchMedia('(max-width:700px),(max-height:500px)').matches){pp.classList.add('rc');$$('.tab[data-tab]').forEach(x=>x.classList.remove('on'));}
-  if(opts.file){name=opts.file.name;toast('Membuka berkas .pptx belum didukung — dibuat presentasi kosong');}
   setName();draw();thumbs();fit();commit();
+  if(opts.file)openFile(opts.file);
 }
 
 window.Apps=window.Apps||{};
