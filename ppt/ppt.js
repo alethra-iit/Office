@@ -197,6 +197,18 @@ const CSS=`
 .pp .dlg .dl{border:1px solid #ccc;max-height:200px;overflow:auto}
 .pp .dlg .dl label{margin:0;padding:5px 8px}
 .pp .dlg .dl label:hover{background:#fbe3da}
+.pp .tgal{display:flex;gap:4px;width:600px;overflow-x:auto;scrollbar-width:none;padding:2px}
+.pp .tgal::-webkit-scrollbar{display:none}
+.pp .vgal{display:flex;gap:4px;padding:2px}
+.pp .tt{flex:none;position:relative;width:106px;height:70px;border:1px solid #bbb;background:#fff;padding:0;cursor:pointer;overflow:hidden}
+.pp .tt:hover{border-color:var(--acc)}.pp .tt.on{outline:2px solid #e8b5a3;outline-offset:1px;border-color:var(--acc)}
+.pp .tb{position:absolute;inset:0;display:block}
+.pp .tb>i.d{position:absolute;display:block}
+.pp .tb>b{position:absolute;left:10px;top:12px;font-size:24px;font-weight:400;line-height:1}
+.pp .tb>.sws{position:absolute;left:8px;bottom:6px;display:flex;gap:2px}
+.pp .tb>.sws i{display:block;width:11px;height:5px}
+.pp .tbx{display:block;position:relative;width:88px;height:56px;border:1px solid #bbb}
+.pp .pm.thm{grid-template-columns:repeat(4,100px)}
 `;
 
 const FONTS=['Calibri','Calibri Light','Arial','Times New Roman','Cambria','Georgia','Verdana','Courier New','Segoe UI','Tahoma','Trebuchet MS'];
@@ -346,10 +358,40 @@ const RIB_INSERT=
  G('Simbol',IM('<span style="color:#2b579a;font-family:Cambria,serif">π</span>','Persamaan','eqm')+IB('Ω','Simbol','symbol','text','Simbol'))+
  G('Media',IM('🎞','Video','video')+IM('🔊','Audio','audio'));
 
+/* ---- tab DESAIN: tema, varian, latar belakang ---- */
+const THEMES=[
+ {n:'Office',hf:'Calibri Light',bf:'Calibri',acc:['#5b9bd5','#ed7d31','#a5a5a5','#ffc000','#4472c4','#70ad47'],d:'plain'},
+ {n:'Pita Biru',hf:'Trebuchet MS',bf:'Calibri',acc:['#2e75b6','#00b0f0','#7f7f7f','#ffc000','#4472c4','#70ad47'],d:'bar'},
+ {n:'Hijau Segar',hf:'Georgia',bf:'Calibri',acc:['#70ad47','#a9d18e','#ed7d31','#ffc000','#4472c4','#a5a5a5'],d:'side'},
+ {n:'Senja',hf:'Trebuchet MS',bf:'Calibri',acc:['#ed7d31','#c55a11','#ffc000','#a5a5a5','#5b9bd5','#70ad47'],d:'band'},
+ {n:'Samudra',hf:'Segoe UI',bf:'Segoe UI',acc:['#1a8a9a','#2eb8c9','#0b5563','#ffc000','#ed7d31','#a5a5a5'],d:'frame'},
+ {n:'Anggur',hf:'Cambria',bf:'Calibri',acc:['#7030a0','#b565d8','#d9a3f0','#ffc000','#ed7d31','#a5a5a5'],d:'corner'},
+ {n:'Hutan',hf:'Georgia',bf:'Cambria',acc:['#4e7a3e','#8fb573','#c9a227','#a5a5a5','#5b9bd5','#ed7d31'],d:'side'},
+ {n:'Grafit',hf:'Arial',bf:'Arial',acc:['#595959','#7f7f7f','#d24726','#ffc000','#5b9bd5','#70ad47'],d:'bar'},
+ {n:'Marun',hf:'Times New Roman',bf:'Calibri',acc:['#a6192e','#d9534f','#f0ad4e','#a5a5a5','#5b9bd5','#70ad47'],d:'band'},
+ {n:'Langit',hf:'Verdana',bf:'Verdana',acc:['#00a0d6','#5ad0f5','#1b3a6b','#ffc000','#ed7d31','#a5a5a5'],d:'corner'}
+];
+/* dekorasi: [jenis(r=isi,o=elips,f=bingkai),x,y,w,h] sebagai pecahan slide */
+const DECO={plain:[],bar:[['r',0,0,1,.045]],side:[['r',0,0,.03,1]],band:[['r',0,.91,1,.09]],frame:[['f',.02,.035,.96,.93]],corner:[['o',.94,.05,.045,.08],['r',0,.95,1,.05]]};
+const mixC=(a,b,k)=>{const q=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)),x=q(a),y=q(b);return '#'+x.map((v,i)=>Math.round(v+(y[i]-v)*k).toString(16).padStart(2,'0')).join('');};
+function pal(t,v){const a=t.acc[0];
+  return [{bg:'#ffffff',title:mixC(a,'#000000',.35),body:'#404040',mute:'#898989',deco:a},
+          {bg:mixC(a,'#ffffff',.9),title:mixC(a,'#000000',.45),body:'#333333',mute:'#7f7f7f',deco:mixC(a,'#000000',.1)},
+          {bg:'#1e1e1e',title:'#ffffff',body:'#e0e0e0',mute:'#a6a6a6',deco:a},
+          {bg:mixC(a,'#000000',.7),title:'#ffffff',body:'#f0f0f0',mute:'#c8c8c8',deco:mixC(a,'#ffffff',.25)}][v];}
+function tThumb(t,v){const c=pal(t,v);
+  const d=DECO[t.d].map(([k,x,y,w,h])=>`<i class="d" style="left:${x*100}%;top:${y*100}%;width:${w*100}%;height:${h*100}%;${k==='f'?`border:2px solid ${c.deco}`:`background:${c.deco}`}${k==='o'?';border-radius:50%':''}"></i>`).join('');
+  return `<span class="tb" style="background:${c.bg}">${d}<b style="color:${c.title};font-family:'${t.hf}',sans-serif">Aa</b><span class="sws">${t.acc.map(x=>`<i style="background:${x}"></i>`).join('')}</span></span>`;}
+const RIB_DESIGN=
+ G('Tema',`<div class="tgal">${THEMES.map((t,i)=>`<button class="tt" data-t="${i}" data-a="theme:${i}" title="${t.n}">${tThumb(t,0)}</button>`).join('')}</div>`+
+   `<div class="rows"><button class="b" data-a="tscroll:-1" title="Sebelumnya">◀</button><button class="b" data-a="tscroll:1" title="Berikutnya">▶</button><button class="b" data-m="themes" title="Semua tema">▾</button></div>`)+
+ G('Varian','<div class="vgal"></div>')+
+ G('Sesuaikan',IB('🎨','Format Latar Belakang','bgfmt',0,'Format<br>Latar Belakang'));
+
 function mount(root,opts={}){
   if(!document.getElementById('pp-css')){const s=document.createElement('style');s.id='pp-css';s.textContent=CSS;document.head.appendChild(s);}
   let name='Presentasi1.pptx',scale=.8,autoFit=true,slides=[mkSlide('title')],cur=0,sel=[],hist=[],hi=-1,clip=null,painting=null,lastR=null,lastTx=null,drawing=null,view='normal',fk=-1,timer=0,sortFrom=null;
-  const panes=TABS.map((t,i)=>`<div class="ribbon" data-pane="${t[0]}"${i?' hidden':''}>${t[0]==='home'?RIB_HOME:t[0]==='insert'?RIB_INSERT:`<div class="soon">Menu ${t[1]} akan ditambahkan pada tahap berikutnya.</div>`}</div>`).join('');
+  const panes=TABS.map((t,i)=>`<div class="ribbon" data-pane="${t[0]}"${i?' hidden':''}>${t[0]==='home'?RIB_HOME:t[0]==='insert'?RIB_INSERT:t[0]==='design'?RIB_DESIGN:`<div class="soon">Menu ${t[1]} akan ditambahkan pada tahap berikutnya.</div>`}</div>`).join('');
   root.innerHTML=`<div class="pp">
     <div class="qat"><div class="l"><span class="w">P</span><button data-a="save" title="Simpan (Ctrl+S)">💾</button><button data-a="undo" title="Urungkan (Ctrl+Z)">↶</button><button data-a="redo" title="Ulangi (Ctrl+Y)">↷</button><button data-a="showfirst" title="Mulai dari awal">▶</button></div><span class="fn"></span></div>
     <div class="tabs"><button class="tab file" data-a="menu">BERKAS</button>${TABS.map((t,i)=>`<button class="tab${i?'':' on'}" data-tab="${t[0]}">${t[1]}</button>`).join('')}</div>
@@ -514,7 +556,7 @@ function mount(root,opts={}){
   const selectedText=()=>hasRange()&&!lastR.collapsed;
   function newSlide(l){
     sync();const c=S0().layout;l=l||(c==='title'||c==='section'?'content':c);
-    slides.splice(cur+1,0,mkSlide(l));if(hfs.all)hfBuild(slides[cur+1],cur+1,hfs,new Date());cur++;sel=[];draw();notes.innerHTML='';commit();
+    slides.splice(cur+1,0,mkSlide(l));if(themeOn)styleSlide(slides[cur+1]);if(hfs.all)hfBuild(slides[cur+1],cur+1,hfs,new Date());cur++;sel=[];draw();notes.innerHTML='';commit();
   }
   function applyLayout(s,l,reset){
     const old=s.objs.filter(o=>o.k==='ph'),nw=layoutObjs(l),used=new Set();
@@ -611,7 +653,7 @@ function mount(root,opts={}){
       const r=await PptxIO.read(await file.arrayBuffer(),window.JSZip);
       slides=r.slides.map(s=>{const n={layout:s.layout,notes:s.notes||'',objs:s.objs.map(o=>mk(o.k==='ph'?Object.assign({},o,{ph:PH[o.role]||PH.body}):o))};
         if(s.bg)n.bg=s.bg;if(s.sec!=null)n.sec=s.sec;return n;});
-      cur=0;sel=[];lastR=null;name=file.name;setName();hist=[];hi=-1;
+      themeOn=false;cur=0;sel=[];lastR=null;name=file.name;setName();hist=[];hi=-1;
       draw();thumbs();notes.innerHTML=S0().notes||'';commit();
       const w=r.warn,skip=[w.table&&w.table+' tabel',w.chart&&w.chart+' bagan',w.media&&w.media+' gambar (format tidak didukung)',w.other&&w.other+' objek lain'].filter(Boolean);
       if(skip.length)toast('Dibuka: '+file.name+'. Belum didukung dan dilewati: '+skip.join(', '),7000);else toast('Dibuka: '+file.name);
@@ -968,6 +1010,47 @@ function mount(root,opts={}){
     video:()=>[['Video dari Berkas…','video:file','🎞'],['Video Online (URL)…','video:url','🌐']],
     audio:()=>[['Audio dari Berkas…','audio:file','🔊'],[recorder?'Hentikan Rekaman':'Rekam Audio…','audio:rec','🎙']]
   });
+
+  /* ===== tab DESAIN ===== */
+  let themeOn=false,curT=0,curV=0;
+  function styleSlide(sl){
+    const t=THEMES[curT],c=pal(t,curV);
+    sl.bg=c.bg;sl.objs=sl.objs.filter(o=>!o.deco);
+    sl.objs.forEach(o=>{if(o.k!=='ph')return;
+      o.ts.font=o.role==='title'?t.hf:t.bf;
+      o.ts.color=o.role==='title'?c.title:(o.role==='sub'&&sl.layout==='section'?c.mute:c.body);});
+    sl.objs.unshift(...DECO[t.d].map(([k,x,y,w,h])=>mk({k:'sh',shape:k==='o'?'oval':'rect',deco:1,x:Math.round(x*W),y:Math.round(y*H),w:Math.round(w*W),h:Math.round(h*H),
+      fill:k==='f'?'':c.deco,stroke:k==='f'?c.deco:'',sw:4,html:''})));
+  }
+  function refreshDesign(){
+    $$('.tt[data-t]').forEach(b=>b.classList.toggle('on',+b.dataset.t===curT));
+    const vg=$('.vgal');if(vg)vg.innerHTML=[0,1,2,3].map(v=>`<button class="tt${v===curV?' on':''}" data-a="variant:${v}" title="Varian ${v+1}">${tThumb(THEMES[curT],v)}</button>`).join('');
+  }
+  function applyTheme(i,v){
+    sync();curT=i;curV=v;themeOn=true;sel=[];slides.forEach(styleSlide);draw();commit();refreshDesign();
+    toast('Tema "'+THEMES[i].n+'" (varian '+(v+1)+') diterapkan ke semua slide');
+  }
+  function setBg(v,all){
+    sync();(all?slides:[S0()]).forEach(x=>{if(v)x.bg=v;else delete x.bg;});draw();commit();
+  }
+  Object.assign(acts,{
+    theme(i){applyTheme(+i,curV);},
+    variant(v){applyTheme(curT,+v);},
+    tscroll(d){$('.tgal').scrollBy({left:+d*330,behavior:'smooth'});},
+    bgfmt(){
+      const cur=/^#[0-9a-f]{6}$/i.test(S0().bg||'')?S0().bg:'#ffffff';
+      dlg('Format Latar Belakang',`<label>Warna isian: <input type="color" class="bgc" value="${cur}" style="width:64px;height:28px"></label>`,
+        [['Setel Ulang',()=>setBg(themeOn?pal(THEMES[curT],curV).bg:null,false)],
+         ['Terapkan ke Semua',bg=>setBg(bg.querySelector('.bgc').value,true)],
+         ['Batal'],['Terapkan',bg=>setBg(bg.querySelector('.bgc').value,false),1]]);
+    }
+  });
+  Object.assign(MENUS,{themes:()=>[THEMES.map((t,i)=>[t.n,'theme:'+i,`<span class="tbx">${tThumb(t,0)}</span>`]),'grid thm']});
+  const _lay=acts.layout,_rst=acts.reset,_new=acts.new;
+  acts.layout=l=>{_lay(l);if(themeOn){styleSlide(S0());draw();commit();}};
+  acts.reset=()=>{_rst();if(themeOn){styleSlide(S0());draw();commit();}};
+  acts.new=()=>{_new();themeOn=false;curT=0;curV=0;refreshDesign();};
+  refreshDesign();
 
   /* ===== event ===== */
   root.addEventListener('mousedown',e=>{
