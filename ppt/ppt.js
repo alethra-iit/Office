@@ -214,6 +214,17 @@ const CSS=`
 .pp .trb:hover{background:#fdeee8;border-color:#e8b5a3}.pp .trb.on{background:#f9d3c5;border-color:#e39b83}
 .pp .tmw .row{gap:4px}.pp .tmw label{display:flex;align-items:center;gap:4px}.pp .tmw input[type=number]{width:62px}
 .pp .trm{color:var(--acc);font-size:10px;font-style:normal}
+.pp .trb:disabled{opacity:.45;filter:grayscale(1);pointer-events:none}
+.pp .apane{width:230px;flex:none;border-left:1px solid #ddd;background:#fafafa;display:flex;flex-direction:column;font-size:12px}
+.pp .apane .ah{display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid #ddd;font-weight:600}
+.pp .apane .ah button{height:24px;border:1px solid #aaa;background:#f3f3f3;cursor:pointer;padding:0 8px}
+.pp .apane .apl{flex:1;overflow:auto}
+.pp .apane .ai{display:flex;gap:6px;align-items:center;padding:5px 8px;cursor:pointer;border-bottom:1px solid #eee}
+.pp .apane .ai.on{background:#f9d3c5}.pp .apane .ai i{font-style:normal;color:#555;width:14px}
+.pp .apane .ai b{font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.pp .apane .ai em{color:#3d7a3d}.pp .apane .am{padding:10px;color:#888}
+.pp .anb{display:none;position:absolute;min-width:22px;height:20px;padding:0 4px;border:1px solid #888;background:#fff;color:#444;font-size:12px;line-height:18px;text-align:center;z-index:6;pointer-events:none;transform:scale(var(--inv));transform-origin:0 0}
+.pp.ant .anb,.pp.apo .anb{display:block}
 `;
 
 const FONTS=['Calibri','Calibri Light','Arial','Times New Roman','Cambria','Georgia','Verdana','Courier New','Segoe UI','Tahoma','Trebuchet MS'];
@@ -363,6 +374,60 @@ const RIB_INSERT=
  G('Simbol',IM('<span style="color:#2b579a;font-family:Cambria,serif">π</span>','Persamaan','eqm')+IB('Ω','Simbol','symbol','text','Simbol'))+
  G('Media',IM('🎞','Video','video')+IM('🔊','Audio','audio'));
 
+/* ---- tab ANIMASI ---- */
+const AEFF=[['none','Tidak Ada'],['appear','Muncul'],['fade','Pudar'],['fly','Terbang Masuk'],['float','Melayang Masuk'],['split','Belah'],['wipe','Sapu'],['shape','Bentuk'],['wheel','Roda'],['bars','Batang Acak'],['grow','Membesar & Putar']];
+const FROMS=[['b','Dari Bawah'],['l','Dari Kiri'],['t','Dari Atas'],['r','Dari Kanan']];
+const AOPT={fly:FROMS,wipe:FROMS,float:[['u','Naik'],['d','Turun']],split:[['v','Vertikal Keluar'],['h','Horizontal Keluar']],shape:[['c','Lingkaran'],['d','Belah Ketupat']],bars:[['h','Horizontal'],['v','Vertikal']]};
+const getAn=o=>Object.assign({t:'none',o:'',x:0,start:'click',dur:.5,delay:0},o&&o.an||{});
+const hasAn=o=>!!(o.an&&o.an.t&&o.an.t!=='none');
+const objName=o=>{const t=textOf(o.html||'').trim();return t?t.slice(0,24):({title:'Judul',sub:'Subjudul',body:'Teks Isi'}[o.role]||(o.img?'Gambar':o.media?'Media':o.shape&&o.shape!=='rect'?'Bentuk':'Objek'));};
+function anList(s){const have=s.objs.filter(hasAn),ord=(s.ao||[]).map(id=>have.find(o=>o.id===id)).filter(Boolean);return[...ord,...have.filter(o=>!ord.includes(o))];}
+function anSteps(s){
+  const steps=[];let st=null,pS=0,pE=0;
+  anList(s).forEach(o=>{const a=getAn(o),D=(a.dur>0?+a.dur:.5)*1000,dl=(+a.delay||0)*1000;let at;
+    if(a.start==='click'||!st){st={auto:a.start!=='click',items:[],ms:0};steps.push(st);at=dl;}
+    else at=(a.start==='after'?pE:pS)+dl;
+    st.items.push({o,a,at,D});pS=at;pE=at+D;st.ms=Math.max(st.ms,pE);});
+  return steps;
+}
+function barsKF(op){const n=8,idx=[...Array(n).keys()].sort(()=>Math.random()-.5),half=new Set(idx.slice(0,n/2));
+  const poly=f=>'polygon('+[...Array(n)].map((_,i)=>{const a=i*100/n,A=(i+1)*100/n,g=f(i);return op==='v'?`${a}% 0%,${a}% ${g}%,${A}% ${g}%,${A}% 0%`:`0% ${a}%,${g}% ${a}%,${g}% ${A}%,0% ${A}%`;}).join(',')+')';
+  return[{clipPath:poly(()=>0),offset:0},{clipPath:poly(i=>half.has(i)?100:0),offset:.5},{clipPath:poly(()=>100),offset:1}];}
+function anKF(o,a){
+  const b=`rotate(${o.rot||0}deg)`,op=a.o||(AOPT[a.t]||[['']])[0][0],T=f=>f+' '+b;
+  switch(a.t){
+    case'appear':return[{opacity:0,offset:0},{opacity:1,offset:.001},{opacity:1,offset:1}];
+    case'fly':{const f={l:`translateX(${-(o.x+o.w)}px)`,r:`translateX(${W-o.x}px)`,t:`translateY(${-(o.y+o.h)}px)`,b:`translateY(${H-o.y}px)`}[op];
+      return[{transform:T(f),opacity:0,offset:0},{opacity:1,offset:.12},{transform:b,opacity:1,offset:1}];}
+    case'float':return[{transform:T(`translateY(${op==='d'?-50:50}px)`),opacity:0},{transform:b,opacity:1}];
+    case'split':return[{clipPath:op==='h'?'inset(50% 0 50% 0)':'inset(0 50% 0 50%)'},{clipPath:'inset(0 0 0 0)'}];
+    case'wipe':return[{clipPath:{b:'inset(100% 0 0 0)',l:'inset(0 100% 0 0)',t:'inset(0 0 100% 0)',r:'inset(0 0 0 100%)'}[op]},{clipPath:'inset(0 0 0 0)'}];
+    case'shape':return op==='d'?[{clipPath:'polygon(50% 50%,50% 50%,50% 50%,50% 50%)'},{clipPath:'polygon(50% -50%,150% 50%,50% 150%,-50% 50%)'}]:[{clipPath:'circle(0% at 50% 50%)'},{clipPath:'circle(75% at 50% 50%)'}];
+    case'wheel':return[{transform:T('rotate(-360deg) scale(.1)'),opacity:0},{transform:b,opacity:1}];
+    case'bars':return barsKF(op);
+    case'grow':return[{transform:T('scale(.1) rotate(-90deg)'),opacity:0},{transform:b,opacity:1}];
+    default:return[{opacity:0},{opacity:1}];
+  }
+}
+const anEl=(root,o)=>root.querySelector(`.ob[data-id="${o.id}"]`);
+function anInit(root,s,only){s.objs.forEach(o=>{if(!hasAn(o)||o.an.x||(only&&!only.includes(o)))return;const e=anEl(root,o);if(e)e.style.visibility='hidden';});}
+function anPlayItems(root,items){items.forEach(({o,a,at,D})=>{const e=anEl(root,o);if(!e)return;
+  e.animate(anKF(o,a).map(f=>Object.assign({visibility:'visible'},f)),{duration:D,delay:at,fill:'both',easing:'ease-out',direction:a.x?'reverse':'normal'});});}
+const aIcon=t=>{const M={appear:'<path d="M3 3l4 4M31 3l-4 4M3 29l4-4M31 29l-4-4" stroke="#3d7a3d" stroke-width="1.6"/>',fade:'<circle cx="17" cy="16" r="15" fill="none" stroke="#7bbd7b" stroke-dasharray="2 2"/>',
+  fly:'<path d="M1 30l9-9M10 21v5M10 21h5" stroke="#3d7a3d" stroke-width="1.6" fill="none"/>',float:'<path d="M4 31v-9M1 25l3-3 3 3" stroke="#3d7a3d" stroke-width="1.6" fill="none"/>',
+  split:'<path d="M17 4v24" stroke="#fff" stroke-width="2"/>',wipe:'<path d="M1 16h9M7 12l4 4-4 4" stroke="#3d7a3d" stroke-width="1.6" fill="none"/>',shape:'<circle cx="17" cy="16" r="5" fill="#fff"/>',
+  wheel:'<path d="M17 16V6M17 16l9 5" stroke="#fff" stroke-width="2"/>',bars:'<path d="M5 12h24M5 17h24M5 22h24" stroke="#fff" stroke-width="1.2"/>',grow:'<path d="M24 24l7 7M31 24v7h-7" stroke="#3d7a3d" stroke-width="1.6" fill="none"/>'};
+  return `<svg width="34" height="32" viewBox="0 0 34 32"><path d="M17 2l4.2 8.6 9.3 1.3-6.8 6.6 1.7 9.3L17 23.3l-8.4 4.5 1.7-9.3-6.8-6.6 9.3-1.3z" fill="${t==='none'?'#d0d0d0':'#5ba85b'}" stroke="${t==='none'?'#aaa':'#3d7a3d'}" stroke-width=".8"/>${M[t]||''}</svg>`;};
+const RIB_ANIM=
+ G('Pratinjau',IB('★','Pratinjau animasi','anprev',0,'Pratinjau'))+
+ G('Animasi',`<div class="tgal trg">${AEFF.map(([id,n])=>`<button class="trb anb2" data-an="${id}" data-a="anset:${id}" title="${n}" disabled>${aIcon(id)}<span>${n}</span></button>`).join('')}</div>`+
+   `<div class="rows"><button class="b" data-a="anscroll:-1" title="Sebelumnya">◀</button><button class="b" data-a="anscroll:1" title="Berikutnya">▶</button></div>`+
+   `<button class="b big aneff" data-m="aneff" disabled title="Opsi Efek"><em>⚙</em><span>Opsi Efek ▾</span></button>`)+
+ G('Animasi Lanjutan',`<button class="b big" data-m="anadd" title="Tambah Animasi"><em>✦</em><span>Tambah<br>Animasi ▾</span></button><div class="rows">${B('▤','Panel Animasi','anpane','rw')}${B('🖌','Pelukis Animasi','anpaint','rw')}</div>`)+
+ G('Pengaturan Waktu',`<div class="rows tmw"><div class="row">Mulai: ${S('anstart',[['click','Saat Klik'],['with','Bersama Sebelumnya'],['after','Setelah Sebelumnya']],150,'Mulai')}</div>`+
+   `<div class="row">Durasi: <input type="number" data-s="andur" step="0.25" min="0.1" max="60" value="0.5"> dtk</div><div class="row">Tunda: <input type="number" data-s="andelay" step="0.25" min="0" max="60" value="0"> dtk</div></div>`+
+   `<div class="rows tmw"><div class="row"><b>Urutkan Ulang Animasi</b></div>${B('▲','Pindah Lebih Awal','anup','rw')}${B('▼','Pindah Lebih Lambat','andown','rw')}</div>`);
+
 /* ---- tab TRANSISI ---- */
 const TRS=[['none','Tidak Ada'],['cut','Potong'],['fade','Pudar'],['push','Dorong'],['wipe','Sapu'],['split','Belah'],['reveal','Ungkap'],['bars','Batang Acak'],['shape','Bentuk'],['uncover','Singkap'],['cover','Tutupi'],['flash','Kilat'],['fall','Jatuh'],['zoom','Zoom']];
 const DIRS=[['l','Dari Kanan'],['r','Dari Kiri'],['u','Dari Bawah'],['d','Dari Atas']],OUTS=[['l','Ke Kiri'],['r','Ke Kanan'],['u','Ke Atas'],['d','Ke Bawah']];
@@ -461,14 +526,15 @@ const RIB_DESIGN=
 function mount(root,opts={}){
   if(!document.getElementById('pp-css')){const s=document.createElement('style');s.id='pp-css';s.textContent=CSS;document.head.appendChild(s);}
   let name='Presentasi1.pptx',scale=.8,autoFit=true,slides=[mkSlide('title')],cur=0,sel=[],hist=[],hi=-1,clip=null,painting=null,lastR=null,lastTx=null,drawing=null,view='normal',fk=-1,timer=0,sortFrom=null;
-  const panes=TABS.map((t,i)=>`<div class="ribbon" data-pane="${t[0]}"${i?' hidden':''}>${t[0]==='home'?RIB_HOME:t[0]==='insert'?RIB_INSERT:t[0]==='design'?RIB_DESIGN:t[0]==='trans'?RIB_TRANS:`<div class="soon">Menu ${t[1]} akan ditambahkan pada tahap berikutnya.</div>`}</div>`).join('');
+  const panes=TABS.map((t,i)=>`<div class="ribbon" data-pane="${t[0]}"${i?' hidden':''}>${t[0]==='home'?RIB_HOME:t[0]==='insert'?RIB_INSERT:t[0]==='design'?RIB_DESIGN:t[0]==='trans'?RIB_TRANS:t[0]==='anim'?RIB_ANIM:`<div class="soon">Menu ${t[1]} akan ditambahkan pada tahap berikutnya.</div>`}</div>`).join('');
   root.innerHTML=`<div class="pp">
     <div class="qat"><div class="l"><span class="w">P</span><button data-a="save" title="Simpan (Ctrl+S)">💾</button><button data-a="undo" title="Urungkan (Ctrl+Z)">↶</button><button data-a="redo" title="Ulangi (Ctrl+Y)">↷</button><button data-a="showfirst" title="Mulai dari awal">▶</button></div><span class="fn"></span></div>
     <div class="tabs"><button class="tab file" data-a="menu">BERKAS</button>${TABS.map((t,i)=>`<button class="tab${i?'':' on'}" data-tab="${t[0]}">${t[1]}</button>`).join('')}</div>
     ${panes}
     <div class="main"><div class="thumbs" tabindex="0"></div>
       <div class="ws"><div class="desk"><div class="holder"><div class="slide stg" tabindex="-1"></div></div></div><div class="notes" contenteditable="true" data-ph="Klik untuk menambahkan catatan"></div></div>
-      <div class="sorter" hidden></div></div>
+      <div class="sorter" hidden></div>
+      <div class="apane" hidden><div class="ah"><span>Panel Animasi</span><span><button data-a="anprev" title="Putar semua">▶ Putar</button> <button data-a="anpane" title="Tutup">✕</button></span></div><div class="apl"></div></div></div>
     <div class="find" hidden><span>Cari:</span><input type="text" class="f1"><span>Ganti:</span><input type="text" class="f2">
       <div class="fb"><button data-a="fnext">Berikutnya</button><button data-a="frep">Ganti</button><button data-a="frall">Ganti semua</button><button data-a="fclose">Tutup</button></div></div>
     <div class="status"><div class="s"><span class="sn">SLIDE 1 DARI 1</span><span>BAHASA INDONESIA</span></div>
@@ -508,7 +574,7 @@ function mount(root,opts={}){
 
   /* ===== render ===== */
   function draw(){renumber();stg.innerHTML=objs().map(o=>obHTML(o,true)).join('');stg.style.background=S0().bg||'';
-    (S0().comments||[]).forEach((c,i)=>stg.insertAdjacentHTML('beforeend',`<div class="cm" data-ci="${i}" style="left:${c.x}px;top:${c.y}px" title="${esc(c.t)}">💬</div>`));decorate();status();syncTr();}
+    (S0().comments||[]).forEach((c,i)=>stg.insertAdjacentHTML('beforeend',`<div class="cm" data-ci="${i}" style="left:${c.x}px;top:${c.y}px" title="${esc(c.t)}">💬</div>`));animBadges();decorate();status();syncTr();}
   function decorate(){
     $$('.stg .ob').forEach(el=>{const on=sel.includes(el.dataset.id);el.classList.toggle('sel',on);if(!on)el.classList.remove('edt');el.querySelectorAll('.hd,.ed').forEach(x=>x.remove());});
     if(sel.length===1){const o=byId(sel[0]),el=o&&elOf(o.id);if(el){
@@ -516,7 +582,7 @@ function mount(root,opts={}){
       const line=o.shape==='line'||o.shape==='arrow',hs=line?['w','e']:['nw','n','ne','e','se','s','sw','w'];
       el.insertAdjacentHTML('beforeend',hs.map(h=>{const x=h.includes('w')?0:h.includes('e')?100:50,y=h.includes('n')?0:h.includes('s')?100:50;
         return `<div class="hd" data-h="${h}" style="left:${x}%;top:${y}%;cursor:${h}-resize"></div>`;}).join(''));}}
-    syncUI();
+    syncUI();syncAn();
   }
   function redrawOb(o){sync();const el=elOf(o.id);if(el){el.outerHTML=obHTML(o,true);}decorate();}
   function thumbHTML(s,i,w,c){const k=w/W;return `<div class="${c}${i===cur?' on':''}" data-i="${i}" draggable="true"><span class="n">${i+1}${s.tr&&s.tr.t&&s.tr.t!=='none'?'<br><i class="trm">★</i>':''}</span><div class="tv" style="width:${w}px;height:${Math.round(H*k)}px${s.bg?';background:'+s.bg:''}"><div class="sc" style="transform:scale(${k})">${s.objs.map(o=>obHTML(o,false)).join('')}</div></div></div>`;}
@@ -695,23 +761,24 @@ function mount(root,opts={}){
   /* ===== slide show & cetak ===== */
   function show(from){
     sync();let i=from;const ov=document.createElement('div');ov.className='show';ov.tabIndex=0;pp.appendChild(ov);
-    let box=null,cancelTr=null,autoT=0;
-    const arm=()=>{const a=getTr(slides[i]);if(a.afterOn)autoT=setTimeout(()=>next(),(+a.after||0)*1000);};
+    let box=null,cancelTr=null,autoT=0,steps=[],si=0;
+    const playStep=()=>{const st=steps[si++];if(st&&box)anPlayItems(box.lastElementChild,st.items);};
+    const arm=()=>{if(steps[0]&&steps[0].auto&&!si)playStep();const a=getTr(slides[i]);if(a.afterOn)autoT=setTimeout(()=>next(),(+a.after||0)*1000);};
     const paint=play=>{
-      const k=Math.min(ov.clientWidth/W,ov.clientHeight/H);if(cancelTr){cancelTr();cancelTr=null;}clearTimeout(autoT);
+      const k=Math.min(ov.clientWidth/W,ov.clientHeight/H);if(cancelTr){cancelTr();cancelTr=null;}clearTimeout(autoT);steps=play?anSteps(slides[i]):[];si=0;
       const prev=box&&box.lastElementChild,t=getTr(slides[i]);
-      if(play&&prev&&box.dataset.k==k&&t.t!=='none'&&t.t!=='cut'){const nw=svEl(slides[i],k,'show');box.appendChild(nw);playSnd(t.snd);cancelTr=runTr(box,prev,nw,t,()=>{cancelTr=null;arm();});}
-      else{ov.innerHTML='';box=document.createElement('div');box.dataset.k=k;box.style.cssText=`position:relative;overflow:hidden;width:${W*k}px;height:${H*k}px`;box.appendChild(svEl(slides[i],k,'show'));ov.appendChild(box);if(play)playSnd(t.snd);arm();}
+      if(play&&prev&&box.dataset.k==k&&t.t!=='none'&&t.t!=='cut'){const nw=svEl(slides[i],k,'show');box.appendChild(nw);anInit(nw,slides[i]);playSnd(t.snd);cancelTr=runTr(box,prev,nw,t,()=>{cancelTr=null;arm();});}
+      else{ov.innerHTML='';box=document.createElement('div');box.dataset.k=k;box.style.cssText=`position:relative;overflow:hidden;width:${W*k}px;height:${H*k}px`;{const nw=svEl(slides[i],k,'show');box.appendChild(nw);if(play)anInit(nw,slides[i]);}ov.appendChild(box);if(play)playSnd(t.snd);arm();}
     };
     const close=()=>{clearTimeout(autoT);if(cancelTr)cancelTr();document.removeEventListener('fullscreenchange',fc);ov.remove();if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});go(i);};
     const fc=()=>{if(!document.fullscreenElement)close();};
-    const next=()=>{if(i<slides.length-1){i++;paint(1);}else close();},prev=()=>{if(i>0){i--;paint();}};
+    const next=()=>{if(si<steps.length){playStep();return;}if(i<slides.length-1){i++;paint(1);}else close();},prev=()=>{if(i>0){i--;paint();}};
     const api={set:n=>{i=Math.max(0,Math.min(slides.length-1,n));paint();},end:close};
     ov.onclick=e=>{const a=e.target.closest&&e.target.closest('a[href]');if(a){e.preventDefault();if(/^https?:/i.test(a.href))open(a.href,'_blank','noopener');return;}
       if(e.target.closest&&e.target.closest('.med video,.med audio,.med iframe'))return;
       const el=e.target.closest&&e.target.closest('.ob[data-lk]'),o=el&&slides[i].objs.find(x=>x.id===el.dataset.id);if(o&&runLink(o.link,i,api))return;if(getTr(slides[i]).click)next();};
     ov.onkeydown=e=>{const k=e.key;if(k==='Escape')close();else if(['ArrowRight','ArrowDown','PageDown',' ','Enter'].includes(k)){e.preventDefault();next();}else if(['ArrowLeft','ArrowUp','PageUp','Backspace'].includes(k)){e.preventDefault();prev();}};
-    paint();ov.focus();addEventListener('resize',()=>paint());
+    paint(1);ov.focus();addEventListener('resize',()=>paint());
     if(ov.requestFullscreen){ov.requestFullscreen().then(()=>document.addEventListener('fullscreenchange',fc)).catch(()=>{});}
   }
   function printAll(){
@@ -742,8 +809,8 @@ function mount(root,opts={}){
       await lib('jszip',()=>window.JSZip);await lib('pptx',()=>window.PptxGenJS);await lib('pptxio',()=>window.PptxIO);
       const blob=await PptxIO.write({name,slides},window.PptxGenJS,window.JSZip);
       const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=/\.pptx$/i.test(name)?name:name+'.pptx';
-      document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);const nm=slides.reduce((c,s)=>c+s.objs.filter(o=>o.media).length,0),nx=slides.reduce((c,s)=>c+s.objs.filter(o=>o.img&&!/^data:/.test(o.img)).length,0);
-      toast('Tersimpan: '+a.download+(nm?' — '+nm+' video/audio tidak ikut tersimpan':'')+(nx?' — '+nx+' gambar online tidak ikut tersimpan':''),nm||nx?7000:3000);
+      document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);const nm=slides.reduce((c,s)=>c+s.objs.filter(o=>o.media).length,0),nx=slides.reduce((c,s)=>c+s.objs.filter(o=>o.img&&!/^data:/.test(o.img)).length,0),na=slides.reduce((c,s)=>c+s.objs.filter(o=>o.an&&o.an.t&&o.an.t!=='none').length,0);
+      toast('Tersimpan: '+a.download+(nm?' — '+nm+' video/audio tidak ikut tersimpan':'')+(nx?' — '+nx+' gambar online tidak ikut tersimpan':'')+(na?' — '+na+' animasi tidak ikut tersimpan':''),nm||nx||na?7000:3000);
     }catch(e){toast('Gagal menyimpan: '+e.message,6000);}
   }
   fin.addEventListener('change',()=>{const f=fin.files[0];fin.value='';if(f)openFile(f);});
@@ -1163,6 +1230,73 @@ function mount(root,opts={}){
   });
   syncTr();
 
+  /* ===== tab ANIMASI ===== */
+  let anPaint=null,anT=0;
+  const addAo=(sl,id)=>{sl.ao=sl.ao||[];if(!sl.ao.includes(id))sl.ao.push(id);};
+  function animBadges(){anList(S0()).forEach((o,i)=>stg.insertAdjacentHTML('beforeend',`<div class="anb" style="left:${Math.max(0,o.x-30)}px;top:${o.y}px">${i+1}</div>`));}
+  function renderPane(){
+    const pn=$('.apane');if(!pn||pn.hidden)return;
+    const L=anList(S0()),ic={click:'🖱',with:'◐',after:'◔'};
+    $('.apl').innerHTML=L.length?L.map((o,i)=>{const a=getAn(o),n=(AEFF.find(e=>e[0]===a.t)||[,''])[1];
+      return `<div class="ai${sel.includes(o.id)?' on':''}" data-a="anpick:${o.id}" title="${esc(n+(a.x?' (keluar)':''))}"><i>${i+1}</i><span>${ic[a.start]}</span><b>${esc(objName(o))}</b><em>${a.x?'⇥':'★'}</em></div>`;}).join('')
+      :'<div class="am">Belum ada animasi. Pilih objek pada slide, lalu pilih sebuah efek.</div>';
+  }
+  function syncAn(){
+    const q=n=>$('[data-s='+n+']');if(!q('andur'))return;
+    const os=selObjs(),o=os[0],a=getAn(o),has=os.length>0,act=has&&hasAn(o);
+    $$('.anb2').forEach(b=>{b.disabled=!has;b.classList.toggle('on',act&&a.t===b.dataset.an&&!a.x);});
+    ['anstart','andur','andelay'].forEach(n=>q(n).disabled=!act);
+    q('anstart').value=a.start;q('andur').value=a.dur;q('andelay').value=a.delay;
+    $('.aneff').disabled=!(act&&AOPT[a.t]);
+    ['anup','andown'].forEach(n=>$('[data-a='+n+']').disabled=!act);
+    if(anPaint&&os.length===1&&o.id!==anPaint.src){const pt=anPaint;anPaint=null;
+      setTimeout(()=>{sync();o.an=Object.assign({},pt.an);addAo(S0(),o.id);draw();commit();toast('Animasi disalin');},0);}
+    renderPane();
+  }
+  function setAnP(p){forObjs(o=>{if(!hasAn(o))return;o.an=Object.assign(getAn(o),p);});}
+  function anMove(d){
+    const o=selObjs().find(hasAn);if(!o)return;sync();const sl=S0(),ids=anList(sl).map(x=>x.id),i=ids.indexOf(o.id),j=i+d;
+    if(j<0||j>=ids.length)return;[ids[i],ids[j]]=[ids[j],ids[i]];sl.ao=ids;draw();commit();
+  }
+  function playIn(root,sl,steps,only){
+    clearTimeout(anT);anInit(root,sl,only);let t=0;
+    steps.forEach(st=>{setTimeout(()=>anPlayItems(root,st.items),t);t+=st.ms+250;});
+    anT=setTimeout(()=>draw(),t+150);
+  }
+  Object.assign(acts,{
+    anset(id){
+      forObjs(o=>{if(id==='none'){delete o.an;if(S0().ao)S0().ao=S0().ao.filter(x=>x!==o.id);}
+        else{o.an=Object.assign(getAn(o),{t:id,o:(AOPT[id]||[['']])[0][0],x:0});addAo(S0(),o.id);}});
+      if(id!=='none')acts.anprev(true);
+    },
+    anadd(v){const[k,id]=v.split(':');
+      forObjs(o=>{o.an=Object.assign(getAn(o),{t:id,o:(AOPT[id]||[['']])[0][0],x:k==='out'?1:0});addAo(S0(),o.id);});acts.anprev(true);},
+    aneff(v){setAnP({o:v});acts.anprev(true);},
+    anscroll(d){const g=$$('.trg')[1];if(g)g.scrollBy({left:+d*320,behavior:'smooth'});},
+    anprev(only){
+      sync();const sl=S0();
+      if(only===true){const os=selObjs().filter(hasAn);if(!os.length)return;
+        const items=os.map(o=>{const a=getAn(o);return{o,a,at:(+a.delay||0)*1000,D:(a.dur>0?+a.dur:.5)*1000};});
+        playIn(stg,sl,[{items,ms:Math.max(...items.map(x=>x.at+x.D))}],os);return;}
+      const steps=anSteps(sl);if(!steps.length)return toast('Slide ini belum memiliki animasi');
+      sel=[];decorate();playIn(stg,sl,steps);
+    },
+    anpane(){const pn=$('.apane');pn.hidden=!pn.hidden;pp.classList.toggle('apo',!pn.hidden);renderPane();if(autoFit)fit();},
+    anpick(id){sel=[id];decorate();},
+    anpaint(){const o=selObjs()[0];if(!o||!hasAn(o))return toast('Pilih objek yang sudah memiliki animasi');
+      anPaint={an:JSON.parse(JSON.stringify(o.an)),src:o.id};toast('Pilih objek tujuan untuk menyalin animasi');},
+    anup(){anMove(-1);},andown(){anMove(1);}
+  });
+  Object.assign(sels,{
+    anstart:v=>setAnP({start:v}),
+    andur:v=>{const d=parseFloat(v);if(d>0)setAnP({dur:Math.min(60,d)});},
+    andelay:v=>setAnP({delay:Math.max(0,parseFloat(v)||0)})
+  });
+  Object.assign(MENUS,{
+    aneff:()=>{const o=selObjs()[0],a=getAn(o),L=AOPT[a.t]||[],cu=a.o||(L[0]&&L[0][0]);return L.map(([v,n])=>[(v===cu?'✓ ':'\u2003')+n,'aneff:'+v]);},
+    anadd:()=>[...AEFF.filter(e=>e[0]!=='none').map(([id,n])=>['Masuk · '+n,'anadd:in:'+id,aIcon(id)]),'-',...AEFF.filter(e=>e[0]!=='none').map(([id,n])=>['Keluar · '+n,'anadd:out:'+id,aIcon(id)])]
+  });
+
   /* ===== event ===== */
   root.addEventListener('mousedown',e=>{
     if(!e.target.closest('.pm'))closePop();
@@ -1174,7 +1308,7 @@ function mount(root,opts={}){
     if(t.dataset.tab){
       const small=matchMedia('(max-width:700px),(max-height:500px)').matches;
       if(small&&t.classList.contains('on')&&!pp.classList.contains('rc')){pp.classList.add('rc');t.classList.remove('on');return;}
-      pp.classList.remove('rc');$$('.tab[data-tab]').forEach(x=>x.classList.toggle('on',x===t));$$('[data-pane]').forEach(p=>p.hidden=p.dataset.pane!==t.dataset.tab);return;}
+      pp.classList.remove('rc');pp.classList.toggle('ant',t.dataset.tab==='anim');$$('.tab[data-tab]').forEach(x=>x.classList.toggle('on',x===t));$$('[data-pane]').forEach(p=>p.hidden=p.dataset.pane!==t.dataset.tab);return;}
     const i=t.dataset.a.indexOf(':'),k=i<0?t.dataset.a:t.dataset.a.slice(0,i),v=i<0?undefined:t.dataset.a.slice(i+1);
     closePop();
     if(CMDS.has(k))cmd(k);else if(acts[k])acts[k](v);
