@@ -260,6 +260,26 @@ const CSS=`
 .pp .dlg .cs2 .cb{display:flex;flex-direction:column;gap:4px}
 .pp .dlg .cs2 button{height:26px;border:1px solid #aaa;background:#f3f3f3;cursor:pointer;padding:0 8px}
 .pp .shsel{height:22px;width:150px}
+.pp .main{position:relative}
+.pp .cpane{width:250px;flex:none;border-left:1px solid #ddd;background:#fafafa;display:flex;flex-direction:column;font-size:12px}
+.pp .cpane[hidden]{display:none}
+.pp .cpane .ah{display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-bottom:1px solid #ddd;font-weight:600}
+.pp .cpane .ah button{height:24px;border:1px solid #aaa;background:#f3f3f3;cursor:pointer;padding:0 8px}
+.pp .cpl{flex:1;overflow:auto}
+.pp .cpl .am{padding:10px;color:#777}
+.pp .cpl .ci,.pp .cpl .ri{padding:7px 9px;border-bottom:1px solid #eee;cursor:pointer}
+.pp .cpl .ci.on,.pp .cpl .ri.on{background:#fdeee8;box-shadow:inset 3px 0 #b7472a}
+.pp .cpl .cmeta{display:flex;justify-content:space-between;gap:6px}
+.pp .cpl .cmeta span,.pp .cpl small{color:#888}
+.pp .cpl .ri del{color:#b22222}.pp .cpl .ri ins{color:#2e7d32;text-decoration:none}
+.pp .cpl .rb{display:flex;gap:6px;margin-top:5px}
+.pp .cpl .rb button{height:22px;border:1px solid #aaa;background:#f3f3f3;cursor:pointer;padding:0 8px}
+.pp .cm.on{background:#ff9f1c;outline:calc(2px*var(--inv)) solid #b35f00}
+.pp.hidecm .stg .cm{display:none}
+.pp .stg .ob.rvch{outline:calc(2px*var(--inv)) dashed #e08a00}
+.pp .stg .ob.rvhl{outline:calc(3px*var(--inv)) solid #d35400}
+.pp .dlg textarea{font:inherit;border:1px solid #aaa;padding:4px;resize:vertical;box-sizing:border-box}
+@media (max-width:700px){.pp .cpane{position:absolute;right:0;top:0;bottom:0;z-index:20;width:80%;box-shadow:-2px 0 6px rgba(0,0,0,.2)}}
 `;
 
 const FONTS=['Calibri','Calibri Light','Arial','Times New Roman','Cambria','Georgia','Verdana','Courier New','Segoe UI','Tahoma','Trebuchet MS'];
@@ -583,11 +603,26 @@ const RIB_SHOW=
    `<div class="rows tmw"><div class="row"><label><input type="checkbox" data-s="shnarr" checked> Putar Narasi</label></div><div class="row"><label><input type="checkbox" data-s="shtim" checked> Gunakan Pengaturan Waktu</label></div><div class="row"><label><input type="checkbox" data-s="shmed" checked> Tampilkan Kontrol Media</label></div></div>`)+
  G('Monitor',`<div class="rows tmw"><div class="row">Monitor: <select data-s="shmon" class="shsel" title="Pilih monitor untuk slide show"><option value="auto">Otomatis</option><option value="main">Monitor Utama</option></select></div><div class="row"><label><input type="checkbox" data-s="shpv"> Gunakan Tampilan Presenter</label></div></div>`);
 
+const RV_IC={
+ spell:'<span style="display:block;font-size:9px;line-height:9px;font-weight:700;color:#444">ABC</span><span style="color:#2b6cb0;font-size:20px;line-height:18px">✔</span>',
+ res:'<span style="color:#555">🔍</span>',thes:'<span style="color:#888">📖</span>',
+ trans:'<span style="color:#2b6cb0;font-weight:600;font-size:19px">文A</span>',lang:'<span style="color:#2b6cb0;font-weight:600;font-size:19px">A字</span>',
+ newc:'<span style="color:#d4a300">💬</span>',del:'<span style="color:#777">✕</span>',prev:'◀',next:'▶',show:'🗨',
+ cmp:'<span style="color:#444">⇄</span>',acc:'<span style="color:#2e8b57">✔</span>',rej:'<span style="color:#b22222">✖</span>',end:'<span style="color:#2e8b57">☑</span>'};
+const RB=(ic,lab,a,rv,menu,tip)=>`<button class="b big" title="${(tip||lab).replace(/<br>/g," ")}" ${menu?'data-m':'data-a'}="${a}"${rv?` data-rv="${rv}" disabled`:''}><em>${ic}</em><span>${lab}${menu?' ▾':''}</span></button>`;
+const RS=(ic,lab,a,rv)=>`<button class="b rw" title="${lab}" data-a="${a}"${rv?` data-rv="${rv}" disabled`:''}><em style="font-size:13px">${ic}</em><span>${lab}</span></button>`;
+const RIB_REVIEW=
+ G('Pemeriksaan',RB(RV_IC.spell,'Ejaan','rvspell')+RB(RV_IC.res,'Riset','rvres')+`<button class="b big" title="Tesaurus (pilih kata terlebih dahulu)" data-a="rvthes" data-need="text" disabled><em>${RV_IC.thes}</em><span>Tesaurus</span></button>`)+
+ G('Bahasa',RB(RV_IC.trans,'Terjemahkan','rvtrans','',1)+RB(RV_IC.lang,'Bahasa','rvlang','',1))+
+ G('Komentar',RB(RV_IC.newc,'Komentar<br>Baru','comment')+RB(RV_IC.del,'Hapus','rvdel','cm',1)+RB(RV_IC.prev,'Sebelumnya','rvcprev','cm')+RB(RV_IC.next,'Berikutnya','rvcnext','cm')+RB(RV_IC.show,'Tampilkan<br>Komentar','rvshow','',1))+
+ G('Bandingkan',RB(RV_IC.cmp,'Bandingkan','rvcmp')+RB(RV_IC.acc,'Terima','rvacc','cmpn',1)+RB(RV_IC.rej,'Tolak','rvrej','cmpn',1)+
+   `<div class="rows">${RS('◀','Sebelumnya','rvprev','cmpn')}${RS('▶','Berikutnya','rvnext','cmpn')}${RS('☰','Panel Peninjauan','rvrpane','')}</div>`+RB(RV_IC.end,'Akhiri<br>Peninjauan','rvend','cmp'));
+
 function mount(root,opts={}){
   if(!document.getElementById('pp-css')){const s=document.createElement('style');s.id='pp-css';s.textContent=CSS;document.head.appendChild(s);}
   let name='Presentasi1.pptx',scale=.8,autoFit=true,slides=[mkSlide('title')],cur=0,sel=[],hist=[],hi=-1,clip=null,painting=null,lastR=null,lastTx=null,drawing=null,view='normal',fk=-1,timer=0,sortFrom=null;
   let ss={type:'full',loop:0,playNarr:1,noAnim:0,pen:'#ff0000',range:'all',from:1,to:0,custom:'',useTimings:1,mediaCtrl:1,monitor:'auto',presenter:0},customShows=[],cidn=1,scrList=[],scrTried=false;
-  const panes=TABS.map((t,i)=>`<div class="ribbon" data-pane="${t[0]}"${i?' hidden':''}>${t[0]==='home'?RIB_HOME:t[0]==='insert'?RIB_INSERT:t[0]==='design'?RIB_DESIGN:t[0]==='trans'?RIB_TRANS:t[0]==='anim'?RIB_ANIM:t[0]==='show'?RIB_SHOW:`<div class="soon">Menu ${t[1]} akan ditambahkan pada tahap berikutnya.</div>`}</div>`).join('');
+  const panes=TABS.map((t,i)=>`<div class="ribbon" data-pane="${t[0]}"${i?' hidden':''}>${t[0]==='home'?RIB_HOME:t[0]==='insert'?RIB_INSERT:t[0]==='design'?RIB_DESIGN:t[0]==='trans'?RIB_TRANS:t[0]==='anim'?RIB_ANIM:t[0]==='show'?RIB_SHOW:t[0]==='review'?RIB_REVIEW:`<div class="soon">Menu ${t[1]} akan ditambahkan pada tahap berikutnya.</div>`}</div>`).join('');
   root.innerHTML=`<div class="pp">
     <div class="qat"><div class="l"><span class="w">P</span><button data-a="save" title="Simpan (Ctrl+S)">💾</button><button data-a="undo" title="Urungkan (Ctrl+Z)">↶</button><button data-a="redo" title="Ulangi (Ctrl+Y)">↷</button><button data-a="showfirst" title="Mulai dari awal">▶</button></div><span class="fn"></span></div>
     <div class="tabs"><button class="tab file" data-a="menu">BERKAS</button>${TABS.map((t,i)=>`<button class="tab${i?'':' on'}" data-tab="${t[0]}">${t[1]}</button>`).join('')}</div>
@@ -595,7 +630,8 @@ function mount(root,opts={}){
     <div class="main"><div class="thumbs" tabindex="0"></div>
       <div class="ws"><div class="desk"><div class="holder"><div class="slide stg" tabindex="-1"></div></div></div><div class="notes" contenteditable="true" data-ph="Klik untuk menambahkan catatan"></div></div>
       <div class="sorter" hidden></div>
-      <div class="apane" hidden><div class="ah"><span>Panel Animasi</span><span><button data-a="anprev" title="Putar semua">▶ Putar</button> <button data-a="anpane" title="Tutup">✕</button></span></div><div class="apl"></div></div></div>
+      <div class="apane" hidden><div class="ah"><span>Panel Animasi</span><span><button data-a="anprev" title="Putar semua">▶ Putar</button> <button data-a="anpane" title="Tutup">✕</button></span></div><div class="apl"></div></div>
+      <div class="cpane" hidden><div class="ah"><span class="cph">Komentar</span><span><button data-a="rvpane" title="Tutup">✕</button></span></div><div class="cpl"></div></div></div>
     <div class="find" hidden><span>Cari:</span><input type="text" class="f1"><span>Ganti:</span><input type="text" class="f2">
       <div class="fb"><button data-a="fnext">Berikutnya</button><button data-a="frep">Ganti</button><button data-a="frall">Ganti semua</button><button data-a="fclose">Tutup</button></div></div>
     <div class="status"><div class="s"><span class="sn">SLIDE 1 DARI 1</span><span>BAHASA INDONESIA</span></div>
@@ -635,7 +671,7 @@ function mount(root,opts={}){
 
   /* ===== render ===== */
   function draw(){renumber();stg.innerHTML=objs().map(o=>obHTML(o,true)).join('');stg.style.background=S0().bg||'';
-    (S0().comments||[]).forEach((c,i)=>stg.insertAdjacentHTML('beforeend',`<div class="cm" data-ci="${i}" style="left:${c.x}px;top:${c.y}px" title="${esc(c.t)}">💬</div>`));animBadges();decorate();status();syncTr();syncSs();}
+    (S0().comments||[]).forEach((c,i)=>stg.insertAdjacentHTML('beforeend',`<div class="cm" data-ci="${i}" style="left:${c.x}px;top:${c.y}px" title="${esc(c.t)}">💬</div>`));animBadges();decorate();status();syncTr();syncSs();updRev();}
   function decorate(){
     $$('.stg .ob').forEach(el=>{const on=sel.includes(el.dataset.id);el.classList.toggle('sel',on);if(!on)el.classList.remove('edt');el.querySelectorAll('.hd,.ed').forEach(x=>x.remove());});
     if(sel.length===1){const o=byId(sel[0]),el=o&&elOf(o.id);if(el){
@@ -1680,8 +1716,6 @@ function mount(root,opts={}){
     if(!inTx){e.preventDefault();const t=el.querySelector('.tx');if(t){sel=[o.id];decorate();t.focus();const r=document.createRange();r.selectNodeContents(t);r.collapse(false);const s=getSelection();s.removeAllRanges();s.addRange(r);}return;}
     if(sel.length!==1||sel[0]!==o.id){sel=[o.id];decorate();}
   });
-  stg.addEventListener('click',e=>{const c=e.target.closest('.cm');if(!c)return;const k=+c.dataset.ci,cm=(S0().comments||[])[k];if(!cm)return;
-    dlg('Komentar',`<div style="padding:6px 8px;background:#fff8dc;border:1px solid #e6d28a">${esc(cm.t)}</div>`,[['Hapus komentar',()=>{sync();S0().comments.splice(k,1);draw();commit();}],['Tutup',null,1]]);});
   stg.addEventListener('dblclick',e=>{const el=e.target.closest('.ob'),o=el&&byId(el.dataset.id);
     if(o&&o.k==='sh'&&o.shape!=='line'&&o.shape!=='arrow'){el.classList.add('edt');const t=el.querySelector('.tx');t.focus();const r=document.createRange();r.selectNodeContents(t);r.collapse(false);const s=getSelection();s.removeAllRanges();s.addRange(r);}});
   stg.addEventListener('mouseup',e=>{if(painting&&(selectedText()||sel.length))setTimeout(applyPaint,0);syncUI();});
@@ -1747,6 +1781,217 @@ function mount(root,opts={}){
   });
   f1.addEventListener('keydown',e=>{if(e.key==='Enter')findNext();});f1.addEventListener('input',()=>fk=-1);
   if(window.ResizeObserver){let rt=0;new ResizeObserver(()=>{clearTimeout(rt);rt=setTimeout(()=>{if(root.isConnected&&autoFit&&view==='normal')fit();},80);}).observe(desk);}
+
+  /* ===== menu TINJAU ===== */
+  const LANGS=[['id-ID','Indonesia'],['en-US','Inggris (AS)'],['en-GB','Inggris (Inggris Raya)'],['ms-MY','Melayu'],['es-ES','Spanyol'],['fr-FR','Prancis'],['de-DE','Jerman'],['nl-NL','Belanda'],['ja-JP','Jepang'],['zh-CN','Mandarin (Sederhana)'],['ko-KR','Korea'],['ar-SA','Arab']];
+  const LNAME=c=>(LANGS.find(l=>l[0]===c)||[c,c])[1];
+  let rvL='id-ID',rvSp=true,rvSh=true,rvA=null,rvC=null,rvMode='cm',rvN=1;
+  const cpEl=()=>$('.cpane'),cpOpen=()=>!cpEl().hidden;
+  const allCm=()=>{const L=[];slides.forEach((s,si)=>(s.comments||[]).forEach((c,ci)=>L.push({si,ci,c})));return L;};
+  const nowStr=()=>new Date().toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'});
+  const trunc=(t,n)=>{t=String(t).replace(/\s+/g,' ').trim();return t.length>n?t.slice(0,n)+'…':t;};
+  const goSlide=i=>{sync();cur=Math.max(0,Math.min(slides.length-1,i));sel=[];draw();notes.innerHTML=S0().notes||'';thumbs();};
+  const openUrl=u=>{window.open(u,'_blank','noopener');};
+
+  function updRev(){
+    const has=allCm().length>0;
+    if(rvA&&!((slides[rvA.si]||{}).comments||[])[rvA.ci])rvA=null;
+    const on={cm:has,cma:!!rvA,cmp:!!rvC,cmpn:!!(rvC&&rvC.items.length)};
+    $$('[data-rv]').forEach(b=>{b.disabled=!on[b.dataset.rv];});
+    $$('.stg .cm').forEach(el=>el.classList.toggle('on',!!rvA&&rvA.si===cur&&+el.dataset.ci===rvA.ci));
+    $$('.stg .tx').forEach(t=>{t.lang=rvL;t.spellcheck=rvSp;});
+    pp.classList.toggle('hidecm',!rvSh);
+    const sp=$$('.status .s')[0];if(sp&&sp.children[1])sp.children[1].textContent='BAHASA '+LNAME(rvL).toUpperCase();
+    $$('.stg .ob').forEach(el=>el.classList.remove('rvch','rvhl'));
+    if(rvC){const s=S0();rvC.items.forEach((it,k)=>{if(it.sv&&it.sv===s.rv&&it.oid){const el=elOf(it.oid);if(el){el.classList.add('rvch');if(k===rvC.idx)el.classList.add('rvhl');}}});}
+    if(cpOpen())rvPane();
+  }
+
+  /* panel samping: komentar & peninjauan */
+  function rvOpen(mode){rvMode=mode;cpEl().hidden=false;pp.classList.add('cpo');rvPane();if(autoFit)fit();}
+  function rvClose(){cpEl().hidden=true;pp.classList.remove('cpo');if(autoFit)fit();}
+  function rvPane(){
+    const L=$('.cpl');$('.cph').textContent=rvMode==='cm'?'Komentar':'Peninjauan';
+    if(rvMode==='cm'){
+      const A=allCm();
+      L.innerHTML=A.length?A.map(({si,ci,c})=>`<div class="ci${rvA&&rvA.si===si&&rvA.ci===ci?' on':''}" data-si="${si}" data-ci="${ci}"><div class="cmeta"><b>${esc(c.a||'Pengguna')}</b><span>Slide ${si+1}</span></div>${c.d?`<small>${esc(c.d)}</small>`:''}<div>${esc(c.t)}</div></div>`).join(''):'<div class="am">Belum ada komentar. Pilih Komentar Baru untuk menambahkan.</div>';
+    }else if(!rvC){
+      L.innerHTML='<div class="am">Belum ada peninjauan. Pilih Bandingkan untuk membandingkan dengan berkas .pptx lain.</div>';
+    }else{
+      const I=rvC.items;
+      L.innerHTML=`<div class="am">Dibandingkan dengan <b>${esc(rvC.name)}</b><br>${I.length?I.length+' perubahan tersisa':'Semua perubahan sudah ditangani'}</div>`+I.map((it,k)=>`<div class="ri${k===rvC.idx?' on':''}" data-k="${k}"><div class="cmeta"><b>${esc(it.label)}</b><span>${it.t==='addslide'?'Slide '+(it.pos+1):'Slide '+(slides.findIndex(s=>s.rv===it.sv)+1)}</span></div>${it.t==='text'?`<div><del>${esc(trunc(textOf(it.from),60))}</del><br><ins>${esc(trunc(textOf(it.to),60))}</ins></div>`:it.obj?`<div><ins>${esc(trunc(textOf(it.obj.html||''),60)||'(objek)')}</ins></div>`:''}<div class="rb"><button data-acc="${k}">Terima</button><button data-rej="${k}">Tolak</button></div></div>`).join('');
+    }
+  }
+  cpEl().addEventListener('click',e=>{
+    const a=e.target.closest('[data-acc]'),r=e.target.closest('[data-rej]');
+    if(a){rvDo([rvC.items[+a.dataset.acc]],true);return;}
+    if(r){rvDo([rvC.items[+r.dataset.rej]],false);return;}
+    const c=e.target.closest('.ci');if(c){rvGoCm(+c.dataset.si,+c.dataset.ci);return;}
+    const i=e.target.closest('.ri');if(i)rvGoItem(+i.dataset.k);
+  });
+
+  /* komentar */
+  function rvGoCm(si,ci){rvA={si,ci};goSlide(si);}
+  function addCm(t){
+    sync();const s=S0();s.comments=s.comments||[];const o=selObjs()[0];
+    const x=o?Math.max(4,Math.min(W-40,o.x+o.w-13)):W-52,y=o?Math.max(4,o.y-13):16+s.comments.length*34;
+    s.comments.push({t,x,y,a:'Pengguna',d:nowStr()});rvA={si:cur,ci:s.comments.length-1};draw();commit();rvOpen('cm');toast('Komentar ditambahkan');
+  }
+  function cmStep(d){
+    const A=allCm();if(!A.length)return toast('Belum ada komentar');
+    let k=rvA?A.findIndex(x=>x.si===rvA.si&&x.ci===rvA.ci):-1;
+    if(k<0)k=d>0?A.findIndex(x=>x.si>=cur)-1:A.length;if(k<-1)k=-1;
+    let n=k+d;if(n>=A.length){n=0;toast('Kembali ke komentar pertama');}if(n<0){n=A.length-1;toast('Kembali ke komentar terakhir');}
+    rvGoCm(A[n].si,A[n].ci);
+  }
+  function delCm(scope){
+    sync();
+    if(scope==='one'){if(!rvA)return toast('Pilih komentar terlebih dahulu (klik ikon 💬 atau item di panel)');slides[rvA.si].comments.splice(rvA.ci,1);rvA=null;}
+    else if(scope==='slide'){if(!(S0().comments||[]).length)return toast('Slide ini tidak punya komentar');S0().comments=[];}
+    else{slides.forEach(s=>{s.comments=[];});}
+    draw();commit();toast('Komentar dihapus');
+  }
+
+  /* ejaan */
+  function spellScan(){
+    sync();const R=[];
+    slides.forEach((s,si)=>s.objs.forEach(o=>{
+      const t=textOf(o.html||'');if(!t.trim())return;let m;
+      const d=/(?<![\p{L}\p{N}])(\p{L}+)(\s+\1)(?![\p{L}\p{N}])/giu;while((m=d.exec(t)))R.push({si,k:'Kata ganda',s:m[0]});
+      const sp=/\S* {2,}\S*/g;while((m=sp.exec(t)))R.push({si,k:'Spasi ganda',s:m[0]});
+      const pu=/\S+ +[,.;:!?]/g;while((m=pu.exec(t)))R.push({si,k:'Spasi sebelum tanda baca',s:m[0]});
+    }));
+    return R;
+  }
+  function spellFix(){
+    sync();let n=0;
+    slides.forEach(s=>s.objs.forEach(o=>{
+      if(!o.html)return;const d=document.createElement('div');d.innerHTML=o.html;
+      const w=document.createTreeWalker(d,NodeFilter.SHOW_TEXT);let tn;
+      while((tn=w.nextNode())){const a=tn.nodeValue;
+        const b=a.replace(/(?<![\p{L}\p{N}])(\p{L}+)(\s+\1)+(?![\p{L}\p{N}])/giu,'$1').replace(/(\S) {2,}/g,'$1 ').replace(/(\S) +([,.;:!?])/g,'$1$2');
+        if(b!==a){tn.nodeValue=b;n++;}}
+      if(n)o.html=d.innerHTML;
+    }));
+    return n;
+  }
+  function rvSpellDlg(){
+    const R=spellScan();
+    const body=`<div style="font-size:12px;color:#666;margin-bottom:6px">Kamus memakai pemeriksa ejaan bawaan peramban (garis bawah merah pada teks). Di sini juga diperiksa kata ganda, spasi ganda, dan spasi sebelum tanda baca.</div>`+
+      `<label><input type="checkbox" class="sps"${rvSp?' checked':''}> Tampilkan garis bawah ejaan</label>`+
+      `<div style="max-height:200px;overflow:auto;margin-top:8px;border:1px solid #ddd">${R.length?R.slice(0,100).map(r=>`<div style="padding:4px 8px;border-bottom:1px solid #eee"><b>${r.k}</b> — slide ${r.si+1}: “${esc(trunc(r.s,50))}”</div>`).join(''):'<div style="padding:10px;color:#3d7a3d">Tidak ditemukan masalah.</div>'}</div>`;
+    dlg('Ejaan',body,[R.length?['Perbaiki Semua',bg=>{rvSp=bg.querySelector('.sps').checked;const n=spellFix();draw();commit();toast(n?'Diperbaiki pada '+n+' bagian teks':'Tidak ada yang diubah');},0]:null,['Tutup',bg=>{rvSp=bg.querySelector('.sps').checked;updRev();},1]].filter(Boolean));
+  }
+
+  /* riset & tesaurus & terjemahan */
+  const rvSel=()=>selectedText()?lastR.toString().trim():'';
+  function rvResearch(){
+    const q0=rvSel();
+    dlg('Riset',`<label>Cari: <input type="text" class="rq" value="${esc(q0)}" style="width:260px"></label><label>Sumber: <select class="rs"><option value="w">Wikipedia (Indonesia)</option><option value="k">KBBI Daring</option><option value="g">Google</option></select></label><div style="font-size:12px;color:#666;margin-top:6px">Hasil dibuka di tab baru dan memerlukan koneksi internet.</div>`,
+      [['Batal'],['Cari',bg=>{const q=bg.querySelector('.rq').value.trim();if(!q){toast('Masukkan kata kunci');return false;}const s=bg.querySelector('.rs').value,e=encodeURIComponent(q);
+        openUrl(s==='w'?'https://id.wikipedia.org/w/index.php?search='+e:s==='k'?'https://kbbi.kemdikbud.go.id/entri/'+e:'https://www.google.com/search?q='+e);},1]]);
+  }
+  function rvThes(){const q=rvSel();if(!q)return toast('Pilih kata pada slide terlebih dahulu');openUrl('https://www.google.com/search?q='+encodeURIComponent('sinonim '+q));}
+  function slideText(i){return slides[i].objs.map(o=>textOf(o.html||'').trim()).filter(Boolean).join('\n');}
+  function rvTrans(scope){
+    sync();let t='';
+    if(scope==='sel'){t=rvSel();if(!t)return toast('Pilih teks pada slide terlebih dahulu');}
+    else if(scope==='all')t=slides.map((s,i)=>slideText(i)).filter(Boolean).join('\n\n');
+    else t=slideText(cur);
+    if(!t)return toast('Tidak ada teks untuk diterjemahkan');
+    const tl=rvL==='id-ID'?'en':'id';
+    const bg=dlg('Terjemahkan',`<label>Teks:<textarea class="tt" rows="6" style="width:100%">${esc(t.slice(0,3000))}</textarea></label><label>Terjemahkan ke: <select class="tl">${LANGS.map(l=>`<option value="${l[0].split('-')[0]}"${l[0].split('-')[0]===tl?' selected':''}>${l[1]}</option>`).filter((x,i,a)=>a.indexOf(x)===i).join('')}</select></label><div style="font-size:12px;color:#666;margin-top:6px">Terjemahan dibuka di Google Terjemahan (tab baru, perlu internet). Maksimum 3.000 karakter.</div>`,
+      [['Batal'],['Terjemahkan',bg=>{const x=bg.querySelector('.tt').value.trim();if(!x){toast('Teks kosong');return false;}openUrl('https://translate.google.com/?sl=auto&tl='+bg.querySelector('.tl').value+'&op=translate&text='+encodeURIComponent(x));},1]]);
+  }
+
+  /* bandingkan */
+  async function rvCompare(){
+    const f=(await pick('.pptx',false))[0];if(!f)return;
+    if(!/\.pptx$/i.test(f.name))return toast('Hanya berkas .pptx yang bisa dibandingkan');
+    try{
+      toast('Membandingkan dengan '+f.name+'…',60000);
+      await lib('jszip',()=>window.JSZip);await lib('pptxio',()=>window.PptxIO);
+      const r=await PptxIO.read(await f.arrayBuffer(),window.JSZip);
+      const other=r.slides.map(s=>({layout:s.layout,notes:s.notes||'',bg:s.bg,objs:s.objs.map(o=>mk(o.k==='ph'?Object.assign({},o,{ph:PH[o.role]||PH.body}):o))}));
+      sync();slides.forEach(s=>{if(!s.rv)s.rv='r'+(rvN++);});
+      const items=[],tb=s=>s.objs.filter(o=>textOf(o.html||'').trim());
+      for(let i=0;i<Math.max(slides.length,other.length);i++){
+        if(i>=slides.length){items.push({t:'addslide',pos:i,slide:other[i],label:'Slide ditambahkan'});continue;}
+        const s=slides[i];
+        if(i>=other.length){items.push({t:'delslide',sv:s.rv,label:'Slide dihapus'});continue;}
+        const a=tb(s),b=tb(other[i]);
+        for(let k=0;k<Math.max(a.length,b.length);k++){
+          if(a[k]&&b[k]){if(textOf(a[k].html).trim()!==textOf(b[k].html).trim())items.push({t:'text',sv:s.rv,oid:a[k].id,from:a[k].html,to:b[k].html,label:'Teks diubah'});}
+          else if(b[k])items.push({t:'newobj',sv:s.rv,obj:b[k],label:'Objek teks ditambahkan'});
+          else items.push({t:'delobj',sv:s.rv,oid:a[k].id,label:'Objek teks dihapus'});
+        }
+      }
+      $$('.toast').forEach(x=>x.remove());
+      if(!items.length){rvC=null;draw();return toast('Tidak ada perbedaan teks/slide dengan '+f.name);}
+      rvC={name:f.name,items,idx:0};rvOpen('rv');rvGoItem(0);
+      toast(items.length+' perubahan ditemukan. Gunakan Terima / Tolak.');
+    }catch(e){toast('Gagal membandingkan: '+e.message,6000);}
+  }
+  function itemSlide(it){return it.sv?slides.findIndex(s=>s.rv===it.sv):Math.min(it.pos,slides.length-1);}
+  function rvGoItem(k){if(!rvC||!rvC.items.length)return;rvC.idx=((k%rvC.items.length)+rvC.items.length)%rvC.items.length;const si=itemSlide(rvC.items[rvC.idx]);goSlide(si<0?cur:si);}
+  function rvApply(it){
+    const si=it.sv?slides.findIndex(s=>s.rv===it.sv):-1,s=slides[si];
+    if(it.t==='text'){const o=s&&s.objs.find(x=>x.id===it.oid);if(o)o.html=it.to;}
+    else if(it.t==='newobj'&&s){const c=JSON.parse(JSON.stringify(it.obj));delete c.id;s.objs.push(mk(c));}
+    else if(it.t==='delobj'&&s)s.objs=s.objs.filter(x=>x.id!==it.oid);
+    else if(it.t==='delslide'&&s){if(slides.length===1)slides=[mkSlide('title')];else slides.splice(si,1);}
+    else if(it.t==='addslide'){const c=JSON.parse(JSON.stringify(it.slide));c.objs=c.objs.map(o=>{o.id='o'+(uid++);return o;});c.rv='r'+(rvN++);slides.splice(Math.min(it.pos,slides.length),0,c);}
+  }
+  function rvDo(list,accept){
+    if(!rvC||!list.length)return;sync();
+    const prio=it=>it.t==='delslide'?1:it.t==='addslide'?2:0;
+    if(accept)[...list].sort((a,b)=>prio(a)-prio(b)||(a.pos||0)-(b.pos||0)).forEach(rvApply);
+    rvC.items=rvC.items.filter(x=>!list.includes(x));
+    if(cur>=slides.length)cur=slides.length-1;
+    rvC.idx=Math.min(rvC.idx,Math.max(0,rvC.items.length-1));sel=[];
+    draw();thumbs();notes.innerHTML=S0().notes||'';if(accept)commit();
+    if(rvC.items.length)rvGoItem(rvC.idx);else toast('Semua perubahan sudah ditangani. Pilih Akhiri Peninjauan untuk selesai.');
+  }
+  const rvCurItem=()=>rvC&&rvC.items[rvC.idx];
+  const rvSlideItems=()=>rvC?rvC.items.filter(it=>it.sv&&it.sv===S0().rv):[];
+  function rvEnd(){
+    const fin=()=>{rvC=null;draw();if(rvMode==='rv')rvClose();toast('Peninjauan diakhiri');};
+    if(rvC&&rvC.items.length)dlg('Akhiri Peninjauan',`<div>Masih ada ${rvC.items.length} perubahan yang belum ditangani. Perubahan tersebut akan ditolak (presentasi Anda tetap seperti sekarang).</div>`,[['Batal'],['Akhiri',()=>{fin();},1]]);
+    else fin();
+  }
+
+  Object.assign(MENUS,{
+    rvtrans:()=>[['Terjemahkan Teks yang Dipilih','rvtr:sel','🌐'],['Terjemahkan Slide Ini','rvtr:slide','🌐'],['Terjemahkan Seluruh Presentasi','rvtr:all','🌐']],
+    rvlang:()=>LANGS.map(l=>[(rvL===l[0]?'✓ ':'\u2003')+l[1],'rvsetlang:'+l[0]]),
+    rvdel:()=>[['Hapus','rvdel:one','✕'],['Hapus Semua Komentar pada Slide Ini','rvdel:slide'],['Hapus Semua Komentar dalam Presentasi','rvdel:all']],
+    rvshow:()=>[[(rvSh?'✓ ':'\u2003')+'Tampilkan Markup','rvmarkup'],['\u2003Panel Komentar','rvcpane']],
+    rvacc:()=>[['Terima Perubahan Ini','rvacc:one','✔'],['Terima Semua Perubahan pada Slide Ini','rvacc:slide'],['Terima Semua Perubahan','rvacc:all']],
+    rvrej:()=>[['Tolak Perubahan Ini','rvrej:one','✖'],['Tolak Semua Perubahan pada Slide Ini','rvrej:slide'],['Tolak Semua Perubahan','rvrej:all']]
+  });
+  Object.assign(acts,{
+    rvspell:rvSpellDlg,rvres:rvResearch,rvthes:rvThes,
+    rvtr:v=>rvTrans(v),
+    rvsetlang(v){rvL=v;updRev();toast('Bahasa pemeriksaan: '+LNAME(v));},
+    comment(){
+      const bg=dlg('Komentar Baru','<textarea class="cmt" rows="4" style="width:100%" placeholder="Tulis komentar…"></textarea>',
+        [['Batal'],['Kirim',bg=>{const t=bg.querySelector('.cmt').value.trim();if(!t){toast('Tulis komentar terlebih dahulu');return false;}addCm(t);},1]]);
+      const ta=bg.querySelector('.cmt');if(ta)ta.focus();
+    },
+    comments(){if(cpOpen()&&rvMode==='cm')rvClose();else rvOpen('cm');},
+    rvdel:v=>delCm(v),
+    rvcprev(){cmStep(-1);},rvcnext(){cmStep(1);},
+    rvmarkup(){rvSh=!rvSh;updRev();},
+    rvcpane(){rvOpen('cm');},
+    rvpane(){rvClose();},
+    rvrpane(){rvOpen('rv');},
+    rvcmp:rvCompare,
+    rvacc(v){const L=v==='all'?rvC.items.slice():v==='slide'?rvSlideItems():[rvCurItem()].filter(Boolean);rvDo(L,true);},
+    rvrej(v){const L=v==='all'?rvC.items.slice():v==='slide'?rvSlideItems():[rvCurItem()].filter(Boolean);rvDo(L,false);},
+    rvprev(){if(rvC)rvGoItem(rvC.idx-1);},rvnext(){if(rvC)rvGoItem(rvC.idx+1);},
+    rvend:rvEnd
+  });
+  stg.addEventListener('click',e=>{const c=e.target.closest('.cm');if(!c)return;const ci=+c.dataset.ci;if(!(S0().comments||[])[ci])return;rvA={si:cur,ci};updRev();rvOpen('cm');});
+  updRev();updDis();
 
   /* mulai */
   document.execCommand('styleWithCSS',false,true);
