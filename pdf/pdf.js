@@ -8,12 +8,24 @@ const CDN={
   jszip:'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
   docx:'https://cdn.jsdelivr.net/npm/docx@9.5.1/dist/index.iife.js',
   xlsx:'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
-  pptx:'https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js'
+  pptx:'https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js',
+  pdfenc:'https://cdn.jsdelivr.net/npm/pdf-lib-plus-encrypt@1.1.0/dist/pdf-lib-plus-encrypt.min.js'
 };
 const libs={};
 function lib(n,test){
   if(test()) return Promise.resolve();
   return libs[n]||(libs[n]=new Promise((ok,err)=>{const s=document.createElement('script');s.src=CDN[n];s.onload=ok;s.onerror=()=>{delete libs[n];err(new Error('Gagal memuat '+n));};document.head.appendChild(s);}));
+}
+/* pdf-lib biasa tidak bisa mengenkripsi; fork "plus-encrypt" dimuat terpisah tanpa menimpa window.PDFLib */
+let PLE=null;
+async function loadEnc(){
+  if(PLE) return PLE;
+  await lib('pdflib',()=>window.PDFLib);
+  const old=window.PDFLib;
+  await new Promise((ok,err)=>{const s=document.createElement('script');s.src=CDN.pdfenc;s.onload=ok;s.onerror=()=>err(new Error('Gagal memuat pustaka enkripsi'));document.head.appendChild(s);});
+  PLE=window.PDFLib;window.PDFLib=old;
+  if(!PLE||!PLE.PDFDocument||!PLE.PDFDocument.prototype.encrypt) throw new Error('Pustaka enkripsi tidak valid');
+  return PLE;
 }
 let pdfjsReady;
 function initPdfjs(){
@@ -303,9 +315,97 @@ U.layoutRuns=(runs,meas,width,indent)=>{
   if(cur.toks.length||!lines.length)push(true);
   return lines;
 };
+/* ---- helper murni untuk Review / Page Layout / Protect ---- */
+U.col=(h,d=[0,0,0])=>{const m=/^#?([0-9a-f]{6})$/i.exec(h||'');return m?[0,2,4].map(i=>parseInt(m[1].slice(i,i+2),16)/255):d;};
+U.rot=a=>{a=((Math.round(a||0)%360)+360)%360;return a%90===0?a:0;};
+/* koordinat tampilan (asal kiri-bawah, y ke atas) -> koordinat halaman tak-berputar relatif cropbox */
+U.v2p=(R,W,H,vx,vy)=>R===90?[W-vy,vx]:R===180?[W-vx,H-vy]:R===270?[vy,H-vx]:[vx,vy];
+/* margin menurut tampilan {t,b,l,r} -> margin pada ruang halaman tak-berputar {L,R,T,B} */
+U.cropMargins=(R,m)=>R===90?{L:m.t,T:m.r,R:m.b,B:m.l}:R===180?{L:m.r,R:m.l,T:m.b,B:m.t}:R===270?{L:m.b,T:m.l,R:m.t,B:m.r}:{L:m.l,R:m.r,T:m.t,B:m.b};
+U.arrowPts=(sx,sy,ex,ey,len)=>{const a=Math.atan2(ey-sy,ex-sx),s=Math.PI/7;return[[ex-len*Math.cos(a-s),ey-len*Math.sin(a-s)],[ex-len*Math.cos(a+s),ey-len*Math.sin(a+s)]];};
+U.ticks=(sx,sy,ex,ey,len)=>{const L=Math.hypot(ex-sx,ey-sy)||1,nx=-(ey-sy)/L*len,ny=(ex-sx)/L*len;return[[[sx-nx,sy-ny],[sx+nx,sy+ny]],[[ex-nx,ey-ny],[ex+nx,ey+ny]]];};
+U.measureLabel=a=>{const d=Math.hypot(a.w,a.h),u=a.unit||'cm';return u==='cm'?(d/72*2.54).toFixed(2)+' cm':u==='in'?(d/72).toFixed(2)+' in':d.toFixed(1)+' pt';};
+U.PENS={black:{color:'#111111',lw:1.5},red:{color:'#d90000',lw:1.5},blue:{color:'#1a56db',lw:1.5},marker:{color:'#ffe600',lw:12,mul:true}};
+/* coretan bebas -> anotasi dengan kotak pembatas; titik disimpan relatif terhadap x,y */
+U.normDr=(pts,P,page)=>{
+  const pad=P.lw/2+1;let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  for(const[x,y]of pts){x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y);}
+  x0-=pad;y0-=pad;x1+=pad;y1+=pad;
+  return{type:'dr',page,x:x0,y:y0,w:x1-x0,h:y1-y0,pts:pts.map(([x,y])=>[+(x-x0).toFixed(2),+(y-y0).toFixed(2)]),color:P.color,lw:P.lw,mul:!!P.mul,cm:true};
+};
+U.shapeSvg=a=>{
+  const w=a.w,h=a.h,lw=a.lw||2,c=a.color||'#d90000',att=`fill="none" stroke="${c}" stroke-width="${lw}" stroke-linecap="round" stroke-linejoin="round"`;
+  let b='';
+  if(a.shape==='rect') b=`<rect x="0" y="0" width="${w}" height="${h}" ${att}/>`;
+  else if(a.shape==='ell') b=`<ellipse cx="${w/2}" cy="${h/2}" rx="${w/2}" ry="${h/2}" ${att}/>`;
+  else{
+    const sx=a.fx?w:0,sy=a.fy?h:0,ex=a.fx?0:w,ey=a.fy?0:h;
+    b=`<line x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}" ${att}/>`;
+    if(a.shape==='arrow'){const[p,q]=U.arrowPts(sx,sy,ex,ey,8+lw*2);b+=`<path d="M${p[0]} ${p[1]}L${ex} ${ey}L${q[0]} ${q[1]}" ${att}/>`;}
+    if(a.shape==='measure'){
+      for(const[[x1,y1],[x2,y2]]of U.ticks(sx,sy,ex,ey,5)) b+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" ${att}/>`;
+      b+=`<text x="${(sx+ex)/2}" y="${(sy+ey)/2-6}" text-anchor="middle" font-size="11" font-family="Arial,Helvetica,sans-serif" font-weight="700" fill="${c}" stroke="#fff" stroke-width="3" paint-order="stroke">${U.measureLabel(a)}</text>`;
+    }
+  }
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;pointer-events:none">${b}</svg>`;
+};
+/* "3" = tiap 3 halaman; "1-3; 4-6; 7" = bagian menurut rentang */
+U.splitPlan=(spec,n)=>{
+  spec=(spec||'').trim();if(!spec) return null;
+  if(/^\d+$/.test(spec)){const k=+spec;if(k<1) return null;const out=[];for(let i=0;i<n;i+=k)out.push(Array.from({length:Math.min(k,n-i)},(_,j)=>i+j));return out;}
+  const out=[];
+  for(const part of spec.split(';')){if(!part.trim()) continue;const r=U.parseRange(part,n);if(!r||!r.length) return null;out.push(r);}
+  return out.length?out:null;
+};
+U.hfText=(t,page,total)=>String(t).replace(/\{page\}/gi,page).replace(/\{total\}/gi,total).replace(/\{date\}/gi,new Date().toLocaleDateString('id-ID'));
+U.bates=(pre,n,dig,suf)=>pre+String(n).padStart(dig,'0')+suf;
+U.wordDiff=(a,b)=>{
+  const m=new Map();for(const w of a.split(' ').filter(Boolean))m.set(w,(m.get(w)||0)+1);
+  let add=0,del=0;
+  for(const w of b.split(' ').filter(Boolean)){const c=m.get(w)||0;if(c>0)m.set(w,c-1);else add++;}
+  for(const c of m.values())del+=c;
+  return{add,del};
+};
+/* buang objek yang tak terjangkau dari Root/Info (mis. isi halaman lama setelah redaksi, XMP yang dilepas) */
+U.gc=(PL,d)=>{
+  const{PDFRef,PDFDict,PDFArray,PDFStream}=PL,ctx=d.context,seen=new Set(),stack=[];
+  const add=o=>{if(o)stack.push(o);};
+  const tr=ctx.trailerInfo;[tr.Root,tr.Info,tr.Encrypt,tr.ID].forEach(add);
+  while(stack.length){
+    const o=stack.pop();
+    if(o instanceof PDFRef){if(seen.has(o.tag))continue;seen.add(o.tag);add(ctx.lookup(o));}
+    else if(o instanceof PDFStream)add(o.dict);
+    else if(o instanceof PDFDict)o.values().forEach(add);
+    else if(o instanceof PDFArray)for(let i=0;i<o.size();i++)add(o.get(i));
+  }
+  let n=0;
+  for(const[ref]of ctx.enumerateIndirectObjects())if(!seen.has(ref.tag)){ctx.delete(ref);n++;}
+  return n;
+};
+/* ganti isi halaman i dengan gambar JPEG (ukuran tampilan w x h) di tempat: ref halaman tetap, semua isi lama dibuang */
+U.redactPage=async(PL,d,i,jpg,w,h)=>{
+  const{PDFName,PDFPage}=PL,pg=d.getPage(i),node=pg.node,ref=pg.ref;
+  for(const k of node.keys()){const n=k.asString();if(n!=='/Type'&&n!=='/Parent')node.delete(k);}
+  node.set(PDFName.of('Resources'),d.context.obj({}));
+  const np=PDFPage.of(node,ref,d);
+  np.setMediaBox(0,0,w,h);
+  const im=await d.embedJpg(jpg);
+  np.drawImage(im,{x:0,y:0,width:w,height:h});
+};
+/* tambah satu bookmark (outline) ke halaman pi pada akhir daftar */
+U.addBookmark=(PL,d,title,pi)=>{
+  const{PDFName,PDFNumber,PDFHexString,PDFDict}=PL,ctx=d.context,cat=d.catalog,N=n=>PDFName.of(n);
+  let olRef=cat.get(N('Outlines')),ol=olRef&&ctx.lookup(olRef,PDFDict);
+  if(!ol){ol=ctx.obj({Type:'Outlines',Count:0});olRef=ctx.register(ol);cat.set(N('Outlines'),olRef);}
+  const item=ctx.obj({Title:PDFHexString.fromText(title),Parent:olRef,Dest:[d.getPage(pi).ref,'Fit']}),ref=ctx.register(item),last=ol.get(N('Last'));
+  if(last){ctx.lookup(last,PDFDict).set(N('Next'),ref);item.set(N('Prev'),last);}
+  else ol.set(N('First'),ref);
+  ol.set(N('Last'),ref);
+  const cnt=ol.get(N('Count'));ol.set(N('Count'),PDFNumber.of(Math.abs(cnt instanceof PDFNumber?cnt.asNumber():0)+1));
+};
 /* tempelkan anotasi ke dokumen pdf-lib. pages[i]={vp,rot} */
 U.flatten=async(PL,doc,annots,pages)=>{
-  const {StandardFonts,rgb,degrees,BlendMode}=PL;
+  const {StandardFonts,rgb,degrees,BlendMode,LineCapStyle}=PL;
   const font=await doc.embedFont(StandardFonts.Helvetica),pgs=doc.getPages();
   /* lapis 1: tutup teks asli blok yang diedit (putih) */
   for(const a of annots){
@@ -317,18 +417,60 @@ U.flatten=async(PL,doc,annots,pages)=>{
   for(const a of annots){
     const pg=pgs[a.page],info=pages[a.page]; if(!pg||!info) continue;
     const vp=info.vp,rot=info.rot||0;
+    const P=(x,y)=>{const[px,py]=vp.convertToPdfPoint(x,y);return{x:px,y:py};};
     if(a.type==='tx'){
-      const m=/^#?([0-9a-f]{6})$/i.exec(a.color||'#000000'),c=m?[0,2,4].map(i=>parseInt(m[1].slice(i,i+2),16)/255):[0,0,0];
-      U.safe(a.text).split('\n').forEach((ln,i)=>{
+      const c=U.col(a.color),lines=U.safe(a.text).split('\n'),lh=a.size*1.2,BP=(a.box||a.bg)?4:0;
+      if(BP){
+        const tw=Math.max(0,...lines.map(l=>font.widthOfTextAtSize(l,a.size))),W=Math.max(tw+2*BP,a.bg?100:80),H=lines.length*lh+2*BP;
+        const p1=P(a.x,a.y),p2=P(a.x+W,a.y+H),bc=U.col(a.box||'#444444',[.27,.27,.27]);
+        const o={x:Math.min(p1.x,p2.x),y:Math.min(p1.y,p2.y),width:Math.abs(p2.x-p1.x),height:Math.abs(p2.y-p1.y),borderColor:rgb(bc[0],bc[1],bc[2]),borderWidth:1};
+        if(a.bg){const f=U.col(a.bg,[1,1,1]);o.color=rgb(f[0],f[1],f[2]);}
+        pg.drawRectangle(o);
+        if(a.co){const q=40*Math.SQRT1_2;pg.drawLine({start:P(a.x,a.y+H),end:P(a.x-q,a.y+H+q),thickness:1,color:rgb(bc[0],bc[1],bc[2])});}
+      }
+      lines.forEach((ln,i)=>{
         if(!ln) return;
-        const [px,py]=vp.convertToPdfPoint(a.x,a.y+i*a.size*1.2+a.size*TXT_ASC);
+        const [px,py]=vp.convertToPdfPoint(a.x+BP,a.y+BP+i*lh+a.size*TXT_ASC);
         pg.drawText(ln,{x:px,y:py,size:a.size,font,color:rgb(c[0],c[1],c[2]),rotate:degrees(rot)});
       });
     }else if(a.type==='hl'){
+      if(a.kind==='rd') continue; /* tanda redaksi diterapkan lewat jalur khusus, bukan di sini */
       for(const r of a.rects){
-        const [x1,y1]=vp.convertToPdfPoint(r.x,r.y),[x2,y2]=vp.convertToPdfPoint(r.x+r.w,r.y+r.h);
-        pg.drawRectangle({x:Math.min(x1,x2),y:Math.min(y1,y2),width:Math.abs(x2-x1),height:Math.abs(y2-y1),color:rgb(1,0.9,0),borderWidth:0,blendMode:BlendMode.Multiply});
+        if(a.kind==='ul'||a.kind==='st'){
+          const yy=a.kind==='ul'?r.y+r.h:r.y+r.h*0.55;
+          pg.drawLine({start:P(r.x,yy),end:P(r.x+r.w,yy),thickness:Math.max(0.8,r.h*0.07),color:rgb(.85,0,0)});
+        }else{
+          const [x1,y1]=vp.convertToPdfPoint(r.x,r.y),[x2,y2]=vp.convertToPdfPoint(r.x+r.w,r.y+r.h);
+          pg.drawRectangle({x:Math.min(x1,x2),y:Math.min(y1,y2),width:Math.abs(x2-x1),height:Math.abs(y2-y1),color:rgb(1,0.9,0),borderWidth:0,blendMode:BlendMode.Multiply});
+        }
       }
+    }else if(a.type==='sh'){
+      const c=U.col(a.color,[.85,0,0]),col=rgb(c[0],c[1],c[2]),lw=a.lw||2;
+      if(a.shape==='rect'||a.shape==='ell'){
+        const p1=P(a.x,a.y),p2=P(a.x+a.w,a.y+a.h);
+        if(a.shape==='rect') pg.drawRectangle({x:Math.min(p1.x,p2.x),y:Math.min(p1.y,p2.y),width:Math.abs(p2.x-p1.x),height:Math.abs(p2.y-p1.y),borderColor:col,borderWidth:lw});
+        else pg.drawEllipse({x:(p1.x+p2.x)/2,y:(p1.y+p2.y)/2,xScale:Math.abs(p2.x-p1.x)/2,yScale:Math.abs(p2.y-p1.y)/2,borderColor:col,borderWidth:lw});
+      }else{
+        const sx=a.x+(a.fx?a.w:0),sy=a.y+(a.fy?a.h:0),ex=a.x+(a.fx?0:a.w),ey=a.y+(a.fy?0:a.h);
+        const L=(x1,y1,x2,y2)=>pg.drawLine({start:P(x1,y1),end:P(x2,y2),thickness:lw,color:col,lineCap:LineCapStyle.Round});
+        L(sx,sy,ex,ey);
+        if(a.shape==='arrow'){const[h1,h2]=U.arrowPts(sx,sy,ex,ey,8+lw*2);L(ex,ey,h1[0],h1[1]);L(ex,ey,h2[0],h2[1]);}
+        if(a.shape==='measure'){
+          for(const[[x1,y1],[x2,y2]]of U.ticks(sx,sy,ex,ey,5)) L(x1,y1,x2,y2);
+          const lab=U.measureLabel(a),tw=font.widthOfTextAtSize(lab,11),[px,py]=vp.convertToPdfPoint((sx+ex)/2-tw/2,(sy+ey)/2-6);
+          pg.drawText(lab,{x:px,y:py,size:11,font,color:col,rotate:degrees(rot)});
+        }
+      }
+    }else if(a.type==='dr'){
+      const c=U.col(a.color),col=rgb(c[0],c[1],c[2]),pts=a.pts.map(q=>P(a.x+q[0],a.y+q[1])),bm=a.mul?{blendMode:BlendMode.Multiply}:{};
+      if(pts.length===1) pg.drawCircle({x:pts[0].x,y:pts[0].y,size:a.lw/2,color:col,...bm});
+      for(let i=1;i<pts.length;i++) pg.drawLine({start:pts[i-1],end:pts[i],thickness:a.lw,color:col,lineCap:LineCapStyle.Round,...bm});
+    }else if(a.type==='lk'){
+      const p1=P(a.x,a.y),p2=P(a.x+a.w,a.y+a.h),ctx=doc.context,base={Type:'Annot',Subtype:'Link',Rect:[Math.min(p1.x,p2.x),Math.min(p1.y,p2.y),Math.max(p1.x,p2.x),Math.max(p1.y,p2.y)],Border:[0,0,0],F:4};
+      let dict=null;
+      if(a.url) dict=ctx.obj({...base,A:{Type:'Action',S:'URI',URI:PL.PDFString.of(String(a.url).replace(/[^\x20-\x7E]/g,ch=>encodeURIComponent(ch)))}});
+      else if(pgs[a.dest]) dict=ctx.obj({...base,Dest:[pgs[a.dest].ref,'Fit']});
+      if(dict) pg.node.addAnnot(ctx.register(dict));
     }else if(a.type==='tb'){
       if(!a.touched||!a.runs) continue;
       const fam=U.MET[a.fam]?a.fam:'serif',fs={},size=a.size,runs=[];
@@ -392,14 +534,51 @@ const IC={
   del:s=>svg('<path d="M8 9h16l-1.5 19h-13z" fill="#d0d0d0" stroke="#777"/><path d="M6 9h20M13 9V5h6v4" stroke="#777" stroke-width="2"/>',s),
   extract:s=>svg(PG+'<path d="M16 21h13M24 15l6 6-6 6" stroke="#e5622c" stroke-width="2.6"/>',s),
   find:s=>svg(PG+'<circle cx="14" cy="17" r="7" fill="#fff" stroke="#e5622c" stroke-width="3"/><path d="M19 22l9 8" stroke="#e5622c" stroke-width="4"/>',s),
-  tools:s=>svg('<path d="M4 12h10M9 7v10" stroke="#e5622c" stroke-width="3.5"/><path d="M19 29l8-14a5 5 0 1 0-4-4z" fill="#555" stroke="#555"/>',s)
+  tools:s=>svg('<path d="M4 12h10M9 7v10" stroke="#e5622c" stroke-width="3.5"/><path d="M19 29l8-14a5 5 0 1 0-4-4z" fill="#555" stroke="#555"/>',s),
+  textbox:s=>svg('<rect x="3" y="7" width="26" height="18" fill="#fff" stroke="#888" stroke-dasharray="3 2"/><text x="16" y="20" font-size="10" font-weight="700" fill="#555" stroke="none" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif">abc</text>',s),
+  callout:s=>svg('<rect x="3" y="3" width="26" height="15" fill="#fff59d" stroke="#c9a800"/><path d="M7 18l-3 10 11-10" fill="#fff59d" stroke="#c9a800"/><path d="M7 8h18M7 13h11" stroke="#8a6d00"/>',s),
+  note:s=>svg('<path d="M4 4h24v17l-7 7H4z" fill="#fdd835" stroke="#c9a800"/><path d="M21 28v-7h7" fill="#e6bc00" stroke="#c9a800"/><path d="M8 10h16M8 15h16M8 20h8" stroke="#8a6d00" stroke-width="1.6"/>',s),
+  strike:s=>svg('<text x="16" y="24" font-size="22" font-weight="700" fill="#555" stroke="none" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif">A</text><path d="M3 16h26" stroke="#d9322d" stroke-width="2.6"/>',s),
+  underline:s=>svg('<text x="16" y="23" font-size="22" font-weight="700" fill="#555" stroke="none" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif">A</text><path d="M4 28h24" stroke="#2e7d32" stroke-width="2.6"/>',s),
+  replace:s=>svg('<text x="12" y="24" font-size="20" font-weight="700" fill="#888" stroke="none" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif">A</text><path d="M2 16h20" stroke="#d9322d" stroke-width="2.4"/><path d="M20 6l4-3 4 3M24 3v10" stroke="#2e7d32" stroke-width="2"/>',s),
+  stamp:s=>svg('<rect x="4" y="21" width="24" height="7" rx="1" fill="#8a8a8a" stroke="#666"/><path d="M11 21v-6a5 5 0 0 1 10 0v6z" fill="#c4262e" stroke="#9a1c22"/><rect x="13" y="4" width="6" height="6" rx="3" fill="#c4262e" stroke="#9a1c22"/>',s),
+  shapes:s=>svg('<rect x="3" y="13" width="15" height="15" fill="#fff" stroke="#555" stroke-width="1.8"/><circle cx="21" cy="12" r="8" fill="#fff" stroke="#e5622c" stroke-width="1.8"/>',s),
+  drawing:s=>svg('<path d="M6 27l2-7L22 6l4 4L12 24z" fill="#f4b183" stroke="#555"/><path d="M6 27l2-7 4 4z" fill="#555" stroke="#555"/><path d="M3 12q4-7 8 0" stroke="#e5622c" stroke-width="2"/>',s),
+  addimage:s=>svg('<rect x="3" y="4" width="20" height="18" rx="2" fill="#fff" stroke="#888"/><path d="M5 20l5-7 3 4 3-4 5 7z" fill="#3b8fd9" stroke="none"/><path d="M24 17v12M18 23h12" stroke="#e5622c" stroke-width="3"/>',s),
+  measure:s=>svg('<path d="M3 24L24 3l5 5L8 29z" fill="#fdd835" stroke="#555"/><path d="M8 19l3 3M12 15l2 2M16 11l3 3M20 7l2 2" stroke="#555"/>',s),
+  attach:s=>svg('<path d="M22 9L12 20a3 3 0 0 0 4 4l11-12a5 5 0 0 0-7-7L8 17a7 7 0 0 0 10 10" stroke="#555" stroke-width="2.2"/>',s),
+  ocr:s=>svg('<text x="15" y="13" font-size="9" font-weight="700" fill="#777" stroke="none" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif">abc</text><circle cx="15" cy="21" r="6" fill="#fff" stroke="#e5622c" stroke-width="2.4"/><path d="M19 25l7 5" stroke="#e5622c" stroke-width="3"/>',s),
+  compare:s=>svg('<path d="M3 4h12v22H3z" fill="#fff" stroke="#888"/><path d="M17 8h12v22H17z" fill="#fff" stroke="#888"/><path d="M6 10h6M6 14h6M20 14h6M20 18h6" stroke="#e5622c" stroke-width="1.6"/>',s),
+  summ:s=>svg('<rect x="3" y="4" width="26" height="18" fill="#fdd835" stroke="#c9a800"/><path d="M7 10h18M7 15h18" stroke="#8a6d00"/><path d="M8 22v6l6-6" fill="#fdd835" stroke="#c9a800"/>',s),
+  migrate:s=>svg('<path d="M5 12h20M19 6l6 6-6 6M27 22H7M13 16l-6 6 6 6" stroke="#e5622c" stroke-width="2.4"/>',s),
+  hide:s=>svg('<path d="M3 16c4-7 9-10 13-10s9 3 13 10c-4 7-9 10-13 10S7 23 3 16z" fill="#fff" stroke="#555" stroke-width="1.8"/><circle cx="16" cy="16" r="4" fill="#555" stroke="none"/><path d="M5 27L27 5" stroke="#d9322d" stroke-width="2.4"/>',s),
+  crop:s=>svg('<path d="M9 3v20h20M3 9h20v20" stroke="#444" stroke-width="3"/>',s),
+  replpg:s=>svg('<path d="M4 4h12v16H4z" fill="#fff" stroke="#888"/><path d="M14 12h12v16H14z" fill="#fff" stroke="#e5622c"/><path d="M20 4l5 4-5 4" stroke="#e5622c" stroke-width="2"/>',s),
+  split:s=>svg('<path d="M5 3h22v10H5z" fill="#fff" stroke="#888"/><path d="M5 19h22v10H5z" fill="#fff" stroke="#888"/><path d="M2 16h28" stroke="#e5622c" stroke-width="2.4" stroke-dasharray="4 3"/>',s),
+  hf:s=>svg('<path d="M7 2h18v28H7z" fill="#fff" stroke="#888"/><rect x="7" y="2" width="18" height="6" fill="#e5622c" stroke="none"/><rect x="7" y="24" width="18" height="6" fill="#e5622c" stroke="none"/>',s),
+  wm:s=>svg('<path d="M7 2h18v28H7z" fill="#fff" stroke="#888"/><text x="16" y="22" font-size="16" font-weight="700" fill="#e5622c" stroke="none" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" transform="rotate(-35 16 17)">A</text>',s),
+  bates:s=>svg('<path d="M7 2h18v28H7z" fill="#fff" stroke="#888"/><path d="M11 8h10M11 12h10M11 16h10" stroke="#bbb"/><text x="16" y="26" font-size="9" font-weight="700" fill="#e5622c" stroke="none" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif">001</text>',s),
+  bm:s=>svg('<path d="M8 3h16v26l-8-7-8 7z" fill="#e5622c" stroke="#b34a1e"/>',s),
+  link:s=>svg('<path d="M13 19a5 5 0 0 0 7 0l5-5a5 5 0 0 0-7-7l-2 2M19 13a5 5 0 0 0-7 0l-5 5a5 5 0 0 0 7 7l2-2" stroke="#555" stroke-width="2.6"/>',s),
+  deskew:s=>svg('<path d="M8 5h14v20H8z" fill="#fff" stroke="#888" transform="rotate(-12 15 15)"/><path d="M4 29h24" stroke="#e5622c" stroke-width="2.4"/>',s),
+  redmark:s=>svg('<path d="M7 2h18v28H7z" fill="#fff" stroke="#888"/><rect x="10" y="8" width="12" height="4" fill="#222" stroke="none"/><rect x="10" y="15" width="9" height="4" fill="#222" stroke="none"/><path d="M10 24h12" stroke="#bbb"/>',s),
+  redapply:s=>svg('<rect x="3" y="5" width="20" height="5" fill="#222" stroke="none"/><rect x="3" y="13" width="26" height="5" fill="#222" stroke="none"/><path d="M10 25l4 4 9-9" stroke="#2e7d32" stroke-width="3"/>',s),
+  redsearch:s=>svg('<rect x="3" y="5" width="18" height="5" fill="#222" stroke="none"/><circle cx="14" cy="19" r="6" fill="#fff" stroke="#e5622c" stroke-width="2.4"/><path d="M19 24l8 6" stroke="#e5622c" stroke-width="3"/>',s),
+  rmmeta:s=>svg('<path d="M7 2h18v28H7z" fill="#fff" stroke="#888"/><path d="M11 8h10M11 13h10" stroke="#bbb"/><path d="M12 19l8 8M20 19l-8 8" stroke="#d9322d" stroke-width="3"/>',s),
+  pwd:s=>svg('<rect x="7" y="14" width="18" height="14" rx="2" fill="#e5622c" stroke="#b34a1e"/><path d="M11 14v-4a5 5 0 0 1 10 0v4" stroke="#555" stroke-width="2.4"/><circle cx="16" cy="21" r="2" fill="#fff" stroke="none"/>',s),
+  cert:s=>svg('<path d="M5 2h16v22H5z" fill="#fff" stroke="#888"/><circle cx="22" cy="21" r="6" fill="#e5622c" stroke="#b34a1e"/><path d="M19 26l-2 5 5-2 5 2-2-5" fill="#e5622c" stroke="#b34a1e"/>',s),
+  prof:s=>svg('<rect x="3" y="14" width="14" height="11" rx="2" fill="#e5622c" stroke="#b34a1e"/><rect x="14" y="7" width="14" height="11" rx="2" fill="#f08a5d" stroke="#b34a1e"/>',s),
+  sens:s=>svg('<path d="M6 3h20v26H6z" fill="#e8e8e8" stroke="#aaa"/><circle cx="16" cy="14" r="5" fill="none" stroke="#aaa" stroke-width="2.4"/><path d="M10 25h12" stroke="#aaa" stroke-width="2"/>',s),
+  certify:s=>svg('<circle cx="16" cy="13" r="9" fill="#3b8fd9" stroke="#2a6db0"/><path d="M11 21l-3 9 8-4 8 4-3-9" fill="#3b8fd9" stroke="#2a6db0"/><path d="M12 13l3 3 6-6" stroke="#fff" stroke-width="2.6"/>',s),
+  digid:s=>svg('<rect x="3" y="7" width="26" height="18" rx="2" fill="#fff" stroke="#888"/><circle cx="11" cy="14" r="3" fill="#e5622c" stroke="none"/><path d="M6 22c0-5 10-5 10 0z" fill="#e5622c" stroke="none"/><path d="M19 12h7M19 17h7" stroke="#bbb"/>',s),
+  trust:s=>svg('<circle cx="11" cy="11" r="5" fill="#e5622c" stroke="none"/><path d="M2 27c0-9 18-9 18 0z" fill="#e5622c" stroke="none"/><circle cx="22" cy="12" r="4" fill="#9a4a2c" stroke="none"/><path d="M15 27c0-6 15-6 15 0z" fill="#9a4a2c" stroke="none"/>',s)
 };
 
 /* ====================== ribbon ====================== */
 const G=(n,b)=>`<div class="grp"><div class="gb">${b}</div><div class="gn">${n}</div></div>`;
 const lab=(l,dd)=>{const t=l.replace(' ','<br>');return dd?(l.includes(' ')?t+' ▾':t+'<br>▾'):t;};
-const big=(a,l,i,o={})=>`<button class="b big${o.t?'':''}" ${o.dd?`data-dd="${a}"`:o.t?`data-t="${a}"`:`data-a="${a}"`} title="${l}">${IC[i](32)}<span>${lab(l,o.dd)}</span></button>`;
-const sm=(a,l,i,o={})=>`<button class="b rw" ${o.dd?`data-dd="${a}"`:o.t?`data-t="${a}"`:`data-a="${a}"`} title="${l}">${IC[i](16)}<span>${l}</span>${o.dd?'<i>▾</i>':''}</button>`;
+const big=(a,l,i,o={})=>`<button class="b big${o.x?' dim':''}"${o.dis?' disabled':''} ${o.dd?`data-dd="${a}"`:o.t?`data-t="${a}"`:`data-a="${a}"`} title="${l}">${IC[i](32)}<span>${lab(l,o.dd)}</span></button>`;
+const sm=(a,l,i,o={})=>`<button class="b rw${o.x?' dim':''}" ${o.dd?`data-dd="${a}"`:o.t?`data-t="${a}"`:`data-a="${a}"`} title="${l}">${IC[i](16)}<span>${l}</span>${o.dd?'<i>▾</i>':''}</button>`;
 const MODES=`<div class="mt">${sm('hand','Hand','hand',{t:1})}${sm('edit','Edit','edit',{t:1})}<div class="zr2">${sm('zoom','Zoom','zoom',{t:1})}<button class="b ddc" data-dd="zoom" title="Opsi zoom">▾</button></div></div>`;
 const RIB={
 home:
@@ -413,7 +592,23 @@ home:
 convert:
  G('Formats',big('toword','To Word','word')+big('toexcel','To Excel','excel')+big('topptx','To PowerPoint','ppt')+big('toimage','To Image','image')+big('pdfa','To PDF/A','pdfa',{dd:1})+
    `<div class="rows">${sm('torich','To Rich Text','rich')}${sm('toplain','To Plain Text','plain')}${sm('extimg','Extract Images','extimg')}</div>`)+
- G('Create',big('portfolio','Portfolio','portfolio'))
+ G('Create',big('portfolio','Portfolio','portfolio')),
+review:
+ G('Markup',big('select','Select','select',{t:1})+big('highlight','Highlight','hl',{t:1})+big('textbox','Text Box','textbox',{t:1})+big('callout','Call Out','callout',{t:1})+big('note','Add Note','note',{t:1})+`<div class="rows">${sm('strike','Cross Out','strike',{t:1})}${sm('underline','Underline','underline',{t:1})}${sm('replace','Replace','replace',{t:1})}</div>`)+
+ G('Review Tools',big('stamp','Stamp','stamp',{dd:1})+big('shapes','Shapes','shapes',{dd:1})+big('drawing','Drawing','drawing',{dd:1})+`<div class="rows">${sm('addimage','Add Image','addimage',{dd:1})}${sm('measure','Measure','measure',{dd:1})}${sm('attach','Attach Files','attach')}</div>`)+
+ G('Document',big('ocr','OCR','ocr',{x:1})+big('compare','Compare','compare'))+
+ G('Comments',`<div class="rows">${sm('summarize','Summarize Comments','summ',{dd:1})}${sm('migrate','Migrate','migrate',{x:1})}${sm('hidecm','Hide Comments','hide')}</div>`),
+layout:
+ G('Pages',big('insert','Insert','insert',{dd:1})+big('rotate','Rotate','rot',{dd:1})+big('del','Delete','del')+big('crop','Crop','crop')+`<div class="rows">${sm('extract','Extract','extract')}${sm('replpg','Replace','replpg')}${sm('splitdoc','Split','split')}</div>`)+
+ G('Page Marks',big('hf','Header &amp; Footer','hf',{dd:1})+big('wm','Watermark','wm',{dd:1})+big('bates','Bates Number','bates',{dd:1}))+
+ G('Navigation',big('bm','Bookmark','bm',{dd:1})+big('lk','Link','link',{dd:1}))+
+ G('Document',big('deskew','Auto De-skew','deskew',{x:1})),
+protect:
+ G('Redact',big('markred','Mark for Redaction','redmark',{dd:1})+`<div class="rows">${sm('redapply','Apply All Redactions','redapply')}${sm('redsearch','Search and Redact','redsearch')}${sm('rmmeta','Remove Metadata','rmmeta')}</div>`)+
+ G('Secure Document',big('pwd','Password Security','pwd')+big('certsec','Certificate Security','cert',{x:1})+big('profiles','Manage Profiles','prof',{x:1}))+
+ G('Sensitivity',big('sens','Sensitivity','sens',{dis:1}))+
+ G('Certify Document',big('sign','Sign','sign',{dd:1})+big('certify','Certify','certify',{x:1}))+
+ G('Identification',big('digid','My Digital IDs','digid',{x:1})+big('trusted','Trusted Contacts','trust',{x:1}))
 };
 const DD={
   create:()=>[['PDF kosong baru','blank'],['PDF dari gambar…','fromimg'],['PDF dari teks (.txt)…','fromtxt']],
@@ -421,7 +616,19 @@ const DD={
   insert:()=>[['Halaman kosong (setelah halaman ini)','insblank'],['Dari berkas PDF…','inspdf'],['Dari gambar…','insimg']],
   rotate:()=>[['Putar kanan 90° (halaman ini)','rot:90'],['Putar kiri 90° (halaman ini)','rot:-90'],['Putar 180° (halaman ini)','rot:180'],'-',['Putar semua halaman ke kanan','rotall:90'],['Putar semua halaman ke kiri','rotall:-90']],
   zoom:()=>[['Perbesar','zin'],['Perkecil','zout'],'-',['50%','z:50'],['75%','z:75'],['100%','z:100'],['150%','z:150'],['200%','z:200'],'-',['Sesuaikan lebar','zfitw'],['Sesuaikan halaman','zfitp']],
-  pdfa:()=>[['PDF/A-1b','pdfa'],['PDF/A-2b','pdfa'],['PDF/A-3b','pdfa']]
+  pdfa:()=>[['PDF/A-1b','pdfa'],['PDF/A-2b','pdfa'],['PDF/A-3b','pdfa']],
+  stamp:()=>[['DISETUJUI','stamp:DISETUJUI'],['DITOLAK','stamp:DITOLAK'],['DRAF','stamp:DRAF'],['RAHASIA','stamp:RAHASIA'],['FINAL','stamp:FINAL'],['SELESAI','stamp:SELESAI'],['SALINAN','stamp:SALINAN'],'-',['Tanggal hari ini','stamp:TGL']],
+  shapes:()=>[['Persegi panjang','shape:rect'],['Elips','shape:ell'],['Garis','shape:line'],['Panah','shape:arrow']],
+  drawing:()=>[['Pena hitam','pen:black'],['Pena merah','pen:red'],['Pena biru','pen:blue'],['Marker kuning','pen:marker']],
+  addimage:()=>[['Dari berkas gambar…','addimg'],['Tempel dari clipboard','pasteimg']],
+  measure:()=>[['Jarak (cm)','measure:cm'],['Jarak (inci)','measure:in'],['Jarak (poin)','measure:pt']],
+  summarize:()=>[['Tampilkan ringkasan…','sumshow'],['Ekspor ringkasan (.txt)','sumexp']],
+  hf:()=>[['Tambah header & footer…','hf:full'],['Tambah nomor halaman…','hf:num']],
+  wm:()=>[['Teks kustom…','wm:custom'],'-',['DRAF','wm:draf'],['RAHASIA','wm:rahasia'],['SALINAN','wm:salinan'],['JANGAN DISALIN','wm:jangan']],
+  bates:()=>[['Tambah nomor Bates…','bates']],
+  bm:()=>[['Tambah bookmark di halaman ini…','bmadd'],['Lihat daftar bookmark…','bmlist']],
+  lk:()=>[['Tautan ke URL (gambar kotak)','link:url'],['Tautan ke halaman (gambar kotak)','link:page']],
+  markred:()=>[['Tandai area (seret)','redarea'],['Tandai teks (sorot teks)','redtext'],'-',['Hapus semua tanda redaksi','redclear']]
 };
 const FAVS=[['rot:90','Putar kanan','rot'],['rot:-90','Putar kiri','rot'],['del','Hapus halaman','del'],['extract','Ekstrak halaman','extract'],['find','Cari','find'],['combine','Gabungkan','combine'],['blank','PDF kosong baru','pdf'],
   ['toword','Ke Word','word'],['toexcel','Ke Excel','excel'],['topptx','Ke PowerPoint','ppt'],['toimage','Ke gambar','image'],['torich','Ke Rich Text','rich'],['toplain','Ke Plain Text','plain'],['extimg','Ekstrak gambar','extimg'],['print','Cetak','pdf']];
@@ -485,7 +692,7 @@ const CSS=`
 .pd .im{cursor:move;outline:1px solid transparent}.pd .im.sel{outline:1px solid var(--acc)}
 .pd .im img{width:100%;height:100%;display:block;pointer-events:none}
 .pd .rs{position:absolute;right:-5px;bottom:-5px;width:10px;height:10px;background:var(--acc);cursor:nwse-resize;display:none}
-.pd .im.sel .rs{display:block}
+.pd .im.sel .rs,.pd .sh.sel .rs{display:block}
 .pd .hll{position:absolute;inset:0;pointer-events:none}
 .pd .hll i{position:absolute;background:#ffe600;mix-blend-mode:multiply;border-radius:2px;pointer-events:none}
 .pd .cov{position:absolute;background:#fff}
@@ -546,7 +753,7 @@ const CSS=`
 .pd .dg h3{margin:0 0 10px;font-size:14px;font-weight:600;color:var(--acc)}
 .pd .db{display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow:auto}
 .pd .db label{display:flex;gap:8px;align-items:center}
-.pd .db input[type=text],.pd .db select{height:26px;border:1px solid #aaa;padding:0 4px;max-width:100%}
+.pd .db input[type=text],.pd .db input[type=password],.pd .db select{height:26px;border:1px solid #aaa;padding:0 4px;max-width:100%}
 .pd .db canvas{border:1px solid #aaa;background:#fff;touch-action:none;max-width:100%;cursor:crosshair}
 .pd .dbt{display:flex;gap:6px;justify-content:flex-end;margin-top:12px}
 .pd .dbt button{height:26px;border:1px solid #aaa;background:#f3f3f3;cursor:pointer;padding:0 14px}
@@ -565,6 +772,26 @@ const CSS=`
  .pd .status input[type=range]{width:70px}
  .pd .find{left:8px;right:8px;top:auto;bottom:40px}.pd .find input{width:100%;min-width:0}
 }
+.pd .b.dim{color:#8a8a8a}.pd .b.dim svg{opacity:.55}
+.pd .b:disabled{opacity:.4;cursor:default}.pd .b:disabled:hover{background:none;border-color:transparent}
+.pd .tx.bx{padding:3px;border:1px solid var(--bc,#444);background:var(--bg,transparent);min-width:80px;line-height:1.2}
+.pd .tx.nt{min-width:100px}
+.pd .tx.co::after{content:"";position:absolute;left:-1px;top:100%;width:40px;border-top:1px solid var(--bc,#444);transform-origin:0 0;transform:rotate(135deg)}
+.pd .sh,.pd .dr{outline:1px solid transparent;cursor:move}.pd .sh.sel,.pd .dr.sel,.pd .lk.sel{outline:1px dashed var(--acc)}
+.pd .dr svg{position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+.pd .lk{border:1px dashed #1a73e8;background:rgba(26,115,232,.12);cursor:move}
+.pd .dprev{position:absolute;border:1px dashed #1a73e8;background:rgba(26,115,232,.1);pointer-events:none}.pd .dprev.redarea{border-color:#d90000;background:rgba(217,0,0,.18)}
+.pd .hll i.ul{background:none;mix-blend-mode:normal;border-radius:0;border-bottom:calc(var(--s)*1.2px) solid #d90000}
+.pd .hll i.st{background:none;mix-blend-mode:normal;border-radius:0}
+.pd .hll i.st::after{content:"";position:absolute;left:0;right:0;top:55%;border-top:calc(var(--s)*1.2px) solid #d90000}
+.pd .hll i.rd{background:rgba(217,0,0,.18);mix-blend-mode:normal;border-radius:0;outline:calc(var(--s)*1px) solid #d90000}
+.pd .desk.hidecm .cm{display:none}
+.pd .t-textbox .tl,.pd .t-callout .tl,.pd .t-note .tl,.pd .t-stamp .tl,.pd .t-shape .tl,.pd .t-pen .tl,.pd .t-measure .tl,.pd .t-link .tl,.pd .t-redarea .tl{pointer-events:none}
+.pd .t-textbox,.pd .t-callout,.pd .t-note,.pd .t-stamp,.pd .t-shape,.pd .t-pen,.pd .t-measure,.pd .t-link,.pd .t-redarea{cursor:crosshair}
+.pd .t-shape .pg,.pd .t-pen .pg,.pd .t-measure .pg,.pd .t-link .pg,.pd .t-redarea .pg{touch-action:none;user-select:none}
+.pd .t-textbox .annl>*,.pd .t-callout .annl>*,.pd .t-note .annl>*{pointer-events:auto}
+.pd .t-textbox .tx,.pd .t-callout .tx,.pd .t-note .tx{cursor:text}
+.pd .db .bmi{border:0;background:none;cursor:pointer;padding:5px 8px;font:inherit;text-align:left}.pd .db .bmi:hover{background:#f1f1f1}
 .pd-print{display:none}
 @media print{body>*:not(.pd-print){display:none!important}.pd-print{display:block}.pd-print img{display:block;width:100%;break-after:page}@page{margin:0}}
 `;
@@ -576,12 +803,17 @@ function mount(root,opts={}){
   let zoom=100,S=4/3,autoFit=true,tool='select',dirty=false,pristine=false,cur=0,selId=null,idc=0,locked=false,io=null,ddBtn=null;
   let sign=store.get('sign',null),favs=store.get('favs',[]);
   let fq='',fm=[],fi=-1,ft=0;
+  let stampSel='DISETUJUI',shapeSel='rect',penSel='black',measureUnit='cm',linkMode='url',hidecm=false;
+  const SELTOOL={highlight:'hl',underline:'ul',strike:'st',replace:'rp',redtext:'rd'};
+  const TXT={text:{size:12,p:{}},textbox:{size:12,box:1,p:{box:'#444444',cm:true}},callout:{size:12,box:1,p:{box:'#444444',co:true,cm:true}},note:{size:11,bg:1,p:{bg:'#fff59d',box:'#c9a800',cm:true}}};
+  const DRAWT={shape:1,pen:1,measure:1,link:1,redarea:1};
+  const isRd=a=>a.type==='hl'&&a.kind==='rd';
   const textCache=new Map(),ZL=[10,25,50,75,100,125,150,200,300,400,500];
 
   root.innerHTML=`<div class="pd" tabindex="-1">
     <div class="qat"><div class="l"><span class="w">A</span><button data-a="save" title="Simpan (Ctrl+S)">💾</button><button data-a="undo" title="Urungkan (Ctrl+Z)">↶</button><button data-a="redo" title="Ulangi (Ctrl+Y)">↷</button></div><span class="fn"></span></div>
-    <div class="tabs"><button class="tab file" data-a="menu">File</button><button class="tab on" data-tab="home">Home</button><button class="tab" data-tab="convert">Convert</button></div>
-    <div class="rib">${MODES}<div class="ribbon" data-pane="home">${RIB.home}</div><div class="ribbon" data-pane="convert" hidden>${RIB.convert}</div></div>
+    <div class="tabs"><button class="tab file" data-a="menu">File</button><button class="tab on" data-tab="home">Home</button><button class="tab" data-tab="convert">Convert</button><button class="tab" data-tab="review">Review</button><button class="tab" data-tab="layout">Page Layout</button><button class="tab" data-tab="protect">Protect</button></div>
+    <div class="rib">${MODES}<div class="ribbon" data-pane="home">${RIB.home}</div><div class="ribbon" data-pane="convert" hidden>${RIB.convert}</div><div class="ribbon" data-pane="review" hidden>${RIB.review}</div><div class="ribbon" data-pane="layout" hidden>${RIB.layout}</div><div class="ribbon" data-pane="protect" hidden>${RIB.protect}</div></div>
     <div class="desk t-select" tabindex="-1"><div class="pgs"></div></div>
     <div class="find" hidden><input type="text" class="fq" placeholder="Cari teks…"><span class="fc"></span><button data-a="fprev" title="Sebelumnya">▲</button><button data-a="fnext" title="Berikutnya">▼</button><button data-a="fclose">Tutup</button></div>
     <div class="status"><div class="s"><span><button data-a="first" title="Halaman pertama">|◀</button><button data-a="prev" title="Sebelumnya">◀</button> <input type="number" class="pi" min="1" value="1"> <span class="of">OF 1</span> <button data-a="next" title="Berikutnya">▶</button><button data-a="last" title="Halaman terakhir">▶|</button></span></div>
@@ -624,7 +856,7 @@ function mount(root,opts={}){
     bytes=s.bytes;annots=clone(s.annots);selId=null;dirty=true;btns();
     if(reload)await load(bytes,{page:cur});else drawAll();
   }
-  async function apply(nb,page){bytes=nb;annots=[];selId=null;push();await load(nb,{page});}
+  async function apply(nb,page,keep){bytes=nb;annots=keep||[];selId=null;push();await load(nb,{page});}
   const run=async fn=>{if(locked)return;locked=true;try{await fn();}catch(e){console.error(e);toast('Gagal: '+(e&&e.message||e));}finally{locked=false;}};
 
   /* ---------- memuat & merender ---------- */
@@ -749,19 +981,23 @@ function mount(root,opts={}){
   }
   function mkCover(a){const d=document.createElement('div'),c=a.cover;d.className='cov';d.dataset.for=a.id;d.style.cssText=`left:${c.x}px;top:${c.y}px;width:${c.w}px;height:${c.h}px`;return d;}
   function mkHl(a,r){
-    const d=document.createElement('i');d.dataset.id=a.id;
+    const d=document.createElement('i');d.dataset.id=a.id;d.className=(a.kind&&a.kind!=='hl'?a.kind:'')+(a.cm?' cm':'');
     d.style.cssText=`left:calc(var(--s)*${r.x}px);top:calc(var(--s)*${r.y}px);width:calc(var(--s)*${r.w}px);height:calc(var(--s)*${r.h}px)`;
     return d;
   }
   function mkAnn(a){
     const d=document.createElement('div');d.dataset.id=a.id;
-    if(a.type==='tx'){d.className='an tx';d.style.cssText=`left:${a.x}px;top:${a.y}px;font-size:${a.size}px;color:${a.color||'#000'}`;d.textContent=a.text;}
+    if(a.type==='tx'){d.className='an tx'+(a.box||a.bg?' bx':'')+(a.bg?' nt':'')+(a.co?' co':'');d.style.cssText=`left:${a.x}px;top:${a.y}px;font-size:${a.size}px;color:${a.color||'#000'}`+(a.box?`;--bc:${a.box}`:'')+(a.bg?`;--bg:${a.bg}`:'');d.textContent=a.text;}
+    else if(a.type==='sh'){d.className='an sh';d.style.cssText=`left:${a.x}px;top:${a.y}px;width:${a.w}px;height:${a.h}px`;d.innerHTML=U.shapeSvg(a)+'<span class="rs"></span>';}
+    else if(a.type==='dr'){d.className='an dr';d.style.cssText=`left:${a.x}px;top:${a.y}px;width:${a.w}px;height:${a.h}px${a.mul?';mix-blend-mode:multiply':''}`;d.innerHTML=`<svg viewBox="0 0 ${a.w} ${a.h}"><polyline points="${a.pts.map(q=>q.join(',')).join(' ')}" fill="none" stroke="${a.color}" stroke-width="${a.lw}" stroke-linecap="round" stroke-linejoin="round"/></svg>`;}
+    else if(a.type==='lk'){d.className='an lk';d.style.cssText=`left:${a.x}px;top:${a.y}px;width:${a.w}px;height:${a.h}px`;d.title=a.url?a.url:'Ke halaman '+(a.dest+1);}
     else if(a.type==='im'){d.className='an im';d.style.cssText=`left:${a.x}px;top:${a.y}px;width:${a.w}px;height:${a.h}px`;d.innerHTML=`<img src="${a.src}" alt=""><span class="rs"></span>`;}
     else if(a.type==='tb'){
       d.className='an tb '+(a.fam||'serif');
       d.style.cssText=`left:${a.x}px;top:${a.y}px;width:${a.w}px;min-height:${a.h}px;font-size:${a.size}px;line-height:${a.lh};text-align:${a.align};color:${a.color||'#000'}`;
       d.innerHTML=`<div class="tbt" style="text-indent:${a.indent||0}px">${runsHtml(a.runs)}</div>${MV}${HD}`;
     }
+    if(a.cm)d.classList.add('cm');
     if(a.id===selId)d.classList.add('sel');
     return d;
   }
@@ -775,11 +1011,11 @@ function mount(root,opts={}){
     selId=id;pgs.querySelectorAll('.sel').forEach(e=>e.classList.remove('sel'));const e=id&&annEl(id);if(e)e.classList.add('sel');
   }
   function setTool(t){
-    tool=t;desk.className='desk t-'+t;
+    tool=t;desk.className='desk t-'+t+(hidecm?' hidecm':'');
     $$('[data-t]').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
-    if(t!=='edit'&&t!=='text')select(null);
+    if(t!=='edit'&&!TXT[t])select(null);
     if(t!=='edit')hideHv();
-    if(t!=='highlight'&&t!=='select')getSelection().removeAllRanges();
+    if(!SELTOOL[t]&&t!=='select')getSelection().removeAllRanges();
   }
   function startEdit(el){
     el.contentEditable='true';el.focus();
@@ -884,31 +1120,35 @@ function mount(root,opts={}){
     if(tool==='zoom'){autoFit=false;if(e.shiftKey||e.altKey)zstep(-1);else zstep(1);return;}
     if(!pgEl)return;
     const i=+pgEl.dataset.i;
-    if(tool==='text'){
+    if(TXT[tool]){
       const tx=e.target.closest('.an.tx');if(tx){if(!tx.isContentEditable)startEdit(tx);return;}
       if(e.target.closest('.an'))return;
-      const[x,y]=pt(e,pgEl),size=12;
-      const el=addAnn({type:'tx',page:i,x:Math.max(0,x),y:Math.max(0,y-size*0.6),size,color:'#000000',text:''});
+      const o=TXT[tool],[x,y]=pt(e,pgEl),size=o.size,pad=(o.box||o.bg)?4:0;
+      const el=addAnn({type:'tx',page:i,x:Math.max(0,x),y:Math.max(0,y-size*0.6-pad),size,color:'#000000',text:'',...o.p});
       select(null);startEdit(el);
+    }else if(tool==='stamp'){
+      placeImg(i,pt(e,pgEl),stampImg(stampSel),140,true);
     }else if(tool==='sign'){
       if(!sign){const s=await signDlg();if(!s)return;sign=s;store.set('sign',s);}
       placeSign(i,pt(e,pgEl));
     }else if(tool==='edit'){
       if(e.target.closest('.an'))return;
       openBlockAt(e,pgEl);
-    }else if(tool==='highlight'){
+    }else if(SELTOOL[tool]){
       const s=getSelection();if(s&&!s.isCollapsed)return;
-      const[x,y]=pt(e,pgEl),h=annots.find(z=>z.type==='hl'&&z.page===i&&z.rects.some(r=>x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h));
-      if(h){annots=annots.filter(z=>z!==h);annEls(h.id).forEach(el=>el.remove());push();toast('Highlight dihapus');}
+      const kk=SELTOOL[tool]==='rp'?'st':SELTOOL[tool];
+      const[x,y]=pt(e,pgEl),h=annots.find(z=>z.type==='hl'&&(z.kind||'hl')===kk&&z.page===i&&z.rects.some(r=>x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h));
+      if(h){annots=annots.filter(z=>z!==h);annEls(h.id).forEach(el=>el.remove());push();toast(kk==='rd'?'Tanda redaksi dihapus':'Markup dihapus');}
     }
   });
-  function placeSign(i,[x,y]){
+  function placeImg(i,[x,y],src,w0,cm){
     const im=new Image();
-    im.onload=()=>{const w=150,h=w*im.height/im.width;
-      const el=addAnn({type:'im',page:i,x:Math.max(0,x-w/2),y:Math.max(0,y-h/2),w,h,src:sign});
+    im.onload=()=>{const w=w0,h=w*im.height/im.width;
+      const el=addAnn({type:'im',page:i,x:Math.max(0,x-w/2),y:Math.max(0,y-h/2),w,h,src,...(cm?{cm:true}:{})});
       push();setTool('edit');select(el.dataset.id);};
-    im.src=sign;
+    im.src=src;
   }
+  const placeSign=(i,p)=>placeImg(i,p,sign,150);
   /* geser / ubah ukuran / hapus anotasi (alat Edit) */
   desk.addEventListener('pointerdown',e=>{
     if(tool==='hand'){
@@ -917,6 +1157,7 @@ function mount(root,opts={}){
       const up=()=>{desk.classList.remove('drag');desk.removeEventListener('pointermove',mv);desk.removeEventListener('pointerup',up);desk.removeEventListener('pointercancel',up);};
       desk.addEventListener('pointermove',mv);desk.addEventListener('pointerup',up);desk.addEventListener('pointercancel',up);return;
     }
+    if(DRAWT[tool]){drawStart(e);return;}
     if(tool!=='edit')return;
     const an=e.target.closest('.an');
     if(!an){select(null);return;}
@@ -929,6 +1170,7 @@ function mount(root,opts={}){
     an.setPointerCapture&&an.setPointerCapture(e.pointerId);
     const mv=m=>{const dx=(m.clientX-sx)/S,dy=(m.clientY-sy)/S;moved=true;
       if(rs&&a.type==='im'){a.w=Math.max(20,ow+dx);a.h=a.w*oh/ow;an.style.width=a.w+'px';an.style.height=a.h+'px';}
+      else if(rs&&a.type==='sh'){a.w=Math.max(4,ow+dx);a.h=Math.max(4,oh+dy);an.style.width=a.w+'px';an.style.height=a.h+'px';const sv=an.querySelector('svg');sv.insertAdjacentHTML('beforebegin',U.shapeSvg(a));sv.remove();}
       else{a.x=ox+dx;a.y=oy+dy;an.style.left=a.x+'px';an.style.top=a.y+'px';}};
     const up=()=>{an.removeEventListener('pointermove',mv);an.removeEventListener('pointerup',up);an.removeEventListener('pointercancel',up);if(moved)push();};
     an.addEventListener('pointermove',mv);an.addEventListener('pointerup',up);an.addEventListener('pointercancel',up);
@@ -947,7 +1189,7 @@ function mount(root,opts={}){
   desk.addEventListener('pointerleave',hideHv);
   desk.addEventListener('dblclick',e=>{const tx=e.target.closest('.an.tx');if(tool==='edit'&&tx)startEdit(tx);});
   /* sorot teks */
-  desk.addEventListener('pointerup',()=>{if(tool==='highlight')setTimeout(highlightSel,0);});
+  desk.addEventListener('pointerup',()=>{if(SELTOOL[tool])setTimeout(()=>highlightSel(SELTOOL[tool]),0);});
   /* gabungkan kotak per-span menjadi satu pita per baris (tanpa celah & tanpa tumpang tindih) */
   function mergeLine(rs){
     rs.sort((a,b)=>a.y-b.y||a.x-b.x);const out=[];
@@ -962,7 +1204,7 @@ function mount(root,opts={}){
     }
     return out;
   }
-  function highlightSel(){
+  async function highlightSel(k){
     const s=getSelection();if(!s.rangeCount||s.isCollapsed)return;
     const rg=s.getRangeAt(0),by=new Map();
     [...pgs.children].forEach((pe,i)=>{
@@ -978,9 +1220,134 @@ function mount(root,opts={}){
       if(rs.length)by.set(i,mergeLine(rs));
     });
     if(!by.size)return;
-    by.forEach((rs,i)=>addAnn({type:'hl',page:i,rects:rs}));
-    push();s.removeAllRanges();
+    s.removeAllRanges();
+    const kind=k==='rp'?'st':k;let last=null;
+    by.forEach((rs,i)=>{addAnn({type:'hl',kind,page:i,rects:rs,...(kind==='rd'?{}:{cm:true})});last={i,r:rs[rs.length-1]};});
+    if(k==='rp'&&last){
+      const b=await dialog('Ganti teks','<label>Teks pengganti:<input type="text" class="rt"></label>','Tambah');
+      const t=b&&b.querySelector('.rt').value.trim();
+      if(t)addAnn({type:'tx',page:last.i,x:last.r.x+last.r.w+3,y:last.r.y,size:Math.max(8,Math.round(last.r.h*0.8)),color:'#d90000',text:t,cm:true});
+    }
+    push();
   }
+  /* ====== Review / Page Layout / Protect: alat gambar & helper ====== */
+  function stampImg(key){
+    const col=({DISETUJUI:'#2e7d32',DITOLAK:'#c62828',DRAF:'#1565c0',RAHASIA:'#c62828',FINAL:'#2e7d32',SELESAI:'#2e7d32',SALINAN:'#6a1b9a'})[key]||'#1565c0';
+    const text=key==='TGL'?new Date().toLocaleDateString('id-ID'):key,fs=44,font='700 '+fs+'px Arial,Helvetica,sans-serif';
+    const c=document.createElement('canvas'),g=c.getContext('2d');
+    g.font=font;const tw=Math.ceil(g.measureText(text).width);
+    c.width=tw+44;c.height=fs+30;
+    g.font=font;g.strokeStyle=g.fillStyle=col;g.lineWidth=5;
+    const r=10,w=c.width-6,h=c.height-6;
+    g.beginPath();g.moveTo(3+r,3);g.arcTo(3+w,3,3+w,3+h,r);g.arcTo(3+w,3+h,3,3+h,r);g.arcTo(3,3+h,3,3,r);g.arcTo(3,3,3+w,3,r);g.closePath();g.stroke();
+    g.textAlign='center';g.textBaseline='middle';g.fillText(text,c.width/2,c.height/2+2);
+    return c.toDataURL('image/png');
+  }
+  async function blobToPng(blob){
+    const bm=await createImageBitmap(blob),k=Math.min(1,1600/Math.max(bm.width,bm.height)),c=document.createElement('canvas');
+    c.width=Math.max(1,Math.round(bm.width*k));c.height=Math.max(1,Math.round(bm.height*k));
+    c.getContext('2d').drawImage(bm,0,0,c.width,c.height);return c.toDataURL('image/png');
+  }
+  function placeCenter(src){const pg=pages[cur]||pages[0];placeImg(cur,[pg.w/2,pg.h/2],src,Math.min(300,pg.w*0.6));}
+  /* seret di halaman untuk membuat bentuk / coretan / ukuran / tautan / area redaksi */
+  function drawStart(e){
+    const pgEl=e.target.closest&&e.target.closest('.pg');if(!pgEl||e.button>0)return;
+    e.preventDefault();
+    const i=+pgEl.dataset.i,al=pgEl.querySelector('.annl'),pw=pages[i].w,ph=pages[i].h,t=tool,cl=(v,m)=>Math.max(0,Math.min(m,v));
+    const[x0,y0]=[cl(pt(e,pgEl)[0],pw),cl(pt(e,pgEl)[1],ph)];
+    let x1=x0,y1=y0,tmp=null;const pts=[[x0,y0]];
+    const build=()=>{
+      if(t==='pen')return U.normDr(pts,U.PENS[penSel],i);
+      const x=Math.min(x0,x1),y=Math.min(y0,y1),w=Math.max(1,Math.abs(x1-x0)),h=Math.max(1,Math.abs(y1-y0)),base={page:i,x,y,w,h,fx:x1<x0,fy:y1<y0};
+      if(t==='shape')return{type:'sh',shape:shapeSel,color:'#d90000',lw:2,cm:true,...base};
+      if(t==='measure')return{type:'sh',shape:'measure',unit:measureUnit,color:'#0b6bcb',lw:1.5,cm:true,...base};
+      return{type:'lk',...base};
+    };
+    const show=()=>{
+      if(tmp)tmp.remove();
+      const o=build();
+      if(t==='redarea'||t==='link'){tmp=document.createElement('div');tmp.className='dprev '+t;tmp.style.cssText=`left:${o.x}px;top:${o.y}px;width:${o.w}px;height:${o.h}px`;}
+      else{tmp=mkAnn({...o,id:'tmp'});tmp.style.pointerEvents='none';}
+      al.appendChild(tmp);
+    };
+    const mv=m=>{const[x,y]=pt(m,pgEl);x1=cl(x,pw);y1=cl(y,ph);if(t==='pen'){const L=pts[pts.length-1];if(Math.hypot(x1-L[0],y1-L[1])>=1.2)pts.push([x1,y1]);}show();};
+    const fin=async()=>{
+      desk.removeEventListener('pointermove',mv);desk.removeEventListener('pointerup',fin);desk.removeEventListener('pointercancel',fin);
+      if(tmp)tmp.remove();
+      const tiny=Math.abs(x1-x0)<3&&Math.abs(y1-y0)<3;
+      if(t==='pen'){if(pts.length<2)pts.push([x0+.01,y0]);addAnn(U.normDr(pts,U.PENS[penSel],i));push();return;}
+      if(tiny&&(t==='measure'||t==='link'||t==='redarea'||(t==='shape'&&(shapeSel==='line'||shapeSel==='arrow'))))return;
+      const o=build();
+      if(t==='redarea'){addAnn({type:'hl',kind:'rd',page:i,rects:[{x:o.x,y:o.y,w:o.w,h:o.h}]});push();return;}
+      if(t==='link'){const tg=await askLink();if(!tg)return;addAnn({...o,...tg});push();return;}
+      if(tiny){o.x=Math.min(x0,pw-100);o.y=Math.min(y0,ph-60);o.w=100;o.h=60;}
+      const el=addAnn(o);push();setTool('edit');select(el.dataset.id);
+    };
+    desk.setPointerCapture&&desk.setPointerCapture(e.pointerId);
+    desk.addEventListener('pointermove',mv);desk.addEventListener('pointerup',fin);desk.addEventListener('pointercancel',fin);
+  }
+  async function askLink(){
+    if(linkMode==='page'){
+      const b=await dialog('Tautan ke halaman',`<label>Nomor halaman tujuan (1-${pages.length}):<input type="text" class="lp" value="1"></label>`,'Buat');
+      if(!b)return null;const n=parseInt(b.querySelector('.lp').value);
+      if(!(n>=1&&n<=pages.length)){toast('Nomor halaman tidak valid');return null;}
+      return{dest:n-1};
+    }
+    const b=await dialog('Tautan ke URL','<label>Alamat URL:<input type="text" class="lu" value="https://"></label>','Buat');
+    if(!b)return null;let u=b.querySelector('.lu').value.trim();
+    if(!u||u==='https://'){toast('URL kosong');return null;}
+    if(!/^[a-z][a-z0-9+.-]*:/i.test(u))u='https://'+u;
+    if(/^(javascript|data|vbscript|file):/i.test(u)){toast('Skema URL tidak diizinkan');return null;}
+    return{url:u};
+  }
+  const rangeIn=(b,sel='.rg')=>{const idx=U.parseRange(b.querySelector(sel).value,pages.length);if(!idx||!idx.length){toast('Rentang halaman tidak valid');return null;}return idx;};
+  /* gambar teks pada titik menurut tampilan (memperhitungkan putaran halaman & cropbox) */
+  function drawVis(PL,p,font,txt,pos,size){
+    const cb=p.getCropBox(),R=U.rot(p.getRotation().angle),W=cb.width,H=cb.height,vw=R%180?H:W,vh=R%180?W:H,tw=font.widthOfTextAtSize(txt,size);
+    const vx=pos.h==='l'?pos.m:pos.h==='r'?vw-pos.m-tw:(vw-tw)/2,vy=pos.v==='b'?pos.m:vh-pos.m-size*0.72,[u,v]=U.v2p(R,W,H,vx,vy);
+    p.drawText(txt,{x:cb.x+u,y:cb.y+v,size,font,color:PL.rgb(0.15,0.15,0.15),rotate:PL.degrees(R)});
+  }
+  /* kotak persegi tiap kecocokan teks, dihitung dari lapisan teks yang sudah dirender */
+  function rectsOfMatches(i,p,q){
+    const re=reOf(q),strs=p.strs,offs=[];let pos=0;for(const t of strs){offs.push(pos);pos+=t.length;}
+    const text=strs.join(''),b=pgs.children[i].getBoundingClientRect(),rs=[];let m;
+    while((m=re.exec(text))){
+      if(!m[0].length){re.lastIndex++;continue;}
+      const a=m.index,z=a+m[0].length;
+      for(let k=0;k<strs.length;k++){
+        const d=p.divs[k];if(!d||!d.firstChild||offs[k]>=z||offs[k]+strs[k].length<=a)continue;
+        const r=document.createRange();r.setStart(d.firstChild,Math.max(0,a-offs[k]));r.setEnd(d.firstChild,Math.min(strs[k].length,z-offs[k]));
+        for(const c of r.getClientRects())if(c.width>.5&&c.height>.5)rs.push({x:(c.left-b.left)/S,y:(c.top-b.top)/S,w:c.width/S,h:c.height/S});
+      }
+    }
+    return rs;
+  }
+  async function findRects(q){
+    const out=[];let missed=0;
+    for(let i=0;i<pages.length;i++){
+      const tc=await getText(i),exp=(tc.items.map(t=>t.str||'').join('').match(reOf(q))||[]).length;
+      if(!exp)continue;
+      let rs=[];
+      for(let k=0;k<3&&!rs.length;k++){await renderPage(i);const p=pages[i];if(p.divs)rs=rectsOfMatches(i,p,q);}
+      if(rs.length)out.push({page:i,rects:mergeLine(rs)});else missed+=exp;
+    }
+    return{out,missed};
+  }
+  function commentList(){
+    const KIND={hl:'Sorotan',ul:'Garis bawah',st:'Coret'},out=[];
+    for(const a of annots){
+      if(!a.cm)continue;let t='',k='';
+      if(a.type==='hl')k=KIND[a.kind||'hl'];
+      else if(a.type==='tx'){k=a.co?'Callout':a.bg?'Catatan':a.box?'Kotak teks':'Komentar';t=a.text;}
+      else if(a.type==='sh'){k=a.shape==='measure'?'Ukuran':'Bentuk';t=a.shape==='measure'?U.measureLabel(a):a.shape;}
+      else if(a.type==='dr')k='Coretan';
+      else if(a.type==='im')k='Stempel';
+      else continue;
+      out.push({page:a.page+1,kind:k,text:t});
+    }
+    return out.sort((x,y)=>x.page-y.page);
+  }
+
   /* tanda tangan */
   function signDlg(){
     return dialog('Gambar tanda tangan','<canvas width="420" height="160"></canvas><small>Gambar dengan mouse atau jari.</small><button class="clr" style="align-self:flex-start">Bersihkan</button>','Gunakan',b=>{
@@ -1016,12 +1383,14 @@ function mount(root,opts={}){
 
   /* ---------- operasi dokumen (pdf-lib) ---------- */
   const needDoc=()=>{if(!pdfDoc){toast('Belum ada dokumen');return false;}return true;};
+  const redOk=()=>!annots.some(isRd)||confirm('Ada tanda redaksi yang belum diterapkan: teks di bawahnya MASIH ada di berkas. Lanjutkan tanpa menerapkan redaksi?');
   async function commit(){
-    if(!annots.length)return;
+    const keep=annots.filter(isRd),flat=annots.filter(a=>!isRd(a));
+    if(!flat.length)return;
     await lib('pdflib',()=>window.PDFLib);
     const doc=await PDFLib.PDFDocument.load(bytes,{ignoreEncryption:true});
-    await U.flatten(PDFLib,doc,annots,pages);
-    const nb=await doc.save();pristine=false;await apply(nb,cur);
+    await U.flatten(PDFLib,doc,flat,pages);
+    const nb=await doc.save();pristine=false;await apply(nb,cur,keep);
   }
   async function edit(fn,page){
     await commit();await lib('pdflib',()=>window.PDFLib);
@@ -1138,7 +1507,7 @@ function mount(root,opts={}){
 
   /* ---------- konversi ---------- */
   async function convert(kind,arg){
-    if(!needDoc())return;
+    if(!needDoc()||!redOk())return;
     if(pristine){toast('Dokumen masih kosong, tidak ada yang dikonversi');return;}
     await commit();
     const n=pages.length,pr=note('Mengonversi…');
@@ -1201,7 +1570,7 @@ function mount(root,opts={}){
 
   /* ---------- aksi ---------- */
   const acts={
-    async save(){if(!needDoc())return;await run(async()=>{await commit();dl(new Blob([bytes],{type:'application/pdf'}),/\.pdf$/i.test(name)?name:name+'.pdf');dirty=false;toast('Tersimpan: '+name);});},
+    async save(){if(!needDoc()||!redOk())return;await run(async()=>{await commit();dl(new Blob([bytes],{type:'application/pdf'}),/\.pdf$/i.test(name)?name:name+'.pdf');dirty=false;toast('Tersimpan: '+name);});},
     undo(){run(()=>restore(hi-1));},redo(){run(()=>restore(hi+1));},
     menu(){menu.hidden=!menu.hidden;if(!menu.hidden)renderList();},
     home(){snap();opts.onHome&&opts.onHome();},
@@ -1209,7 +1578,7 @@ function mount(root,opts={}){
     cl(id){run(()=>closeDoc(id));},
     blank(){menu.hidden=true;run(blankDoc);},
     async open(){const fs=await pickFiles('.pdf,application/pdf',true);if(!fs.length)return;menu.hidden=true;run(async()=>{for(const f of fs)await openFile(f);});},
-    async print(){if(!needDoc())return;await run(async()=>{
+    async print(){if(!needDoc()||!redOk())return;await run(async()=>{
       await commit();const pr=note('Menyiapkan cetak…'),box=document.createElement('div');box.className='pd-print';
       try{for(let i=0;i<pages.length;i++){const im=new Image();im.src=(await renderCanvas(i,2)).toDataURL('image/jpeg',.92);await im.decode().catch(()=>{});box.appendChild(im);}}finally{pr.end();}
       document.body.appendChild(box);const clean=()=>{box.remove();removeEventListener('afterprint',clean);};addEventListener('afterprint',clean);setTimeout(()=>print(),50);});},
@@ -1286,6 +1655,237 @@ function mount(root,opts={}){
     zfitp(){if(!pages.length)return;autoFit=false;const p=pages[cur]||pages[0];setZoom(Math.min(fitW(),Math.floor((desk.clientHeight-30)/p.h*75)));},
     first(){goto(0);},last(){goto(pages.length-1);},prev(){goto(Math.max(0,cur-1));},next(){goto(Math.min(pages.length-1,cur+1));}
   };
+  /* ====== aksi tab Review / Page Layout / Protect ====== */
+  const NOSUP={
+    ocr:['OCR','butuh mesin pengenalan teks (OCR) yang belum tersedia di versi web ini'],
+    migrate:['Migrate','belum tersedia di versi web ini'],
+    deskew:['Auto De-skew','butuh pemrosesan gambar halaman pindaian yang belum tersedia'],
+    certsec:['Certificate Security','butuh infrastruktur sertifikat digital (PKI)'],
+    profiles:['Manage Profiles','butuh infrastruktur sertifikat digital (PKI)'],
+    certify:['Certify','butuh sertifikat digital (PKI)'],
+    digid:['My Digital IDs','butuh penyimpanan sertifikat digital'],
+    trusted:['Trusted Contacts','butuh penyimpanan sertifikat digital']
+  };
+  Object.keys(NOSUP).forEach(k=>{acts[k]=()=>toast(NOSUP[k][0]+' belum didukung: '+NOSUP[k][1]+'.');});
+  Object.assign(acts,{
+    /* --- Review --- */
+    stamp(v){stampSel=v;setTool('stamp');toast('Klik di halaman untuk menempatkan stempel');},
+    shape(v){shapeSel=v;setTool('shape');toast('Seret di halaman untuk menggambar');},
+    pen(v){penSel=v;setTool('pen');toast('Gambar dengan mouse atau jari');},
+    measure(v){measureUnit=v;setTool('measure');toast('Seret dari titik awal ke titik akhir');},
+    link(v){linkMode=v;setTool('link');toast('Seret di halaman untuk membuat area tautan');},
+    async addimg(){if(!needDoc())return;const f=(await pickFiles('image/*'))[0];if(!f)return;try{placeCenter(await blobToPng(f));}catch(e){toast('Gagal memuat gambar');}},
+    async pasteimg(){
+      if(!needDoc())return;
+      try{for(const it of await navigator.clipboard.read()){const ty=it.types.find(x=>x.startsWith('image/'));if(ty){placeCenter(await blobToPng(await it.getType(ty)));return;}}toast('Tidak ada gambar di clipboard');}
+      catch(e){toast('Tidak bisa membaca clipboard (izin ditolak?)');}
+    },
+    async attach(){
+      if(!needDoc())return;const fs=await pickFiles('*/*',true);if(!fs.length)return;
+      const data=[];for(const f of fs)data.push([f.name,new Uint8Array(await f.arrayBuffer()),f.type||'application/octet-stream']);
+      run(()=>edit(async d=>{for(const[n,b,m]of data)await d.attach(b,n,{mimeType:m});},cur));
+      toast(fs.length+' berkas dilampirkan');
+    },
+    async compare(){
+      if(!needDoc())return;const f=(await pickFiles('.pdf,application/pdf'))[0];if(!f)return;
+      run(async()=>{
+        await commit();const pr=note('Membandingkan teks…');let od=null;
+        try{
+          await initPdfjs();od=await pdfjsLib.getDocument({data:new Uint8Array(await f.arrayBuffer())}).promise;
+          const n=Math.max(pages.length,od.numPages),norm=t=>t.replace(/\s+/g,' ').trim(),diffs=[];
+          for(let i=0;i<n;i++){
+            const a=i<pages.length?norm((await getText(i)).items.map(t=>t.str).join(' ')):null;
+            const b=i<od.numPages?norm((await(await od.getPage(i+1)).getTextContent()).items.map(t=>t.str).join(' ')):null;
+            if(a===null)diffs.push(`Hal. ${i+1}: hanya ada di "${f.name}"`);
+            else if(b===null)diffs.push(`Hal. ${i+1}: hanya ada di dokumen ini`);
+            else if(a!==b){const d=U.wordDiff(a,b);diffs.push(`Hal. ${i+1}: teks berbeda (+${d.add} / −${d.del} kata di berkas pembanding)`);}
+          }
+          pr.end();
+          await dialog('Hasil perbandingan',`<div style="max-height:40vh;overflow:auto">${diffs.length?diffs.map(x=>`<div>${esc(x)}</div>`).join(''):'<div>Teks kedua dokumen identik.</div>'}</div><small>Hanya membandingkan teks per halaman, bukan tampilan visual.</small>`,'Tutup');
+        }finally{pr.end();if(od)od.destroy();}
+      });
+    },
+    sumshow(){
+      const L=commentList();if(!L.length){toast('Belum ada komentar di dokumen ini');return;}
+      dialog('Ringkasan komentar',`<div style="max-height:40vh;overflow:auto">${L.map(c=>`<div>Hal. ${c.page} — <b>${esc(c.kind)}</b>${c.text?': '+esc(c.text):''}</div>`).join('')}</div><small>${L.length} komentar yang belum dibakukan ke dokumen.</small>`,'Ekspor .txt').then(b=>{if(b)acts.sumexp();});
+    },
+    sumexp(){
+      const L=commentList();if(!L.length){toast('Belum ada komentar');return;}
+      dl(new Blob([`Ringkasan komentar — ${name}\n\n`+L.map(c=>`Hal. ${c.page} — ${c.kind}${c.text?': '+c.text.replace(/\n/g,' '):''}`).join('\n')+'\n'],{type:'text/plain;charset=utf-8'}),base()+'_komentar.txt');
+    },
+    hidecm(){
+      hidecm=!hidecm;desk.classList.toggle('hidecm',hidecm);
+      const b=$('[data-a=hidecm]');if(b){b.classList.toggle('on',hidecm);b.querySelector('span').textContent=hidecm?'Show Comments':'Hide Comments';}
+    },
+    /* --- Page Layout --- */
+    async crop(){
+      if(!needDoc())return;
+      const b=await dialog('Pangkas halaman (Crop)',`<small>Margin yang dipangkas dari tiap sisi (mm), menurut tampilan halaman.</small><label>Atas:<input type="text" class="m-t" value="10"></label><label>Bawah:<input type="text" class="m-b" value="10"></label><label>Kiri:<input type="text" class="m-l" value="10"></label><label>Kanan:<input type="text" class="m-r" value="10"></label><label>Halaman:<input type="text" class="rg" value="${cur+1}"></label><small>Isi "semua" untuk seluruh dokumen (${pages.length} halaman).</small>`,'Pangkas');
+      if(!b)return;
+      const mm=c=>Math.max(0,parseFloat(b.querySelector(c).value.replace(',','.'))||0)*72/25.4,m={t:mm('.m-t'),b:mm('.m-b'),l:mm('.m-l'),r:mm('.m-r')},idx=rangeIn(b);
+      if(!idx)return;if(!(m.t+m.b+m.l+m.r)){toast('Isi minimal satu margin');return;}
+      run(()=>edit(d=>{
+        let bad=0;
+        for(const i of idx){const pg=d.getPage(i),cb=pg.getCropBox(),M=U.cropMargins(U.rot(pg.getRotation().angle),m),w=cb.width-M.L-M.R,h=cb.height-M.T-M.B;
+          if(w<20||h<20){bad++;continue;}pg.setCropBox(cb.x+M.L,cb.y+M.B,w,h);}
+        if(bad)setTimeout(()=>toast(bad+' halaman dilewati: margin terlalu besar'),0);
+      },cur));
+    },
+    async replpg(){
+      if(!needDoc())return;const f=(await pickFiles('.pdf,application/pdf'))[0];if(!f)return;
+      await lib('pdflib',()=>window.PDFLib);
+      const src=new Uint8Array(await f.arrayBuffer());let sn;
+      try{sn=(await PDFLib.PDFDocument.load(src,{ignoreEncryption:true})).getPageCount();}catch(e){toast('Berkas bukan PDF yang valid');return;}
+      const b=await dialog('Ganti halaman',`<label>Ganti halaman dokumen ini (mis. 2-3):<input type="text" class="rg" value="${cur+1}"></label><label>Dengan halaman dari "${esc(f.name)}" (${sn} hal.):<input type="text" class="rg2" value="semua"></label>`,'Ganti');
+      if(!b)return;
+      const a=rangeIn(b),c=U.parseRange(b.querySelector('.rg2').value,sn);
+      if(!a)return;if(!c||!c.length){toast('Rentang halaman berkas pembanding tidak valid');return;}
+      run(()=>edit(async d=>{
+        const sd=await PDFLib.PDFDocument.load(src,{ignoreEncryption:true}),cp=await d.copyPages(sd,c),at=a[0];
+        [...a].reverse().forEach(i=>d.removePage(i));cp.forEach((pg,k)=>d.insertPage(at+k,pg));
+      },a[0]));
+    },
+    async splitdoc(){
+      if(!needDoc()||!redOk())return;
+      const b=await dialog('Pisah dokumen',`<label>Pisah per berapa halaman / rentang:<input type="text" class="sp" value="1"></label><small>Contoh: "2" = tiap 2 halaman satu berkas; "1-3; 4-6; 7" = bagian menurut rentang. Dokumen ini ${pages.length} halaman. Hasil diunduh sebagai .zip.</small>`,'Pisah');
+      if(!b)return;
+      const plan=U.splitPlan(b.querySelector('.sp').value,pages.length);if(!plan){toast('Format tidak valid');return;}
+      run(async()=>{
+        await commit();await lib('pdflib',()=>window.PDFLib);await lib('jszip',()=>window.JSZip);const pr=note('Memisahkan…');
+        try{
+          const sd=await PDFLib.PDFDocument.load(bytes,{ignoreEncryption:true}),z=new JSZip(),pad=String(plan.length).length;
+          for(let k=0;k<plan.length;k++){const o=await PDFLib.PDFDocument.create();(await o.copyPages(sd,plan[k])).forEach(pg=>o.addPage(pg));z.file(`${base()}_bagian${String(k+1).padStart(pad,'0')}.pdf`,await o.save());}
+          dl(await z.generateAsync({type:'blob'}),base()+'_pisah.zip');toast(plan.length+' berkas dibuat');
+        }finally{pr.end();}
+      });
+    },
+    async hf(v){
+      if(!needDoc())return;
+      const f=(c,l,val='')=>`<label>${l}<input type="text" class="s-${c}" value="${esc(val)}"></label>`;
+      const b=await dialog('Header & Footer',f('hl','Header kiri:')+f('hc','Header tengah:')+f('hr','Header kanan:')+f('fl','Footer kiri:')+f('fc','Footer tengah:',v==='num'?'Halaman {page} dari {total}':'')+f('fr','Footer kanan:')+
+        '<label>Ukuran font:<select class="fs"><option>8</option><option>9</option><option selected>10</option><option>11</option><option>12</option><option>14</option></select></label><label>Halaman:<input type="text" class="rg" value="semua"></label><small>{page} = nomor halaman, {total} = jumlah halaman, {date} = tanggal hari ini.</small>','Terapkan');
+      if(!b)return;const idx=rangeIn(b);if(!idx)return;
+      const slots=[['hl','l','t'],['hc','c','t'],['hr','r','t'],['fl','l','b'],['fc','c','b'],['fr','r','b']].map(([c,h,vv])=>[b.querySelector('.s-'+c).value,h,vv]).filter(x=>x[0].trim());
+      if(!slots.length){toast('Isi minimal satu kolom');return;}
+      const size=+b.querySelector('.fs').value,tot=pages.length;
+      run(()=>edit(async(d,PL)=>{const font=await d.embedFont(PL.StandardFonts.Helvetica);for(const i of idx)for(const[t,h,vv]of slots)drawVis(PL,d.getPage(i),font,U.safe(U.hfText(t,i+1,tot)),{h,v:vv,m:28},size);},cur));
+    },
+    async wm(v){
+      if(!needDoc())return;
+      const PRE={draf:'DRAF',rahasia:'RAHASIA',salinan:'SALINAN',jangan:'JANGAN DISALIN'};
+      let o={text:PRE[v],size:96,op:25,color:'#cc0000',ang:45},idx=[...Array(pages.length).keys()];
+      if(!PRE[v]){
+        const b=await dialog('Watermark teks','<label>Teks:<input type="text" class="wt" value="CONFIDENTIAL"></label><label>Ukuran font:<input type="text" class="ws" value="90"></label><label>Opasitas (%):<input type="text" class="wo" value="25"></label><label>Warna:<select class="wc"><option value="#cc0000">Merah</option><option value="#808080">Abu-abu</option><option value="#1a56db">Biru</option><option value="#000000">Hitam</option></select></label><label>Sudut (°):<input type="text" class="wa" value="45"></label><label>Halaman:<input type="text" class="rg" value="semua"></label>','Terapkan');
+        if(!b)return;const t=b.querySelector('.wt').value.trim();if(!t){toast('Teks kosong');return;}
+        idx=rangeIn(b);if(!idx)return;
+        o={text:t,size:Math.max(8,Math.min(300,+b.querySelector('.ws').value||90)),op:Math.max(5,Math.min(100,+b.querySelector('.wo').value||25)),color:b.querySelector('.wc').value,ang:+b.querySelector('.wa').value||0};
+      }
+      run(()=>edit(async(d,PL)=>{
+        const font=await d.embedFont(PL.StandardFonts.HelveticaBold),txt=U.safe(o.text),[cr,cg,cb2]=U.col(o.color),rad=o.ang*Math.PI/180,ca=Math.abs(Math.cos(rad)),sa=Math.abs(Math.sin(rad));
+        for(const i of idx){
+          const pg=d.getPage(i),cb=pg.getCropBox(),R=U.rot(pg.getRotation().angle),W=cb.width,H=cb.height,vw=R%180?H:W,vh=R%180?W:H;
+          const tw0=font.widthOfTextAtSize(txt,o.size),th0=o.size*0.72,k=Math.min(1,0.9*vw/((tw0*ca+th0*sa)||1),0.9*vh/((tw0*sa+th0*ca)||1)),size=o.size*k,tw=tw0*k,th=th0*k;
+          const vx=vw/2-(tw/2)*Math.cos(rad)+(th/2)*Math.sin(rad),vy=vh/2-(tw/2)*Math.sin(rad)-(th/2)*Math.cos(rad),[u,w2]=U.v2p(R,W,H,vx,vy);
+          pg.drawText(txt,{x:cb.x+u,y:cb.y+w2,size,font,color:PL.rgb(cr,cg,cb2),opacity:o.op/100,rotate:PL.degrees(o.ang+R)});
+        }
+      },cur));
+    },
+    async bates(){
+      if(!needDoc())return;
+      const b=await dialog('Nomor Bates','<label>Awalan:<input type="text" class="bp" value="DOK-"></label><label>Nomor awal:<input type="text" class="bs" value="1"></label><label>Jumlah digit:<input type="text" class="bd" value="6"></label><label>Akhiran:<input type="text" class="bx" value=""></label><label>Posisi:<select class="bpos"><option value="br">Bawah kanan</option><option value="bc">Bawah tengah</option><option value="bl">Bawah kiri</option><option value="tr">Atas kanan</option><option value="tc">Atas tengah</option><option value="tl">Atas kiri</option></select></label><label>Ukuran font:<input type="text" class="bf" value="10"></label><label>Halaman:<input type="text" class="rg" value="semua"></label>','Terapkan');
+      if(!b)return;const idx=rangeIn(b);if(!idx)return;
+      const q=c=>b.querySelector(c).value,pre=U.safe(q('.bp')),suf=U.safe(q('.bx')),st=Math.max(0,parseInt(q('.bs'))||1),dg=Math.max(1,Math.min(12,parseInt(q('.bd'))||6)),sz=Math.max(6,Math.min(24,+q('.bf')||10)),pos=q('.bpos');
+      run(()=>edit(async(d,PL)=>{const font=await d.embedFont(PL.StandardFonts.HelveticaBold);idx.forEach((i,k)=>drawVis(PL,d.getPage(i),font,U.bates(pre,st+k,dg,suf),{h:pos[1],v:pos[0],m:28},sz));},cur));
+    },
+    async bmadd(){
+      if(!needDoc())return;
+      const b=await dialog('Tambah bookmark',`<label>Judul:<input type="text" class="bt" value="Halaman ${cur+1}"></label>`,'Tambah');if(!b)return;
+      const title=b.querySelector('.bt').value.trim();if(!title){toast('Judul kosong');return;}
+      const at=cur;run(()=>edit((d,PL)=>{U.addBookmark(PL,d,title,at);},at));
+    },
+    async bmlist(){
+      if(!needDoc())return;
+      const ol=await pdfDoc.getOutline();if(!ol||!ol.length){toast('Dokumen ini belum punya bookmark');return;}
+      const flat=[];const walk=(it,dep)=>it.forEach(o=>{flat.push({t:o.title,dep,dest:o.dest});walk(o.items||[],dep+1);});walk(ol,0);
+      const idxOf=async dest=>{try{let d=dest;if(typeof d==='string')d=await pdfDoc.getDestination(d);if(!Array.isArray(d))return -1;const r=d[0];return typeof r==='object'?await pdfDoc.getPageIndex(r):+r;}catch(e){return -1;}};
+      const rows=[];for(const f of flat)rows.push({...f,p:await idxOf(f.dest)});
+      await dialog('Daftar bookmark',rows.map((r,k)=>`<button type="button" class="bmi" data-k="${k}" style="padding-left:${8+r.dep*16}px">${esc(r.t)}${r.p>=0?' — hal. '+(r.p+1):''}</button>`).join(''),'Tutup',body=>{
+        body.addEventListener('click',e=>{const k=e.target.closest('.bmi');if(!k)return;const r=rows[+k.dataset.k];if(r.p>=0){goto(r.p);body.closest('.ov').querySelector('.dbt button').click();}});
+      });
+    },
+    /* --- Protect --- */
+    redarea(){setTool('redarea');toast('Seret untuk menandai area yang akan dihapus');},
+    redtext(){setTool('redtext');toast('Sorot teks yang akan dihapus');},
+    redclear(){
+      const n=annots.filter(isRd).length;if(!n){toast('Tidak ada tanda redaksi');return;}
+      annots=annots.filter(a=>!isRd(a));drawAll();push();toast(n+' tanda redaksi dihapus');
+    },
+    async redsearch(){
+      if(!needDoc())return;
+      const b=await dialog('Cari dan redaksi','<label>Teks yang dicari:<input type="text" class="rq"></label><small>Setiap kecocokan hanya DITANDAI dulu. Tinjau, lalu pilih "Apply All Redactions" untuk menghapusnya.</small>','Tandai');
+      if(!b)return;const q=b.querySelector('.rq').value;if(!q.trim())return;
+      run(async()=>{
+        const pr=note('Mencari…');
+        try{
+          const{out,missed}=await findRects(q);
+          out.forEach(r=>addAnn({type:'hl',kind:'rd',page:r.page,rects:r.rects}));
+          if(out.length)push();
+          const n=out.reduce((t,r)=>t+r.rects.length,0);
+          toast(out.length?`${n} area ditandai di ${out.length} halaman`+(missed?` — ${missed} kecocokan tidak bisa ditandai, tandai manual`:''):(missed?`${missed} kecocokan ditemukan tetapi tidak bisa ditandai, tandai manual`:'Teks tidak ditemukan'));
+        }finally{pr.end();}
+      });
+    },
+    async redapply(){
+      if(!needDoc())return;
+      const marks=annots.filter(isRd);if(!marks.length){toast('Belum ada tanda redaksi');return;}
+      const pg2=[...new Set(marks.map(a=>a.page))].sort((a,b)=>a-b),nr=marks.reduce((n,a)=>n+a.rects.length,0);
+      if(!confirm(`Terapkan ${nr} area redaksi pada ${pg2.length} halaman?\n\nHalaman terkait diubah menjadi gambar dengan area hitam sehingga teks aslinya benar-benar hilang (halaman itu tak bisa lagi dicari/disalin). Anda masih bisa membatalkan dengan Urungkan sebelum menyimpan.`))return;
+      run(async()=>{
+        const pr=note('Menerapkan redaksi…');
+        try{
+          await commit();
+          const K=2.5,jpgs=new Map();
+          for(const i of pg2){
+            pr.set(`Merender halaman ${i+1}…`);
+            const c=await renderCanvas(i,K),g=c.getContext('2d');g.fillStyle='#000';
+            for(const a of marks)if(a.page===i)for(const r of a.rects){const pad=1.5;g.fillRect((r.x-pad)*K,(r.y-pad)*K,(r.w+2*pad)*K,(r.h+2*pad)*K);}
+            jpgs.set(i,new Uint8Array(await(await toBlob(c,'image/jpeg',.92)).arrayBuffer()));
+          }
+          const dims=new Map(pg2.map(i=>[i,[pages[i].w,pages[i].h]]));
+          annots=annots.filter(a=>!isRd(a));
+          await edit(async(d,PL)=>{for(const i of pg2){const[w,h]=dims.get(i);await U.redactPage(PL,d,i,jpgs.get(i),w,h);}U.gc(PL,d);},cur);
+          toast('Redaksi diterapkan');
+        }finally{pr.end();}
+      });
+    },
+    rmmeta(){
+      if(!needDoc())return;
+      run(()=>edit((d,PL)=>{
+        const ctx=d.context,ref=ctx.trailerInfo.Info,info=ref&&ctx.lookup(ref,PL.PDFDict);
+        if(info)for(const k of [...info.keys()])info.delete(k);
+        d.catalog.delete(PL.PDFName.of('Metadata'));
+        U.gc(PL,d);
+      },cur).then(()=>toast('Metadata dokumen dihapus')));
+    },
+    async pwd(){
+      if(!needDoc()||!redOk())return;
+      const ck=(c,l)=>`<label><input type="checkbox" class="${c}" checked>${l}</label>`;
+      const b=await dialog('Keamanan kata sandi',`<label>Kata sandi untuk membuka:<input type="password" class="pu" autocomplete="new-password"></label><label>Kata sandi izin (pemilik):<input type="password" class="po" autocomplete="new-password"></label>${ck('ap','Izinkan mencetak')}${ck('ac','Izinkan menyalin teks')}${ck('am','Izinkan mengubah dokumen')}${ck('aa','Izinkan menambah anotasi')}<small>Hasilnya salinan baru (${esc(base())}_terlindungi.pdf); berkas yang terbuka tidak berubah. Kata sandi tidak bisa dipulihkan bila lupa. Bila kata sandi izin dikosongkan dan ada izin yang dimatikan, kata sandi pemilik dibuat acak agar pembatasan tetap berlaku.</small>`,'Lindungi');
+      if(!b)return;
+      const q=c=>b.querySelector(c),up=q('.pu').value,perms={printing:q('.ap').checked?'highResolution':false,copying:q('.ac').checked,modifying:q('.am').checked,annotating:q('.aa').checked};
+      const restr=!(q('.ap').checked&&q('.ac').checked&&q('.am').checked&&q('.aa').checked);
+      const op=q('.po').value||(restr?[...crypto.getRandomValues(new Uint8Array(12))].map(x=>x.toString(16).padStart(2,'0')).join(''):up);
+      if(!up&&!q('.po').value){toast('Isi minimal satu kata sandi');return;}
+      run(async()=>{
+        const pr=note('Mengenkripsi…');
+        try{
+          await commit();const E=await loadEnc(),d=await E.PDFDocument.load(bytes,{ignoreEncryption:true});
+          d.encrypt({userPassword:up,ownerPassword:op,permissions:perms});
+          dl(new Blob([await d.save()],{type:'application/pdf'}),base()+'_terlindungi.pdf');toast('Salinan terlindungi diunduh');
+        }finally{pr.end();}
+      });
+    }
+  });
   function drawFavs(){
     $('.favs').innerHTML=favs.map(id=>{const f=FAVS.find(x=>x[0]===id);if(!f)return'';const[a,v]=id.split(':');return`<button class="b rw" data-a="${a}" data-v="${v??''}" title="${esc(f[1])}">${IC[f[2]](16)}<span>${esc(f[1])}</span></button>`;}).join('');
     $('.favs').style.display=favs.length?'flex':'none';
@@ -1329,7 +1929,7 @@ function mount(root,opts={}){
   fqIn.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();if(fqIn.value!==fq)doFind(fqIn.value);else stepFind(e.shiftKey?-1:1);}else if(e.key==='Escape')acts.fclose();});
 
   /* ---------- event utama ---------- */
-  root.addEventListener('click',e=>{
+  pd.addEventListener('click',e=>{
     const was=ddBtn,dd=e.target.closest('[data-dd]');closeDD();
     if(!e.target.closest('.menu')&&!e.target.closest('[data-a=menu]'))menu.hidden=true;
     if(dd){if(was!==dd)openDD(dd);return;}
