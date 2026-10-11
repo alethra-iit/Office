@@ -225,6 +225,41 @@ const CSS=`
 .pp .apane .ai em{color:#3d7a3d}.pp .apane .am{padding:10px;color:#888}
 .pp .anb{display:none;position:absolute;min-width:22px;height:20px;padding:0 4px;border:1px solid #888;background:#fff;color:#444;font-size:12px;line-height:18px;text-align:center;z-index:6;pointer-events:none;transform:scale(var(--inv));transform-origin:0 0}
 .pp.ant .anb,.pp.apo .anb{display:block}
+.pp .th.hid .tv,.pp .th2.hid .tv{opacity:.4}
+.pp .th.hid .n,.pp .th2.hid .n{text-decoration:line-through}
+.pp .show{display:grid;place-items:center}
+.pp .show.win{inset:6vh 8vw;border:1px solid #777;box-shadow:0 8px 40px rgba(0,0,0,.6)}
+.pp .showbk{position:fixed;inset:0;z-index:99;background:rgba(0,0,0,.5)}
+.pp .shh{display:grid;place-items:center;width:100%;height:100%;min-width:0;min-height:0;overflow:hidden}
+.pp .show.pv{grid-template-columns:minmax(0,1fr) 300px;place-items:stretch}
+.pp .pvs{background:#1f1f1f;color:#eee;padding:10px;display:flex;flex-direction:column;gap:8px;min-height:0;overflow:hidden;font-size:13px}
+.pp .pvn{position:relative;width:100%;aspect-ratio:16/9;background:#fff;overflow:hidden;flex:none;display:grid;place-items:center;color:#555}
+.pp .pvx{flex:1;min-height:0;overflow:auto;background:#2b2b2b;padding:8px;font-size:15px;line-height:1.35;user-select:text;-webkit-user-select:text}
+.pp .pvi{display:flex;justify-content:space-between;gap:8px;flex:none}
+.pp .shtb,.pp .shrec{position:absolute;display:flex;gap:2px;align-items:center;background:rgba(30,30,30,.85);color:#fff;padding:3px 6px;border-radius:4px;z-index:3;font-size:14px}
+.pp .shtb{left:10px;bottom:10px;opacity:0;pointer-events:none;transition:opacity .2s}
+.pp .show.mv .shtb{opacity:1;pointer-events:auto}
+.pp .shrec{top:10px;left:50%;transform:translateX(-50%);gap:8px}
+.pp .shtb button,.pp .shrec button{background:none;border:0;color:#fff;font-size:15px;min-width:28px;height:26px;cursor:pointer;border-radius:3px}
+.pp .shtb button:hover,.pp .shrec button:hover,.pp .shtb button.on{background:rgba(255,255,255,.25)}
+.pp .shrec .rt,.pp .shrec .rtt{font-variant-numeric:tabular-nums;min-width:38px;text-align:center}
+.pp .shrec .rtt{color:#bbb}
+.pp .rdot{color:#e33;animation:pprd 1s infinite}
+@keyframes pprd{50%{opacity:.2}}
+.pp .shink{position:absolute;pointer-events:none;z-index:2}
+.pp .show.tpen .shink{pointer-events:auto;cursor:crosshair}
+.pp .shlz{position:absolute;width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:50%;background:radial-gradient(#f00 25%,rgba(255,0,0,.4) 55%,transparent 70%);pointer-events:none;display:none;z-index:4}
+.pp .show.tlaser .shlz{display:block}
+.pp .show.tlaser,.pp .show:not(.mv):not(.tpen){cursor:none}
+.pp .shcv{position:absolute;inset:0;z-index:5}
+.pp .dlg fieldset{border:1px solid #ccc;margin:6px 0;padding:2px 10px 4px}
+.pp .dlg legend{padding:0 4px;color:#666}
+.pp .dlg input[type=number]{width:60px;height:24px;border:1px solid #aaa}
+.pp .dlg select[multiple]{height:150px}
+.pp .dlg .cs2{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin:8px 0}
+.pp .dlg .cs2 .cb{display:flex;flex-direction:column;gap:4px}
+.pp .dlg .cs2 button{height:26px;border:1px solid #aaa;background:#f3f3f3;cursor:pointer;padding:0 8px}
+.pp .shsel{height:22px;width:150px}
 `;
 
 const FONTS=['Calibri','Calibri Light','Arial','Times New Roman','Cambria','Georgia','Verdana','Courier New','Segoe UI','Tahoma','Trebuchet MS'];
@@ -523,10 +558,36 @@ const RIB_DESIGN=
  G('Varian','<div class="vgal"></div>')+
  G('Sesuaikan',IB('🎨','Format Latar Belakang','bgfmt',0,'Format<br>Latar Belakang'));
 
+/* ---- tab SLIDE SHOW ---- */
+const SHI=(()=>{
+  const bd='<rect x="5" y="2.5" width="24" height="16" fill="#fff" stroke="#6b6b6b"/><path d="M5 5.5h24" stroke="#6b6b6b"/><path d="M17 18.5v5M17 23.5l-6 7M17 23.5l6 7" stroke="#6b6b6b" fill="none" stroke-width="1.4"/>';
+  const S=x=>`<svg width="34" height="32" viewBox="0 0 34 32">${x}</svg>`;
+  return{
+    start:S(bd+'<circle cx="24" cy="21" r="7.5" fill="#4caf50" stroke="#2e7d32"/><path d="M21.5 17.5l6 3.5-6 3.5z" fill="#fff"/>'),
+    cur:S(bd+'<circle cx="17" cy="11" r="4.6" fill="#ed7d31"/><path d="M17 11V6.4a4.6 4.6 0 0 1 4.6 4.6z" fill="#5b9bd5"/>'),
+    online:S(bd+'<circle cx="24" cy="21" r="7.5" fill="#3b8be0" stroke="#1f5fa8"/><path d="M16.5 21h15M24 13.5v15M20 15.5q4 5.5 0 11M28 15.5q-4 5.5 0 11" stroke="#fff" fill="none" stroke-width=".9"/>'),
+    cust:S(bd+'<rect x="19" y="14" width="12" height="15" fill="#fff" stroke="#4a73b5"/><path d="M21.5 18h7M21.5 21.5h7M21.5 25h7" stroke="#4a73b5" stroke-width="1.5"/>'),
+    setup:S('<rect x="6" y="3" width="17" height="22" fill="#fff" stroke="#6b6b6b"/><path d="M9 8h11M9 12h11M9 16h8" stroke="#9a9a9a"/><circle cx="12" cy="20" r="2.5" fill="#ed7d31"/><circle cx="23" cy="21" r="6.5" fill="#e8e8e8" stroke="#6b6b6b"/><circle cx="23" cy="21" r="2.4" fill="#fff" stroke="#6b6b6b"/><path d="M23 13.5v3M23 25.5v3M15.5 21h3M27.5 21h3" stroke="#6b6b6b" stroke-width="2"/>'),
+    hide:S('<rect x="5" y="5" width="24" height="18" fill="#fff" stroke="#6b6b6b"/><circle cx="17" cy="14" r="4.6" fill="#ed7d31"/><path d="M17 14V9.4a4.6 4.6 0 0 1 4.6 4.6z" fill="#5b9bd5"/><path d="M3 27L31 1" stroke="#444" stroke-width="2.2"/>'),
+    reh:S('<rect x="3" y="3" width="24" height="18" fill="#fff" stroke="#6b6b6b"/><path d="M3 6.5h24" stroke="#6b6b6b"/><circle cx="23" cy="21" r="8" fill="#fff" stroke="#44546a" stroke-width="1.6"/><path d="M23 15.5V21l4 2.5" stroke="#44546a" stroke-width="1.6" fill="none"/>'),
+    rec:S('<rect x="3" y="3" width="24" height="18" fill="#fff" stroke="#6b6b6b"/><path d="M3 6.5h24" stroke="#6b6b6b"/><circle cx="12" cy="17" r="7" fill="#e53935" stroke="#a31515"/><circle cx="24" cy="21" r="7" fill="#fff" stroke="#44546a" stroke-width="1.5"/><path d="M24 16.5V21l3.4 2" stroke="#44546a" stroke-width="1.5" fill="none"/>')
+  };
+})();
+const SB=(ic,tip,a,lab)=>`<button class="b big" title="${tip}" data-a="${a}"><em>${ic}</em><span>${lab||tip}</span></button>`;
+const SM=(ic,tip,m,lab)=>`<button class="b big" title="${tip}" data-m="${m}"><em>${ic}</em><span>${lab||tip} ▾</span></button>`;
+const RIB_SHOW=
+ G('Mulai Slide Show',SB(SHI.start,'Mulai dari slide pertama (F5)','showfirst','Dari<br>Awal')+SB(SHI.cur,'Mulai dari slide saat ini (Shift+F5)','show','Dari Slide<br>Saat Ini')+
+   SM(SHI.online,'Presentasikan Online','online','Presentasikan<br>Online')+SM(SHI.cust,'Slide Show Kustom','cshow','Slide Show<br>Kustom'))+
+ G('Siapkan',SB(SHI.setup,'Siapkan Slide Show','shsetup','Siapkan<br>Slide Show')+SB(SHI.hide,'Sembunyikan slide yang dipilih','hideslide','Sembunyikan<br>Slide')+
+   SB(SHI.reh,'Latih Pengaturan Waktu','rehearse','Latih Pengaturan<br>Waktu')+SM(SHI.rec,'Rekam Slide Show','rec','Rekam Slide<br>Show')+
+   `<div class="rows tmw"><div class="row"><label><input type="checkbox" data-s="shnarr" checked> Putar Narasi</label></div><div class="row"><label><input type="checkbox" data-s="shtim" checked> Gunakan Pengaturan Waktu</label></div><div class="row"><label><input type="checkbox" data-s="shmed" checked> Tampilkan Kontrol Media</label></div></div>`)+
+ G('Monitor',`<div class="rows tmw"><div class="row">Monitor: <select data-s="shmon" class="shsel" title="Pilih monitor untuk slide show"><option value="auto">Otomatis</option><option value="main">Monitor Utama</option></select></div><div class="row"><label><input type="checkbox" data-s="shpv"> Gunakan Tampilan Presenter</label></div></div>`);
+
 function mount(root,opts={}){
   if(!document.getElementById('pp-css')){const s=document.createElement('style');s.id='pp-css';s.textContent=CSS;document.head.appendChild(s);}
   let name='Presentasi1.pptx',scale=.8,autoFit=true,slides=[mkSlide('title')],cur=0,sel=[],hist=[],hi=-1,clip=null,painting=null,lastR=null,lastTx=null,drawing=null,view='normal',fk=-1,timer=0,sortFrom=null;
-  const panes=TABS.map((t,i)=>`<div class="ribbon" data-pane="${t[0]}"${i?' hidden':''}>${t[0]==='home'?RIB_HOME:t[0]==='insert'?RIB_INSERT:t[0]==='design'?RIB_DESIGN:t[0]==='trans'?RIB_TRANS:t[0]==='anim'?RIB_ANIM:`<div class="soon">Menu ${t[1]} akan ditambahkan pada tahap berikutnya.</div>`}</div>`).join('');
+  let ss={type:'full',loop:0,playNarr:1,noAnim:0,pen:'#ff0000',range:'all',from:1,to:0,custom:'',useTimings:1,mediaCtrl:1,monitor:'auto',presenter:0},customShows=[],cidn=1,scrList=[],scrTried=false;
+  const panes=TABS.map((t,i)=>`<div class="ribbon" data-pane="${t[0]}"${i?' hidden':''}>${t[0]==='home'?RIB_HOME:t[0]==='insert'?RIB_INSERT:t[0]==='design'?RIB_DESIGN:t[0]==='trans'?RIB_TRANS:t[0]==='anim'?RIB_ANIM:t[0]==='show'?RIB_SHOW:`<div class="soon">Menu ${t[1]} akan ditambahkan pada tahap berikutnya.</div>`}</div>`).join('');
   root.innerHTML=`<div class="pp">
     <div class="qat"><div class="l"><span class="w">P</span><button data-a="save" title="Simpan (Ctrl+S)">💾</button><button data-a="undo" title="Urungkan (Ctrl+Z)">↶</button><button data-a="redo" title="Ulangi (Ctrl+Y)">↷</button><button data-a="showfirst" title="Mulai dari awal">▶</button></div><span class="fn"></span></div>
     <div class="tabs"><button class="tab file" data-a="menu">BERKAS</button>${TABS.map((t,i)=>`<button class="tab${i?'':' on'}" data-tab="${t[0]}">${t[1]}</button>`).join('')}</div>
@@ -574,7 +635,7 @@ function mount(root,opts={}){
 
   /* ===== render ===== */
   function draw(){renumber();stg.innerHTML=objs().map(o=>obHTML(o,true)).join('');stg.style.background=S0().bg||'';
-    (S0().comments||[]).forEach((c,i)=>stg.insertAdjacentHTML('beforeend',`<div class="cm" data-ci="${i}" style="left:${c.x}px;top:${c.y}px" title="${esc(c.t)}">💬</div>`));animBadges();decorate();status();syncTr();}
+    (S0().comments||[]).forEach((c,i)=>stg.insertAdjacentHTML('beforeend',`<div class="cm" data-ci="${i}" style="left:${c.x}px;top:${c.y}px" title="${esc(c.t)}">💬</div>`));animBadges();decorate();status();syncTr();syncSs();}
   function decorate(){
     $$('.stg .ob').forEach(el=>{const on=sel.includes(el.dataset.id);el.classList.toggle('sel',on);if(!on)el.classList.remove('edt');el.querySelectorAll('.hd,.ed').forEach(x=>x.remove());});
     if(sel.length===1){const o=byId(sel[0]),el=o&&elOf(o.id);if(el){
@@ -585,7 +646,7 @@ function mount(root,opts={}){
     syncUI();syncAn();
   }
   function redrawOb(o){sync();const el=elOf(o.id);if(el){el.outerHTML=obHTML(o,true);}decorate();}
-  function thumbHTML(s,i,w,c){const k=w/W;return `<div class="${c}${i===cur?' on':''}" data-i="${i}" draggable="true"><span class="n">${i+1}${s.tr&&s.tr.t&&s.tr.t!=='none'?'<br><i class="trm">★</i>':''}</span><div class="tv" style="width:${w}px;height:${Math.round(H*k)}px${s.bg?';background:'+s.bg:''}"><div class="sc" style="transform:scale(${k})">${s.objs.map(o=>obHTML(o,false)).join('')}</div></div></div>`;}
+  function thumbHTML(s,i,w,c){const k=w/W;return `<div class="${c}${i===cur?' on':''}${s.hid?' hid':''}" data-i="${i}" draggable="true"><span class="n">${i+1}${s.tr&&s.tr.t&&s.tr.t!=='none'?'<br><i class="trm">★</i>':''}</span><div class="tv" style="width:${w}px;height:${Math.round(H*k)}px${s.bg?';background:'+s.bg:''}"><div class="sc" style="transform:scale(${k})">${s.objs.map(o=>obHTML(o,false)).join('')}</div></div></div>`;}
   function thumbs(){
     renumber();const tp=thumbsEl.scrollTop,secs=slides.map((s,i)=>s.sec!=null?i:-1).filter(i=>i>=0);let h='';
     slides.forEach((s,i)=>{if(s.sec!=null){const nx=secs[secs.indexOf(i)+1];h+=`<div class="sec" data-sec="${i}"><i>▾</i><b>${esc(s.sec)}</b> (${(nx==null?slides.length:nx)-i})</div>`;}h+=thumbHTML(s,i,160,'th');});
@@ -759,27 +820,144 @@ function mount(root,opts={}){
   const showFind=()=>{fd.hidden=false;f1.focus();f1.select();};
 
   /* ===== slide show & cetak ===== */
-  function show(from){
-    sync();let i=from;const ov=document.createElement('div');ov.className='show';ov.tabIndex=0;pp.appendChild(ov);
-    let box=null,cancelTr=null,autoT=0,steps=[],si=0;
+  const fmtT=s=>{s=Math.max(0,Math.round(s));const h=Math.floor(s/3600),m=Math.floor(s%3600/60),c=s%60;return(h?h+':'+String(m).padStart(2,'0'):m)+':'+String(c).padStart(2,'0');};
+  const cidIdx=id=>slides.findIndex(s=>s.cid===id);
+  function showOrder(from,all,cs){
+    const vis=i=>!slides[i].hid,every=slides.map((_,i)=>i);let list;
+    if(from!=null||all){list=every.filter(i=>vis(i)||i===from);return{list,p:Math.max(0,list.indexOf(from!=null?from:0))};}
+    if(cs)list=cs.ids.map(cidIdx).filter(i=>i>=0);
+    else if(ss.range==='range'){const a=Math.max(1,Math.min(slides.length,+ss.from||1)),b=Math.max(a,Math.min(slides.length,+ss.to||slides.length));list=every.slice(a-1,b);}
+    else list=every;
+    return{list:list.filter(vis),p:0};
+  }
+  /* o: {mode:'play'|'rehearse'|'record', custom, timing, narr, mic} */
+  function show(from,o){
+    o=o||{};sync();
+    const mode=o.mode||'play',rec=mode!=='play',kiosk=!rec&&ss.type==='kiosk',win=!rec&&ss.type==='win';
+    const cs=o.custom||(!rec&&from==null&&ss.range==='custom'?customShows.find(x=>x.name===ss.custom):null);
+    const ord=showOrder(from,rec,cs),order=ord.list;let p=ord.p;
+    if(!order.length)return toast('Tidak ada slide untuk ditampilkan');
+    let i=order[p];
+    const pv=!rec&&ss.presenter&&!kiosk;
+    const ov=document.createElement('div');ov.className='show'+(win?' win':'')+(pv?' pv':'');ov.tabIndex=0;
+    let bk=null;if(win){bk=document.createElement('div');bk.className='showbk';pp.appendChild(bk);}
+    const host=document.createElement('div');host.className='shh';ov.appendChild(host);
+    let side=null;
+    if(pv){side=document.createElement('div');side.className='pvs';side.innerHTML='<div class="pvn"></div><div class="pvx"></div><div class="pvi"><b class="pvc"></b><span class="pvt">0:00</span></div>';ov.appendChild(side);}
+    const lz=document.createElement('div');lz.className='shlz';ov.appendChild(lz);
+    if(!rec&&!kiosk){const tb=document.createElement('div');tb.className='shtb';
+      tb.innerHTML='<button data-k="prev" title="Sebelumnya">◀</button><button data-k="next" title="Berikutnya">▶</button><button data-k="pen" title="Pena (Ctrl+P)">✎</button><button data-k="laser" title="Penunjuk laser (Ctrl+L)">◉</button><button data-k="erase" title="Hapus coretan (E)">⌫</button><button data-k="blk" title="Layar hitam (B)">■</button><button data-k="end" title="Akhiri slide show (Esc)">✕</button>';ov.appendChild(tb);}
+    let rb=null;
+    if(rec){rb=document.createElement('div');rb.className='shrec';
+      rb.innerHTML=`<button data-k="next" title="Slide berikutnya">➜</button><button data-k="pause" title="Jeda">⏸</button><span class="rt" title="Waktu slide ini">0:00</span><button data-k="repeat" title="Ulangi slide ini">↺</button><span class="rtt" title="Total waktu">0:00</span>${o.mic?'<b class="rdot" title="Merekam narasi">●</b>':''}<button data-k="end" title="Selesai (Esc)">✕</button>`;ov.appendChild(rb);}
+    pp.appendChild(ov);
+
+    let box=null,cancelTr=null,autoT=0,steps=[],si=0,aud=null,tool=null,ink=null,cv=null,mvT=0,closed=false;
+    const noAnim=!rec&&!!ss.noAnim;
+
+    /* waktu & narasi (latih / rekam) */
+    let t0=performance.now(),acc=0,paused=false;const T={},Bl={},pend=[];let mr=null;
+    const elapsed=()=>acc+(paused?0:(performance.now()-t0)/1000),resetT=()=>{acc=0;t0=performance.now();};
+    const nrStart=()=>{if(!o.mic)return;try{const ch=[],idx=i,r=new MediaRecorder(o.mic);let res;const pr=new Promise(x=>res=x);
+      r.ondataavailable=e=>{if(e.data&&e.data.size)ch.push(e.data);};
+      r.onstop=()=>{if(!r.drop&&ch.length)Bl[idx]=new Blob(ch,{type:r.mimeType||'audio/webm'});res();};
+      r.start();mr=r;r.done=pr;}catch{mr=null;}};
+    const nrStop=drop=>{if(!mr)return;const r=mr;mr=null;r.drop=!!drop;pend.push(r.done);try{if(r.state!=='inactive')r.stop();}catch{}};
+    const leave=()=>{if(!rec)return;T[i]=Math.max(1,Math.round(elapsed()));nrStop();resetT();};
+
     const playStep=()=>{const st=steps[si++];if(st&&box)anPlayItems(box.lastElementChild,st.items);};
-    const arm=()=>{if(steps[0]&&steps[0].auto&&!si)playStep();const a=getTr(slides[i]);if(a.afterOn)autoT=setTimeout(()=>next(),(+a.after||0)*1000);};
-    const paint=play=>{
-      const k=Math.min(ov.clientWidth/W,ov.clientHeight/H);if(cancelTr){cancelTr();cancelTr=null;}clearTimeout(autoT);steps=play?anSteps(slides[i]):[];si=0;
-      const prev=box&&box.lastElementChild,t=getTr(slides[i]);
-      if(play&&prev&&box.dataset.k==k&&t.t!=='none'&&t.t!=='cut'){const nw=svEl(slides[i],k,'show');box.appendChild(nw);anInit(nw,slides[i]);playSnd(t.snd);cancelTr=runTr(box,prev,nw,t,()=>{cancelTr=null;arm();});}
-      else{ov.innerHTML='';box=document.createElement('div');box.dataset.k=k;box.style.cssText=`position:relative;overflow:hidden;width:${W*k}px;height:${H*k}px`;{const nw=svEl(slides[i],k,'show');box.appendChild(nw);if(play)anInit(nw,slides[i]);}ov.appendChild(box);if(play)playSnd(t.snd);arm();}
+    const arm=()=>{
+      if(steps[0]&&steps[0].auto&&!si)playStep();
+      const a=getTr(slides[i]);
+      if(!rec&&a.afterOn&&(ss.useTimings||kiosk))autoT=setTimeout(()=>next(),(+a.after||0)*1000);
     };
-    const close=()=>{clearTimeout(autoT);if(cancelTr)cancelTr();document.removeEventListener('fullscreenchange',fc);ov.remove();if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});go(i);};
+    const stopAud=()=>{if(aud){try{aud.pause();}catch{}aud=null;}};
+    const dropInk=()=>{if(ink){ink.remove();ink=null;}};
+    const place=()=>{if(!ink||!box)return;const a=box.getBoundingClientRect(),b=ov.getBoundingClientRect(),w=Math.round(a.width),h=Math.round(a.height);
+      ink.style.left=a.left-b.left+'px';ink.style.top=a.top-b.top+'px';ink.style.width=w+'px';ink.style.height=h+'px';if(ink.width!==w||ink.height!==h){ink.width=w;ink.height=h;}};
+    const pvUpd=()=>{if(!side)return;const nx=order[p+1],pn=side.querySelector('.pvn');pn.innerHTML='';
+      if(nx!=null){pn.appendChild(svEl(slides[nx],(pn.clientWidth||280)/W,false));}else pn.textContent='Akhir slide show';
+      side.querySelector('.pvx').innerHTML=slides[i].notes||'<i style="color:#888">(Tidak ada catatan untuk slide ini)</i>';
+      side.querySelector('.pvc').textContent='Slide '+(p+1)+' dari '+order.length;};
+    const mediaFix=()=>{if(!ss.mediaCtrl)box.querySelectorAll('video,audio').forEach(m=>{m.controls=false;});};
+    const paint=(play,quiet)=>{
+      const k=Math.min(host.clientWidth/W,host.clientHeight/H);if(cancelTr){cancelTr();cancelTr=null;}clearTimeout(autoT);steps=play&&!noAnim?anSteps(slides[i]):[];si=0;
+      const prev=box&&box.lastElementChild,t=getTr(slides[i]);
+      if(play&&prev&&box.dataset.k==k&&t.t!=='none'&&t.t!=='cut'){const nw=svEl(slides[i],k,'show');box.appendChild(nw);if(!noAnim)anInit(nw,slides[i]);playSnd(t.snd);cancelTr=runTr(box,prev,nw,t,()=>{cancelTr=null;arm();});}
+      else{host.innerHTML='';box=document.createElement('div');box.dataset.k=k;box.style.cssText=`position:relative;overflow:hidden;width:${W*k}px;height:${H*k}px`;{const nw=svEl(slides[i],k,'show');box.appendChild(nw);if(play&&!noAnim)anInit(nw,slides[i]);}host.appendChild(box);if(play)playSnd(t.snd);arm();}
+      mediaFix();
+      if(!quiet){stopAud();dropInk();if(tool==='pen')mkInk();if(rec)nrStart();else if(ss.playNarr&&slides[i].narr){aud=new Audio(slides[i].narr.src);aud.play().catch(()=>{});}}
+      place();pvUpd();
+    };
+    const finish=()=>{
+      if(closed)return;closed=true;clearTimeout(autoT);clearTimeout(mvT);clearInterval(tick);if(cancelTr)cancelTr();stopAud();if(rec)leave();
+      document.removeEventListener('fullscreenchange',fc);removeEventListener('resize',rs);
+      ov.remove();if(bk)bk.remove();if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});go(i);
+      if(rec)Promise.all(pend).then(()=>{if(o.mic)o.mic.getTracks().forEach(t=>t.stop());finishRec(T,Bl,o);});
+    };
+    const close=finish;
     const fc=()=>{if(!document.fullscreenElement)close();};
-    const next=()=>{if(si<steps.length){playStep();return;}if(i<slides.length-1){i++;paint(1);}else close();},prev=()=>{if(i>0){i--;paint();}};
-    const api={set:n=>{i=Math.max(0,Math.min(slides.length-1,n));paint();},end:close};
-    ov.onclick=e=>{const a=e.target.closest&&e.target.closest('a[href]');if(a){e.preventDefault();if(/^https?:/i.test(a.href))open(a.href,'_blank','noopener');return;}
-      if(e.target.closest&&e.target.closest('.med video,.med audio,.med iframe'))return;
-      const el=e.target.closest&&e.target.closest('.ob[data-lk]'),o=el&&slides[i].objs.find(x=>x.id===el.dataset.id);if(o&&runLink(o.link,i,api))return;if(getTr(slides[i]).click)next();};
-    ov.onkeydown=e=>{const k=e.key;if(k==='Escape')close();else if(['ArrowRight','ArrowDown','PageDown',' ','Enter'].includes(k)){e.preventDefault();next();}else if(['ArrowLeft','ArrowUp','PageUp','Backspace'].includes(k)){e.preventDefault();prev();}};
-    paint(1);ov.focus();addEventListener('resize',()=>paint());
-    if(ov.requestFullscreen){ov.requestFullscreen().then(()=>document.addEventListener('fullscreenchange',fc)).catch(()=>{});}
+    const rs=()=>{if(!closed)paint(0,1);};
+    const cvOff=()=>{if(cv){cv.remove();cv=null;}};
+    const blank=c=>{if(cv&&cv.dataset.c===c){cvOff();return;}cvOff();cv=document.createElement('div');cv.className='shcv';cv.dataset.c=c;cv.style.background=c;ov.appendChild(cv);};
+    const goTo=n=>{leave();p=n;i=order[p];paint(1);};
+    const next=()=>{
+      if(cv){cvOff();return;}
+      if(si<steps.length){playStep();return;}
+      if(p<order.length-1)goTo(p+1);
+      else if(!rec&&ss.loop)goTo(0);
+      else close();
+    };
+    const prev=()=>{if(cv){cvOff();return;}if(p>0){leave();p--;i=order[p];paint();}};
+    const mkInk=()=>{if(ink)return;ink=document.createElement('canvas');ink.className='shink';ov.appendChild(ink);place();
+      ink.onpointerdown=e=>{if(tool!=='pen')return;e.preventDefault();ink.setPointerCapture(e.pointerId);const c=ink.getContext('2d'),r=ink.getBoundingClientRect();
+        c.strokeStyle=ss.pen;c.lineWidth=Math.max(3,ink.width/280);c.lineCap=c.lineJoin='round';c.beginPath();c.moveTo(e.clientX-r.left,e.clientY-r.top);c.lineTo(e.clientX-r.left+.1,e.clientY-r.top);c.stroke();
+        ink.onpointermove=ev=>{c.lineTo(ev.clientX-r.left,ev.clientY-r.top);c.stroke();c.beginPath();c.moveTo(ev.clientX-r.left,ev.clientY-r.top);};
+        ink.onpointerup=ink.onpointercancel=()=>{ink.onpointermove=null;};};};
+    const setTool=t=>{tool=tool===t?null:t;ov.classList.toggle('tpen',tool==='pen');ov.classList.toggle('tlaser',tool==='laser');
+      ov.querySelectorAll('.shtb [data-k=pen]').forEach(b=>b.classList.toggle('on',tool==='pen'));ov.querySelectorAll('.shtb [data-k=laser]').forEach(b=>b.classList.toggle('on',tool==='laser'));
+      if(tool==='pen')mkInk();};
+    const api={set:n=>{n=Math.max(0,Math.min(slides.length-1,n));let q=order.indexOf(n);if(q<0){order.splice(p+1,0,n);q=p+1;}leave();p=q;i=n;paint();},end:close};
+    const act=k=>{
+      if(k==='next')next();else if(k==='prev')prev();else if(k==='end')close();
+      else if(k==='pen')setTool('pen');else if(k==='laser')setTool('laser');else if(k==='erase'){dropInk();if(tool==='pen')mkInk();}else if(k==='blk')blank('#000');
+      else if(k==='pause'){paused=!paused;if(paused)acc+=(performance.now()-t0)/1000;else t0=performance.now();
+        const b=rb.querySelector('[data-k=pause]');b.textContent=paused?'▶':'⏸';b.title=paused?'Lanjutkan':'Jeda';if(mr){try{paused?mr.pause():mr.resume();}catch{}}}
+      else if(k==='repeat'){nrStop(true);resetT();paused=false;const b=rb.querySelector('[data-k=pause]');b.textContent='⏸';box=null;paint(1);}
+    };
+    ov.onclick=e=>{
+      const kb=e.target.closest&&e.target.closest('[data-k]');if(kb){act(kb.dataset.k);return;}
+      const a=e.target.closest&&e.target.closest('a[href]');if(a){e.preventDefault();if(/^https?:/i.test(a.href))open(a.href,'_blank','noopener');return;}
+      if(e.target.closest&&e.target.closest('.med video,.med audio,.med iframe')){const m=e.target.closest('video,audio');if(m&&!ss.mediaCtrl){if(m.paused)m.play();else m.pause();}return;}
+      if(tool==='pen')return;
+      const el=e.target.closest&&e.target.closest('.ob[data-lk]'),ob=el&&slides[i].objs.find(x=>x.id===el.dataset.id);if(ob&&runLink(ob.link,i,api))return;
+      if(rec){next();return;}if(kiosk)return;if(getTr(slides[i]).click)next();};
+    ov.onmousemove=e=>{ov.classList.add('mv');clearTimeout(mvT);mvT=setTimeout(()=>ov.classList.remove('mv'),2500);
+      if(tool==='laser'){const r=ov.getBoundingClientRect();lz.style.left=e.clientX-r.left+'px';lz.style.top=e.clientY-r.top+'px';}};
+    ov.onkeydown=e=>{
+      const k=e.key,kl=k.toLowerCase();
+      if(k==='Escape'){if(tool)setTool(tool);else if(cv)cvOff();else close();return;}
+      if(kiosk)return;
+      if(!rec){
+        if(e.ctrlKey&&kl==='p'){e.preventDefault();setTool('pen');return;}
+        if(e.ctrlKey&&kl==='l'){e.preventDefault();setTool('laser');return;}
+        if(e.ctrlKey&&kl==='a'){e.preventDefault();if(tool)setTool(tool);return;}
+        if(!e.ctrlKey&&!e.metaKey&&!e.altKey){
+          if(kl==='e'){dropInk();if(tool==='pen')mkInk();return;}
+          if(kl==='b'||k==='.'){blank('#000');return;}
+          if(kl==='w'||k===','){blank('#fff');return;}
+          if(k==='Home'){e.preventDefault();goTo(0);return;}
+          if(k==='End'){e.preventDefault();goTo(order.length-1);return;}}}
+      if(['ArrowRight','ArrowDown','PageDown',' ','Enter'].includes(k)){e.preventDefault();next();}
+      else if(['ArrowLeft','ArrowUp','PageUp','Backspace'].includes(k)){e.preventDefault();prev();}};
+    const t00=Date.now();
+    const tick=setInterval(()=>{
+      if(rb){rb.querySelector('.rt').textContent=fmtT(elapsed());rb.querySelector('.rtt').textContent=fmtT(Object.keys(T).reduce((s,x)=>s+(+x===i?0:T[x]),0)+elapsed());}
+      if(side)side.querySelector('.pvt').textContent=fmtT((Date.now()-t00)/1000);},250);
+    paint(1);ov.focus();addEventListener('resize',rs);
+    if(!win&&ov.requestFullscreen){
+      const sc=ss.monitor!=='auto'&&ss.monitor!=='main'?scrList[+ss.monitor]:null;
+      Promise.resolve().then(()=>ov.requestFullscreen(sc?{screen:sc}:undefined)).then(()=>document.addEventListener('fullscreenchange',fc)).catch(()=>{});}
   }
   function printAll(){
     sync();const d=document.createElement('div');d.className='pp-print';
@@ -796,8 +974,8 @@ function mount(root,opts={}){
       await lib('jszip',()=>window.JSZip);await lib('pptxio',()=>window.PptxIO);
       const r=await PptxIO.read(await file.arrayBuffer(),window.JSZip);
       slides=r.slides.map(s=>{const n={layout:s.layout,notes:s.notes||'',objs:s.objs.map(o=>mk(o.k==='ph'?Object.assign({},o,{ph:PH[o.role]||PH.body}):o))};
-        if(s.bg)n.bg=s.bg;if(s.tr)n.tr=s.tr;if(s.sec!=null)n.sec=s.sec;return n;});
-      themeOn=false;cur=0;sel=[];lastR=null;name=file.name;setName();hist=[];hi=-1;
+        if(s.bg)n.bg=s.bg;if(s.tr)n.tr=s.tr;if(s.hid)n.hid=1;if(s.sec!=null)n.sec=s.sec;return n;});
+      themeOn=false;customShows=[];cur=0;sel=[];lastR=null;name=file.name;setName();hist=[];hi=-1;
       draw();thumbs();notes.innerHTML=S0().notes||'';commit();
       const w=r.warn,skip=[w.table&&w.table+' tabel',w.chart&&w.chart+' bagan',w.media&&w.media+' gambar (format tidak didukung)',w.other&&w.other+' objek lain'].filter(Boolean);
       if(skip.length)toast('Dibuka: '+file.name+'. Belum didukung dan dilewati: '+skip.join(', '),7000);else toast('Dibuka: '+file.name);
@@ -810,7 +988,7 @@ function mount(root,opts={}){
       const blob=await PptxIO.write({name,slides},window.PptxGenJS,window.JSZip);
       const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=/\.pptx$/i.test(name)?name:name+'.pptx';
       document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);const nm=slides.reduce((c,s)=>c+s.objs.filter(o=>o.media).length,0),nx=slides.reduce((c,s)=>c+s.objs.filter(o=>o.img&&!/^data:/.test(o.img)).length,0),na=slides.reduce((c,s)=>c+s.objs.filter(o=>o.an&&o.an.t&&o.an.t!=='none').length,0);
-      toast('Tersimpan: '+a.download+(nm?' — '+nm+' video/audio tidak ikut tersimpan':'')+(nx?' — '+nx+' gambar online tidak ikut tersimpan':'')+(na?' — '+na+' animasi tidak ikut tersimpan':''),nm||nx||na?7000:3000);
+      toast('Tersimpan: '+a.download+(nm?' — '+nm+' video/audio tidak ikut tersimpan':'')+(nx?' — '+nx+' gambar online tidak ikut tersimpan':'')+(na?' — '+na+' animasi tidak ikut tersimpan':'')+(slides.some(x=>x.narr)?' — narasi tidak ikut tersimpan':''),nm||nx||na||slides.some(x=>x.narr)?7000:3000);
     }catch(e){toast('Gagal menyimpan: '+e.message,6000);}
   }
   fin.addEventListener('change',()=>{const f=fin.files[0];fin.value='';if(f)openFile(f);});
@@ -818,11 +996,11 @@ function mount(root,opts={}){
   /* ===== aksi ===== */
   const acts={
     menu(){fm.hidden=!fm.hidden;},
-    new(){hfs.all=0;slides=[mkSlide('title')];cur=0;sel=[];name='Presentasi1.pptx';setName();hist=[];hi=-1;draw();thumbs();notes.innerHTML='';commit();},
+    new(){hfs.all=0;customShows=[];slides=[mkSlide('title')];cur=0;sel=[];name='Presentasi1.pptx';setName();hist=[];hi=-1;draw();thumbs();notes.innerHTML='';commit();},
     open(){fin.click();},
     save:savePptx,
     print:printAll,home(){opts.onHome&&opts.onHome();},undo,redo,
-    showfirst(){show(0);},show(){show(cur);},
+    showfirst(){show();},show(){show(cur);},
     cut(){if(selectedText()){target(()=>document.execCommand('cut'));}else if(copyObjs()){delSel();}},
     copy(){if(selectedText()){target(()=>document.execCommand('copy'));}else if(!copyObjs())toast('Pilih teks atau objek untuk disalin');},
     async paste(){
@@ -1297,6 +1475,134 @@ function mount(root,opts={}){
     anadd:()=>[...AEFF.filter(e=>e[0]!=='none').map(([id,n])=>['Masuk · '+n,'anadd:in:'+id,aIcon(id)]),'-',...AEFF.filter(e=>e[0]!=='none').map(([id,n])=>['Keluar · '+n,'anadd:out:'+id,aIcon(id)])]
   });
 
+  /* ===== tab SLIDE SHOW ===== */
+  const slideTitle=s=>{const t=s.objs.map(o=>textOf(o.html||'').trim()).find(Boolean)||'(tanpa teks)';return t.length>38?t.slice(0,38)+'…':t;};
+  const ensureCid=s=>{if(!s.cid)s.cid='c'+(cidn++);return s.cid;};
+  function syncSs(){
+    const q=n=>$('[data-s='+n+']');if(!q('shnarr'))return;
+    q('shnarr').checked=!!ss.playNarr;q('shtim').checked=!!ss.useTimings;q('shmed').checked=!!ss.mediaCtrl;q('shpv').checked=!!ss.presenter;
+    if([...q('shmon').options].some(x=>x.value===ss.monitor))q('shmon').value=ss.monitor;
+    const h=$('[data-a=hideslide]');if(h&&S0())h.classList.toggle('on',!!S0().hid);
+  }
+  async function loadScreens(){
+    if(scrTried||!window.getScreenDetails)return;scrTried=true;
+    try{const d=await window.getScreenDetails();scrList=[...d.screens];const sel=$('[data-s=shmon]');if(!sel||scrList.length<2)return;
+      sel.innerHTML='<option value="auto">Otomatis</option>'+scrList.map((s,i)=>`<option value="${i}">Monitor ${i+1}: ${esc(s.label||(s.width+'×'+s.height))}${s.isPrimary?' (utama)':''}</option>`).join('');
+      if(ss.monitor==='main')ss.monitor='auto';sel.value=ss.monitor;}catch{}
+  }
+  root.addEventListener('focusin',e=>{if(e.target.matches&&e.target.matches('[data-s=shmon]'))loadScreens();});
+  root.addEventListener('mousedown',e=>{if(e.target.matches&&e.target.matches('[data-s=shmon]'))loadScreens();});
+
+  function setupDlg(){
+    const c=ss,n=slides.length,ck=v=>v?' checked':'',opt=customShows.map(x=>`<option${c.custom===x.name?' selected':''}>${esc(x.name)}</option>`).join('');
+    dlg('Siapkan Slide Show',`
+     <fieldset><legend>Jenis presentasi</legend>
+      <label><input type="radio" name="sst" value="full"${ck(c.type==='full')}> Dipresentasikan oleh pembicara (layar penuh)</label>
+      <label><input type="radio" name="sst" value="win"${ck(c.type==='win')}> Dilihat oleh individu (jendela)</label>
+      <label><input type="radio" name="sst" value="kiosk"${ck(c.type==='kiosk')}> Dilihat di kios (layar penuh)</label></fieldset>
+     <fieldset><legend>Opsi tampilan</legend>
+      <label><input type="checkbox" class="sl"${ck(c.loop)}> Ulangi terus sampai 'Esc' ditekan</label>
+      <label><input type="checkbox" class="sn"${ck(!c.playNarr)}> Tampilkan tanpa narasi</label>
+      <label><input type="checkbox" class="sa"${ck(c.noAnim)}> Tampilkan tanpa animasi</label>
+      <label>Warna pena: <input type="color" class="sp" value="${c.pen}"></label></fieldset>
+     <fieldset><legend>Tampilkan slide</legend>
+      <label><input type="radio" name="ssr" value="all"${ck(c.range==='all')}> Semua</label>
+      <label><input type="radio" name="ssr" value="range"${ck(c.range==='range')}> Dari: <input type="number" class="sf" min="1" max="${n}" value="${Math.min(c.from,n)}"> Sampai: <input type="number" class="se" min="1" max="${n}" value="${Math.min(c.to||n,n)}"></label>
+      <label><input type="radio" name="ssr" value="custom"${ck(c.range==='custom')}> Slide show kustom: <select class="sc">${opt||'<option value="">(belum ada)</option>'}</select></label></fieldset>
+     <fieldset><legend>Slide berikutnya</legend>
+      <label><input type="radio" name="ssa" value="m"${ck(!c.useTimings)}> Manual</label>
+      <label><input type="radio" name="ssa" value="t"${ck(c.useTimings)}> Menggunakan pengaturan waktu, jika ada</label></fieldset>`,
+     [['Batal'],['OK',bg=>{
+       const g=q=>bg.querySelector(q),v=q=>bg.querySelector('input[name='+q+']:checked').value,r=v('ssr');
+       if(r==='custom'&&!g('.sc').value){toast('Belum ada slide show kustom. Buat dulu lewat Slide Show Kustom.');return false;}
+       const a=Math.max(1,Math.min(n,parseInt(g('.sf').value)||1)),b=Math.max(a,Math.min(n,parseInt(g('.se').value)||n));
+       Object.assign(ss,{type:v('sst'),loop:g('.sl').checked?1:0,playNarr:g('.sn').checked?0:1,noAnim:g('.sa').checked?1:0,pen:g('.sp').value,range:r,from:a,to:b,custom:g('.sc').value,useTimings:v('ssa')==='t'?1:0});
+       if(ss.type==='kiosk')ss.loop=1;syncSs();}, 1]]);
+  }
+
+  /* slide show kustom */
+  function customMgr(){
+    const bg=dlg('Slide Show Kustom',customShows.length?`<div>Slide show kustom:</div><select multiple size="6" class="cl" style="height:120px">${customShows.map((x,k)=>`<option value="${k}">${esc(x.name)} (${x.ids.length} slide)</option>`).join('')}</select>`:'<div>Belum ada slide show kustom. Klik <b>Baru…</b> untuk membuat.</div>',
+      [['Baru…',()=>{customEdit(-1);}],['Edit…',b=>{const s=b.querySelector('.cl'),k=s&&s.selectedIndex;if(!s||k<0){toast('Pilih slide show terlebih dahulu');return false;}customEdit(k);}],
+       ['Hapus',b=>{const s=b.querySelector('.cl'),k=s&&s.selectedIndex;if(!s||k<0){toast('Pilih slide show terlebih dahulu');return false;}const nm=customShows[k].name;customShows.splice(k,1);if(ss.custom===nm){ss.custom='';if(ss.range==='custom')ss.range='all';}customMgr();}],
+       ['Putar',b=>{const s=b.querySelector('.cl'),k=s&&s.selectedIndex;if(!s||k<0){toast('Pilih slide show terlebih dahulu');return false;}setTimeout(()=>acts.cshowplay(k),0);}],
+       ['Tutup',null,1]]);
+    return bg;
+  }
+  function customEdit(k){
+    sync();const ex=k>=0?customShows[k]:null,opts=slides.map((s,i)=>`<option value="${ensureCid(s)}">${i+1}. ${esc(slideTitle(s))}</option>`).join('');
+    const label=id=>{const j=cidIdx(id);return j<0?null:`${j+1}. ${slideTitle(slides[j])}`;};
+    const bg=dlg(ex?'Edit Slide Show Kustom':'Slide Show Kustom Baru',`<label>Nama slide show: <input type="text" class="cn" value="${esc(ex?ex.name:'Slide Show Kustom '+(customShows.length+1))}"></label>
+      <div class="cs2"><div><div>Slide dalam presentasi:</div><select multiple class="ca">${opts}</select></div>
+      <div class="cb"><button type="button" class="ad">Tambah ▸</button><button type="button" class="rm">◂ Hapus</button><button type="button" class="up">▲</button><button type="button" class="dn">▼</button></div>
+      <div><div>Slide dalam slide show kustom:</div><select multiple class="cu"></select></div></div>`,
+      [['Batal',()=>{customMgr();}],['OK',b=>{
+        const nm=b.querySelector('.cn').value.trim(),ids=[...b.querySelector('.cu').options].map(x=>x.value);
+        if(!nm){toast('Isi nama slide show');return false;}
+        if(customShows.some((x,j)=>j!==k&&x.name===nm)){toast('Nama sudah dipakai');return false;}
+        if(!ids.length){toast('Tambahkan minimal satu slide');return false;}
+        if(ex){if(ss.custom===ex.name)ss.custom=nm;ex.name=nm;ex.ids=ids;}else customShows.push({name:nm,ids});
+        customMgr();},1]]);
+    bg.querySelector('.dlg').style.minWidth='min(520px,calc(100% - 24px))';
+    const A=bg.querySelector('.ca'),U=bg.querySelector('.cu'),mkOpt=id=>{const x=document.createElement('option');x.value=id;x.textContent=label(id)||'(slide dihapus)';return x;};
+    if(ex)ex.ids.filter(id=>cidIdx(id)>=0).forEach(id=>U.appendChild(mkOpt(id)));
+    bg.querySelector('.ad').onclick=()=>[...A.selectedOptions].forEach(o=>U.appendChild(mkOpt(o.value)));
+    bg.querySelector('.rm').onclick=()=>[...U.selectedOptions].forEach(o=>o.remove());
+    bg.querySelector('.up').onclick=()=>[...U.selectedOptions].forEach(o=>{const pr=o.previousElementSibling;if(pr&&!pr.selected)U.insertBefore(o,pr);});
+    bg.querySelector('.dn').onclick=()=>[...U.selectedOptions].reverse().forEach(o=>{const nx=o.nextElementSibling;if(nx&&!nx.selected)U.insertBefore(nx,o);});
+  }
+
+  /* hasil latih / rekam */
+  function finishRec(T,Bl,o){
+    const ks=Object.keys(T).map(Number);if(!ks.length)return;
+    const tot=ks.reduce((s,x)=>s+T[x],0),what=[o.timing?'pengaturan waktu':'',o.narr&&Object.keys(Bl).length?'narasi':''].filter(Boolean).join(' dan ');
+    if(!what)return;
+    dlg('Slide show berakhir',`<div>Total waktu: <b>${fmtT(tot)}</b> untuk ${ks.length} slide.</div><div style="margin-top:6px">Simpan ${what}?</div>`,
+      [['Jangan simpan'],['Simpan',()=>{
+        sync();
+        ks.forEach(k=>{const s=slides[k];if(!s)return;
+          if(o.timing)s.tr=Object.assign(getTr(s),{afterOn:1,after:T[k]});
+          if(o.narr&&Bl[k])s.narr={src:URL.createObjectURL(Bl[k]),t:T[k]};});
+        commit();syncSs();toast('Tersimpan: '+what+'. Narasi tidak ikut tersimpan ke berkas .pptx.',5000);},1]]);
+  }
+  function recDlg(from){
+    dlg('Rekam Slide Show','<div>Pilih yang ingin direkam sebelum memulai:</div><label><input type="checkbox" class="r1" checked> Waktu slide dan animasi</label><label><input type="checkbox" class="r2" checked> Narasi (membutuhkan mikrofon)</label>',
+      [['Batal'],['Mulai Merekam',bg=>{
+        const timing=bg.querySelector('.r1').checked,narr=bg.querySelector('.r2').checked;
+        if(!timing&&!narr){toast('Pilih minimal satu opsi');return false;}
+        (async()=>{let mic=null;
+          if(narr){try{mic=await navigator.mediaDevices.getUserMedia({audio:true});}catch{
+            if(!timing){toast('Mikrofon tidak dapat diakses');return;}toast('Mikrofon tidak dapat diakses — hanya merekam waktu slide',5000);}}
+          show(from,{mode:'record',timing,narr:!!mic,mic});})();
+      },1]]);
+  }
+
+  Object.assign(acts,{
+    shsetup:setupDlg,
+    hideslide(){sync();const s=S0();if(s.hid)delete s.hid;else s.hid=1;commit();syncSs();toast(s.hid?'Slide '+(cur+1)+' disembunyikan dan dilewati saat slide show':'Slide '+(cur+1)+' ditampilkan kembali');},
+    rehearse(){show(null,{mode:'rehearse',timing:1});},
+    recfrom(v){recDlg(v==='cur'?cur:null);},
+    recclr(v){const[w,sc]=v.split(':');sync();(sc==='cur'?[S0()]:slides).forEach(s=>{if(w==='time'){if(s.tr){s.tr.afterOn=0;s.tr.after=0;}}else delete s.narr;});commit();syncSs();toast(w==='time'?'Pengaturan waktu dihapus':'Narasi dihapus');},
+    cshowplay(v){const c=customShows[+v];if(!c)return;show(null,{custom:c});},
+    cshowmgr:customMgr
+  });
+  Object.assign(sels,{
+    shnarr:()=>{ss.playNarr=$('[data-s=shnarr]').checked?1:0;},
+    shtim:()=>{ss.useTimings=$('[data-s=shtim]').checked?1:0;},
+    shmed:()=>{ss.mediaCtrl=$('[data-s=shmed]').checked?1:0;},
+    shpv:()=>{ss.presenter=$('[data-s=shpv]').checked?1:0;},
+    shmon:v=>{ss.monitor=v;}
+  });
+  Object.assign(MENUS,{
+    online:()=>[['Unduh .pptx untuk dibagikan','save','💾'],['Cetak / simpan sebagai PDF','print','🖨']],
+    cshow:()=>[...customShows.map((c,k)=>[c.name,'cshowplay:'+k,'▶']),...(customShows.length?['-']:[]),['Slide Show Kustom…','cshowmgr']],
+    rec:()=>[['Mulai Merekam dari Awal…','recfrom:0','⏺'],['Mulai Merekam dari Slide Saat Ini…','recfrom:cur','⏺'],'-',
+      ['Hapus Waktu pada Slide Saat Ini','recclr:time:cur'],['Hapus Waktu pada Semua Slide','recclr:time:all'],['Hapus Narasi pada Slide Saat Ini','recclr:narr:cur'],['Hapus Narasi pada Semua Slide','recclr:narr:all']]
+  });
+  root.addEventListener('keydown',e=>{
+    if(e.key!=='F5'||pp.querySelector('.show'))return;e.preventDefault();if(e.shiftKey)acts.show();else acts.showfirst();});
+  syncSs();
+
   /* ===== event ===== */
   root.addEventListener('mousedown',e=>{
     if(!e.target.closest('.pm'))closePop();
@@ -1409,9 +1715,9 @@ function mount(root,opts={}){
   thumbsEl.addEventListener('click',listClick);sorter.addEventListener('click',listClick);
   sorter.addEventListener('dblclick',e=>{if(e.target.closest('.th2'))acts.vnormal();});
   const ctx=e=>{const t=e.target.closest('.th,.th2');if(!t)return;e.preventDefault();go(+t.dataset.i);
-    pop([['Slide Baru','newslide'],['Duplikat Slide','dup'],['Hapus Slide','delslide'],'-',['Mulai dari Slide Ini','show']],e.clientX,e.clientY);};
+    pop([['Slide Baru','newslide'],['Duplikat Slide','dup'],['Hapus Slide','delslide'],'-',['Mulai dari Slide Ini','show'],['Sembunyikan / Tampilkan Slide','hideslide']],e.clientX,e.clientY);};
   thumbsEl.addEventListener('contextmenu',ctx);sorter.addEventListener('contextmenu',ctx);
-  acts.dup=()=>{sync();const c=JSON.parse(JSON.stringify(S0()));delete c.sec;c.objs.forEach(o=>o.id='o'+(uid++));slides.splice(cur+1,0,c);cur++;sel=[];draw();notes.innerHTML=c.notes||'';commit();};
+  acts.dup=()=>{sync();const c=JSON.parse(JSON.stringify(S0()));delete c.sec;delete c.cid;c.objs.forEach(o=>o.id='o'+(uid++));slides.splice(cur+1,0,c);cur++;sel=[];draw();notes.innerHTML=c.notes||'';commit();};
   acts.delslide=()=>{sync();if(slides.length===1)slides=[mkSlide('title')];else{slides.splice(cur,1);if(cur>=slides.length)cur=slides.length-1;}sel=[];draw();notes.innerHTML=S0().notes||'';commit();};
   thumbsEl.addEventListener('keydown',e=>{
     if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();acts.delslide();}

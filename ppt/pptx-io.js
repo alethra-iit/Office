@@ -157,7 +157,7 @@ async function write(data,PptxGenJS,JSZip,type){
     cols.push(spCols);
   });
   const buf=await px.write({outputType:'uint8array'});
-  return fixup(buf,cols,JSZip,type,slides.map(s=>s.tr));
+  return fixup(buf,cols,JSZip,type,slides.map(s=>s.tr),slides.map(s=>!!s.hid));
 }
 
 /* perbaikan paska-proses: pptxgenjs menulis <a:pPr> sebelum tiap run (tidak valid) + kolom teks */
@@ -171,13 +171,14 @@ function trXML(t){
   const c=M[t.t]||'';if(!c&&!adv)return'';
   return '<p:transition spd="'+spd+'"'+adv+'>'+c+'</p:transition>';
 }
-async function fixup(buf,cols,JSZip,type,trs){
+async function fixup(buf,cols,JSZip,type,trs,hids){
   const z=await JSZip.loadAsync(buf);
   for(let i=0;i<cols.length;i++){
     const p='ppt/slides/slide'+(i+1)+'.xml',f=z.file(p);if(!f)continue;
     let x=await f.async('string'),k=0;
     x=x.replace(/<p:sp>[\s\S]*?<\/p:sp>/g,sp=>{const c=cols[i][k++];return c?sp.replace(/<a:bodyPr /,'<a:bodyPr numCol="'+c+'" spcCol="228600" '):sp;});
     x=x.replace(/<a:p>[\s\S]*?<\/a:p>/g,para=>{let seen=false;return para.replace(/<a:pPr\b[^>]*?(?:\/>|>[\s\S]*?<\/a:pPr>)/g,m=>seen?'':(seen=true,m));});
+    if(hids&&hids[i])x=x.replace(/<p:sld\b([^>]*)>/,(m,a)=>/\sshow=/.test(a)?m:'<p:sld'+a+' show="0">');
     const tx=trXML(trs&&trs[i]);if(tx)x=x.replace(/<\/p:sld>\s*$/,tx+'</p:sld>');
     z.file(p,x);
   }
@@ -439,7 +440,7 @@ async function read(buf,JSZip){
       tr={t:m[0],o:m[1],dur:da?(+da.value||1000)/1000:({fast:.5,med:1,slow:1.5}[spd]||1),snd:'',click:trn.getAttribute('advClick')==='0'?0:1,afterOn:advT!==null?1:0,after:advT!==null?(+advT)/1000:0};
       if(tr.t==='none'&&tr.click&&!tr.afterOn)tr=null;
     }
-    const s={layout,objs,notes};if(tr)s.tr=tr;if(bg&&bg.toLowerCase()!=='#ffffff')s.bg=bg;if(sectionOf[si]!=null)s.sec=sectionOf[si];
+    const s={layout,objs,notes};if(doc.documentElement.getAttribute('show')==='0')s.hid=1;if(tr)s.tr=tr;if(bg&&bg.toLowerCase()!=='#ffffff')s.bg=bg;if(sectionOf[si]!=null)s.sec=sectionOf[si];
     out.push(s);
   }
   return{slides:out,warn};
