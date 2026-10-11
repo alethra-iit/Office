@@ -157,17 +157,28 @@ async function write(data,PptxGenJS,JSZip,type){
     cols.push(spCols);
   });
   const buf=await px.write({outputType:'uint8array'});
-  return fixup(buf,cols,JSZip,type);
+  return fixup(buf,cols,JSZip,type,slides.map(s=>s.tr));
 }
 
 /* perbaikan paska-proses: pptxgenjs menulis <a:pPr> sebelum tiap run (tidak valid) + kolom teks */
-async function fixup(buf,cols,JSZip,type){
+function trXML(t){
+  if(!t)return'';const adv=(t.click===0?' advClick="0"':'')+(t.afterOn?' advTm="'+Math.round((+t.after||0)*1000)+'"':'');
+  const spd=t.dur<=.75?'fast':t.dur<=1.5?'med':'slow',d=t.o||'';
+  const M={cut:'<p:cut/>',fade:'<p:fade'+(d==='k'?' thruBlk="1"':'')+'/>',push:'<p:push dir="'+(d||'l')+'"/>',wipe:'<p:wipe dir="'+(d||'l')+'"/>',
+    split:'<p:split orient="'+(/^h/.test(d)?'horz':'vert')+'" dir="'+(/i$/.test(d)?'in':'out')+'"/>',reveal:'<p:pull dir="'+(d||'l')+'"/>',uncover:'<p:pull dir="'+(d||'l')+'"/>',
+    bars:'<p:randomBar dir="'+(d==='h'?'horz':'vert')+'"/>',shape:d==='d'?'<p:diamond/>':'<p:circle/>',cover:'<p:cover dir="'+(d||'l')+'"/>',
+    flash:'<p:fade thruBlk="1"/>',fall:'<p:cover dir="d"/>',zoom:'<p:zoom dir="'+(d==='o'?'out':'in')+'"/>'};
+  const c=M[t.t]||'';if(!c&&!adv)return'';
+  return '<p:transition spd="'+spd+'"'+adv+'>'+c+'</p:transition>';
+}
+async function fixup(buf,cols,JSZip,type,trs){
   const z=await JSZip.loadAsync(buf);
   for(let i=0;i<cols.length;i++){
     const p='ppt/slides/slide'+(i+1)+'.xml',f=z.file(p);if(!f)continue;
     let x=await f.async('string'),k=0;
     x=x.replace(/<p:sp>[\s\S]*?<\/p:sp>/g,sp=>{const c=cols[i][k++];return c?sp.replace(/<a:bodyPr /,'<a:bodyPr numCol="'+c+'" spcCol="228600" '):sp;});
     x=x.replace(/<a:p>[\s\S]*?<\/a:p>/g,para=>{let seen=false;return para.replace(/<a:pPr\b[^>]*?(?:\/>|>[\s\S]*?<\/a:pPr>)/g,m=>seen?'':(seen=true,m));});
+    const tx=trXML(trs&&trs[i]);if(tx)x=x.replace(/<\/p:sld>\s*$/,tx+'</p:sld>');
     z.file(p,x);
   }
   /* catatan pembicara: pptxgenjs menaruh semua baris dalam satu <a:t>; pecah jadi paragraf sungguhan */
@@ -419,7 +430,16 @@ async function read(buf,JSZip){
     const lt=C.layout&&at(C.layout.documentElement,'type'),LMAP={title:'title',obj:'content',tx:'content',secHead:'section',twoObj:'two',twoTxTwoObj:'two',titleOnly:'tonly',blank:'blank',objOnly:'content'};
     let layout=LMAP[lt];
     if(!layout){const nb=roles.filter(r=>r==='body').length;layout=roles.includes('title')?(roles.includes('sub')?'title':nb>=2?'two':nb===1?'content':'tonly'):(nb?'content':'blank');}
-    const s={layout,objs,notes};if(bg&&bg.toLowerCase()!=='#ffffff')s.bg=bg;if(sectionOf[si]!=null)s.sec=sectionOf[si];
+    let tr=null;const trn=doc.documentElement.getElementsByTagNameNS('*','transition')[0];
+    if(trn){
+      const ch=[...trn.children].find(c=>c.localName!=='sndAc'),nm=ch?ch.localName:'',dr=(ch&&ch.getAttribute('dir'))||'',orient=(ch&&ch.getAttribute('orient'))||'';
+      const R={cut:['cut',''],fade:['fade',ch&&ch.getAttribute('thruBlk')==='1'?'k':'s'],push:['push',dr||'l'],wipe:['wipe',dr||'l'],split:['split',(orient==='horz'?'h':'v')+(dr==='in'?'i':'o')],
+        pull:['uncover',dr||'l'],cover:['cover',dr||'l'],randomBar:['bars',orient==='horz'?'h':'v'],circle:['shape','c'],diamond:['shape','d'],zoom:['zoom',dr==='out'?'o':'i'],flash:['flash',''],reveal:['reveal','l']};
+      const m=R[nm]||(nm?['fade','s']:['none','']),advT=trn.getAttribute('advTm'),da=[...trn.attributes].find(a=>a.localName==='dur'),spd=trn.getAttribute('spd');
+      tr={t:m[0],o:m[1],dur:da?(+da.value||1000)/1000:({fast:.5,med:1,slow:1.5}[spd]||1),snd:'',click:trn.getAttribute('advClick')==='0'?0:1,afterOn:advT!==null?1:0,after:advT!==null?(+advT)/1000:0};
+      if(tr.t==='none'&&tr.click&&!tr.afterOn)tr=null;
+    }
+    const s={layout,objs,notes};if(tr)s.tr=tr;if(bg&&bg.toLowerCase()!=='#ffffff')s.bg=bg;if(sectionOf[si]!=null)s.sec=sectionOf[si];
     out.push(s);
   }
   return{slides:out,warn};

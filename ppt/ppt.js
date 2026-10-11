@@ -209,6 +209,11 @@ const CSS=`
 .pp .tb>.sws i{display:block;width:11px;height:5px}
 .pp .tbx{display:block;position:relative;width:88px;height:56px;border:1px solid #bbb}
 .pp .pm.thm{grid-template-columns:repeat(4,100px)}
+.pp .trg{width:640px}
+.pp .trb{flex:none;width:76px;height:66px;border:1px solid transparent;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;cursor:pointer;padding:2px;white-space:normal;text-align:center}
+.pp .trb:hover{background:#fdeee8;border-color:#e8b5a3}.pp .trb.on{background:#f9d3c5;border-color:#e39b83}
+.pp .tmw .row{gap:4px}.pp .tmw label{display:flex;align-items:center;gap:4px}.pp .tmw input[type=number]{width:62px}
+.pp .trm{color:var(--acc);font-size:10px;font-style:normal}
 `;
 
 const FONTS=['Calibri','Calibri Light','Arial','Times New Roman','Cambria','Georgia','Verdana','Courier New','Segoe UI','Tahoma','Trebuchet MS'];
@@ -358,6 +363,71 @@ const RIB_INSERT=
  G('Simbol',IM('<span style="color:#2b579a;font-family:Cambria,serif">π</span>','Persamaan','eqm')+IB('Ω','Simbol','symbol','text','Simbol'))+
  G('Media',IM('🎞','Video','video')+IM('🔊','Audio','audio'));
 
+/* ---- tab TRANSISI ---- */
+const TRS=[['none','Tidak Ada'],['cut','Potong'],['fade','Pudar'],['push','Dorong'],['wipe','Sapu'],['split','Belah'],['reveal','Ungkap'],['bars','Batang Acak'],['shape','Bentuk'],['uncover','Singkap'],['cover','Tutupi'],['flash','Kilat'],['fall','Jatuh'],['zoom','Zoom']];
+const DIRS=[['l','Dari Kanan'],['r','Dari Kiri'],['u','Dari Bawah'],['d','Dari Atas']],OUTS=[['l','Ke Kiri'],['r','Ke Kanan'],['u','Ke Atas'],['d','Ke Bawah']];
+const TROPT={fade:[['s','Mulus'],['k','Melalui Hitam']],push:DIRS,wipe:DIRS,cover:DIRS,uncover:OUTS,reveal:OUTS,
+  split:[['vo','Vertikal Keluar'],['ho','Horizontal Keluar'],['vi','Vertikal Masuk'],['hi','Horizontal Masuk']],bars:[['v','Vertikal'],['h','Horizontal']],
+  shape:[['c','Lingkaran'],['d','Belah Ketupat']],fall:[['l','Kiri'],['r','Kanan']],zoom:[['i','Masuk'],['o','Keluar']]};
+const getTr=s=>Object.assign({t:'none',o:'',dur:1,snd:'',click:1,afterOn:0,after:0},s&&s.tr||{});
+const trIcon=t=>{const f=(x,y,w,h,o)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#3f6fb0"${o?` opacity="${o}"`:''}/>`;
+  const m={none:'',cut:f(8,6,22,16),fade:f(1.5,1.5,33,25,.5),push:f(1.5,1.5,22,25)+'<path d="M26 9l7 5-7 5z" fill="#3f6fb0"/>',wipe:f(1.5,1.5,18,25)+'<path d="M24 4v20" stroke="#3f6fb0" stroke-width="3"/>',
+    split:f(1.5,1.5,14,25)+f(20,1.5,14.5,25),reveal:f(1.5,1.5,33,25,.3)+f(1.5,1.5,14,25),bars:[0,1,2,3,4].map(i=>f(3+i*6.5,1.5,3.5,25)).join(''),
+    shape:'<circle cx="18" cy="14" r="9" fill="#3f6fb0"/>',uncover:f(14,1.5,20.5,25)+f(1.5,1.5,12,25,.4),cover:f(10,6,25,20),
+    flash:'<circle cx="18" cy="14" r="8" fill="#fff"/><circle cx="18" cy="14" r="3.5" fill="#3f6fb0"/>',fall:'<path d="M3 26V8l25 10z" fill="#3f6fb0"/>',zoom:f(11,8,14,11)};
+  return `<svg width="38" height="30" viewBox="0 0 36 28"><rect x="1.5" y="1.5" width="33" height="25" fill="#cfe0f5" stroke="#4a73b5"/>${m[t]||''}</svg>`;};
+function svEl(s,k,mode){const d=document.createElement('div');d.className='sv';d.style.cssText='position:absolute;inset:0;'+(s&&s.bg?'background:'+s.bg:'');
+  d.innerHTML=`<div class="sc" style="transform:scale(${k})">${s?s.objs.map(o=>obHTML(o,mode)).join(''):''}</div>`;return d;}
+function playSnd(n){if(!n)return;try{const A=window.AudioContext||window.webkitAudioContext,c=new A(),g=c.createGain(),o=c.createOscillator();
+  const P={click:[900,.06,'square'],chime:[1320,.6,'sine'],pop:[520,.15,'triangle'],whoosh:[250,.5,'sawtooth']}[n];if(!P)return;
+  o.type=P[2];o.frequency.setValueAtTime(P[0],c.currentTime);if(n==='whoosh')o.frequency.exponentialRampToValueAtTime(1400,c.currentTime+P[1]);
+  g.gain.setValueAtTime(.08,c.currentTime);g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+P[1]);o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+P[1]);setTimeout(()=>c.close(),P[1]*1000+200);}catch{}}
+/* jalankan transisi: oldEl (slide lama) -> newEl (slide baru) di dalam box; mengembalikan fungsi untuk menyelesaikan seketika */
+function runTr(box,oldEl,newEl,tr,done){
+  const dur=Math.max(150,(tr.dur||1)*1000),o=tr.o||(TROPT[tr.t]||[['']])[0][0],anims=[],extra=[];
+  const an=(el,kf,opt)=>{anims.push(el.animate(kf,Object.assign({duration:dur,easing:'cubic-bezier(.4,0,.2,1)',fill:'both'},opt||{})));};
+  const mv={l:['translateX(100%)','translateX(-100%)'],r:['translateX(-100%)','translateX(100%)'],u:['translateY(100%)','translateY(-100%)'],d:['translateY(-100%)','translateY(100%)']}[o]||['none','none'];
+  const wc={l:'inset(0 0 0 100%)',r:'inset(0 100% 0 0)',u:'inset(100% 0 0 0)',d:'inset(0 0 100% 0)'}[o]||'inset(0 0 0 100%)';
+  const clones=(specs)=>{newEl.style.visibility='hidden';specs.forEach(([clip,from,delay,d2])=>{const c=newEl.cloneNode(true);c.style.visibility='visible';c.style.clipPath=clip;box.appendChild(c);extra.push(c);
+    an(c,from?[{transform:from},{transform:'none'}]:[{opacity:0},{opacity:1}],{delay:delay||0,duration:d2||dur});});};
+  const flat=e=>e;
+  switch(tr.t){
+    case'fade':if(o==='k'){box.style.background='#000';an(oldEl,[{opacity:1,offset:0},{opacity:0,offset:.5},{opacity:0,offset:1}],{easing:'linear'});an(newEl,[{opacity:0,offset:0},{opacity:0,offset:.5},{opacity:1,offset:1}],{easing:'linear'});}
+      else an(newEl,[{opacity:0},{opacity:1}]);break;
+    case'push':an(newEl,[{transform:mv[0]},{transform:'none'}]);an(oldEl,[{transform:'none'},{transform:mv[1]}]);break;
+    case'wipe':an(newEl,[{clipPath:wc},{clipPath:'inset(0 0 0 0)'}]);break;
+    case'cover':an(newEl,[{transform:mv[0]},{transform:'none'}]);break;
+    case'uncover':oldEl.style.zIndex=2;an(oldEl,[{transform:'none'},{transform:mv[1]}]);break;
+    case'reveal':oldEl.style.zIndex=2;an(oldEl,[{transform:'none',opacity:1},{transform:mv[1],opacity:.2}]);an(newEl,[{transform:'scale(.92)'},{transform:'none'}]);break;
+    case'split':
+      if(o==='vo')an(newEl,[{clipPath:'inset(0 50% 0 50%)'},{clipPath:'inset(0 0 0 0)'}]);
+      else if(o==='ho')an(newEl,[{clipPath:'inset(50% 0 50% 0)'},{clipPath:'inset(0 0 0 0)'}]);
+      else if(o==='vi')clones([['inset(0 50% 0 0)','translateX(-100%)'],['inset(0 0 0 50%)','translateX(100%)']]);
+      else clones([['inset(0 0 50% 0)','translateY(-100%)'],['inset(50% 0 0 0)','translateY(100%)']]);break;
+    case'bars':{const n=16,sp=[];for(let i=0;i<n;i++){const a=i*100/n,b=100-(i+1)*100/n;sp.push([o==='h'?`inset(${a}% 0 ${b}% 0)`:`inset(0 ${b}% 0 ${a}%)`,null,Math.random()*dur*.6,dur*.4]);}clones(sp);break;}
+    case'shape':if(o==='d')an(newEl,[{clipPath:'polygon(50% 50%,50% 50%,50% 50%,50% 50%)'},{clipPath:'polygon(50% -50%,150% 50%,50% 150%,-50% 50%)'}]);
+      else an(newEl,[{clipPath:'circle(0% at 50% 50%)'},{clipPath:'circle(75% at 50% 50%)'}]);break;
+    case'flash':{const w=document.createElement('div');w.style.cssText='position:absolute;inset:0;background:#fff;z-index:5;opacity:0';box.appendChild(w);extra.push(w);
+      an(w,[{opacity:0,offset:0},{opacity:1,offset:.45},{opacity:0,offset:1}],{easing:'linear'});
+      an(newEl,[{opacity:0,offset:0},{opacity:0,offset:.45},{opacity:1,offset:.46},{opacity:1,offset:1}],{easing:'linear'});break;}
+    case'fall':oldEl.style.zIndex=2;oldEl.style.transformOrigin=o==='r'?'100% 100%':'0% 100%';an(oldEl,[{transform:'rotate(0deg)',opacity:1},{transform:`rotate(${o==='r'?90:-90}deg)`,opacity:0}],{easing:'cubic-bezier(.5,0,1,.6)'});break;
+    case'zoom':if(o==='o'){oldEl.style.zIndex=2;an(oldEl,[{transform:'none',opacity:1},{transform:'scale(1.6)',opacity:0}]);}else an(newEl,[{transform:'scale(.2)',opacity:0},{transform:'none',opacity:1}]);break;
+  }
+  const fin=()=>{clearTimeout(tm);anims.forEach(a=>{try{a.cancel();}catch{}});extra.forEach(e=>e.remove());if(oldEl)oldEl.remove();newEl.style.visibility='';box.style.background='';const d=done;done=null;if(d)d();};
+  const tm=setTimeout(fin,dur+60);
+  return fin;
+}
+const RIB_TRANS=
+ G('Pratinjau',IB('▶','Pratinjau','trprev',0,'Pratinjau'))+
+ G('Transisi ke Slide Ini',`<div class="tgal trg">${TRS.map(([id,n])=>`<button class="trb" data-tr="${id}" data-a="trset:${id}" title="${n}">${trIcon(id)}<span>${n}</span></button>`).join('')}</div>`+
+   `<div class="rows"><button class="b" data-a="trscroll:-1" title="Sebelumnya">◀</button><button class="b" data-a="trscroll:1" title="Berikutnya">▶</button><button class="b" data-m="trmenu" title="Semua transisi">▾</button></div>`+
+   `<button class="b big treff" title="Opsi Efek" data-m="treff"><em>⚙</em><span>Opsi Efek ▾</span></button>`)+
+ G('Pengaturan Waktu',`<div class="rows tmw"><div class="row">Suara: ${S('trsnd',[['','Tanpa Suara'],['click','Klik'],['chime','Denting'],['whoosh','Whoosh'],['pop','Pop']],112,'Suara')}</div>`+
+   `<div class="row">Durasi: <input type="number" data-s="trdur" step="0.25" min="0.25" max="60" value="1" title="Durasi (detik)"> dtk</div>`+
+   `<div class="row"><button class="b" data-a="trall" title="Terapkan transisi ke semua slide">⧉ Terapkan ke Semua</button></div></div>`+
+   `<div class="rows tmw"><div class="row"><b>Maju Slide</b></div><div class="row"><label><input type="checkbox" data-s="trclk" checked> Saat Klik Mouse</label></div>`+
+   `<div class="row"><label><input type="checkbox" data-s="traft"> Setelah:</label><input type="number" data-s="traftv" step="1" min="0" value="0" title="Detik"> dtk</div></div>`);
+
 /* ---- tab DESAIN: tema, varian, latar belakang ---- */
 const THEMES=[
  {n:'Office',hf:'Calibri Light',bf:'Calibri',acc:['#5b9bd5','#ed7d31','#a5a5a5','#ffc000','#4472c4','#70ad47'],d:'plain'},
@@ -391,7 +461,7 @@ const RIB_DESIGN=
 function mount(root,opts={}){
   if(!document.getElementById('pp-css')){const s=document.createElement('style');s.id='pp-css';s.textContent=CSS;document.head.appendChild(s);}
   let name='Presentasi1.pptx',scale=.8,autoFit=true,slides=[mkSlide('title')],cur=0,sel=[],hist=[],hi=-1,clip=null,painting=null,lastR=null,lastTx=null,drawing=null,view='normal',fk=-1,timer=0,sortFrom=null;
-  const panes=TABS.map((t,i)=>`<div class="ribbon" data-pane="${t[0]}"${i?' hidden':''}>${t[0]==='home'?RIB_HOME:t[0]==='insert'?RIB_INSERT:t[0]==='design'?RIB_DESIGN:`<div class="soon">Menu ${t[1]} akan ditambahkan pada tahap berikutnya.</div>`}</div>`).join('');
+  const panes=TABS.map((t,i)=>`<div class="ribbon" data-pane="${t[0]}"${i?' hidden':''}>${t[0]==='home'?RIB_HOME:t[0]==='insert'?RIB_INSERT:t[0]==='design'?RIB_DESIGN:t[0]==='trans'?RIB_TRANS:`<div class="soon">Menu ${t[1]} akan ditambahkan pada tahap berikutnya.</div>`}</div>`).join('');
   root.innerHTML=`<div class="pp">
     <div class="qat"><div class="l"><span class="w">P</span><button data-a="save" title="Simpan (Ctrl+S)">💾</button><button data-a="undo" title="Urungkan (Ctrl+Z)">↶</button><button data-a="redo" title="Ulangi (Ctrl+Y)">↷</button><button data-a="showfirst" title="Mulai dari awal">▶</button></div><span class="fn"></span></div>
     <div class="tabs"><button class="tab file" data-a="menu">BERKAS</button>${TABS.map((t,i)=>`<button class="tab${i?'':' on'}" data-tab="${t[0]}">${t[1]}</button>`).join('')}</div>
@@ -438,7 +508,7 @@ function mount(root,opts={}){
 
   /* ===== render ===== */
   function draw(){renumber();stg.innerHTML=objs().map(o=>obHTML(o,true)).join('');stg.style.background=S0().bg||'';
-    (S0().comments||[]).forEach((c,i)=>stg.insertAdjacentHTML('beforeend',`<div class="cm" data-ci="${i}" style="left:${c.x}px;top:${c.y}px" title="${esc(c.t)}">💬</div>`));decorate();status();}
+    (S0().comments||[]).forEach((c,i)=>stg.insertAdjacentHTML('beforeend',`<div class="cm" data-ci="${i}" style="left:${c.x}px;top:${c.y}px" title="${esc(c.t)}">💬</div>`));decorate();status();syncTr();}
   function decorate(){
     $$('.stg .ob').forEach(el=>{const on=sel.includes(el.dataset.id);el.classList.toggle('sel',on);if(!on)el.classList.remove('edt');el.querySelectorAll('.hd,.ed').forEach(x=>x.remove());});
     if(sel.length===1){const o=byId(sel[0]),el=o&&elOf(o.id);if(el){
@@ -449,7 +519,7 @@ function mount(root,opts={}){
     syncUI();
   }
   function redrawOb(o){sync();const el=elOf(o.id);if(el){el.outerHTML=obHTML(o,true);}decorate();}
-  function thumbHTML(s,i,w,c){const k=w/W;return `<div class="${c}${i===cur?' on':''}" data-i="${i}" draggable="true"><span class="n">${i+1}</span><div class="tv" style="width:${w}px;height:${Math.round(H*k)}px${s.bg?';background:'+s.bg:''}"><div class="sc" style="transform:scale(${k})">${s.objs.map(o=>obHTML(o,false)).join('')}</div></div></div>`;}
+  function thumbHTML(s,i,w,c){const k=w/W;return `<div class="${c}${i===cur?' on':''}" data-i="${i}" draggable="true"><span class="n">${i+1}${s.tr&&s.tr.t&&s.tr.t!=='none'?'<br><i class="trm">★</i>':''}</span><div class="tv" style="width:${w}px;height:${Math.round(H*k)}px${s.bg?';background:'+s.bg:''}"><div class="sc" style="transform:scale(${k})">${s.objs.map(o=>obHTML(o,false)).join('')}</div></div></div>`;}
   function thumbs(){
     renumber();const tp=thumbsEl.scrollTop,secs=slides.map((s,i)=>s.sec!=null?i:-1).filter(i=>i>=0);let h='';
     slides.forEach((s,i)=>{if(s.sec!=null){const nx=secs[secs.indexOf(i)+1];h+=`<div class="sec" data-sec="${i}"><i>▾</i><b>${esc(s.sec)}</b> (${(nx==null?slides.length:nx)-i})</div>`;}h+=thumbHTML(s,i,160,'th');});
@@ -625,16 +695,23 @@ function mount(root,opts={}){
   /* ===== slide show & cetak ===== */
   function show(from){
     sync();let i=from;const ov=document.createElement('div');ov.className='show';ov.tabIndex=0;pp.appendChild(ov);
-    const paint=()=>{const k=Math.min(ov.clientWidth/W,ov.clientHeight/H);ov.innerHTML=`<div class="sv" style="width:${W*k}px;height:${H*k}px${slides[i].bg?';background:'+slides[i].bg:''}"><div class="sc" style="transform:scale(${k})">${slides[i].objs.map(o=>obHTML(o,'show')).join('')}</div></div>`;};
-    const close=()=>{document.removeEventListener('fullscreenchange',fc);ov.remove();if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});go(i);};
+    let box=null,cancelTr=null,autoT=0;
+    const arm=()=>{const a=getTr(slides[i]);if(a.afterOn)autoT=setTimeout(()=>next(),(+a.after||0)*1000);};
+    const paint=play=>{
+      const k=Math.min(ov.clientWidth/W,ov.clientHeight/H);if(cancelTr){cancelTr();cancelTr=null;}clearTimeout(autoT);
+      const prev=box&&box.lastElementChild,t=getTr(slides[i]);
+      if(play&&prev&&box.dataset.k==k&&t.t!=='none'&&t.t!=='cut'){const nw=svEl(slides[i],k,'show');box.appendChild(nw);playSnd(t.snd);cancelTr=runTr(box,prev,nw,t,()=>{cancelTr=null;arm();});}
+      else{ov.innerHTML='';box=document.createElement('div');box.dataset.k=k;box.style.cssText=`position:relative;overflow:hidden;width:${W*k}px;height:${H*k}px`;box.appendChild(svEl(slides[i],k,'show'));ov.appendChild(box);if(play)playSnd(t.snd);arm();}
+    };
+    const close=()=>{clearTimeout(autoT);if(cancelTr)cancelTr();document.removeEventListener('fullscreenchange',fc);ov.remove();if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});go(i);};
     const fc=()=>{if(!document.fullscreenElement)close();};
-    const next=()=>{if(i<slides.length-1){i++;paint();}else close();},prev=()=>{if(i>0){i--;paint();}};
+    const next=()=>{if(i<slides.length-1){i++;paint(1);}else close();},prev=()=>{if(i>0){i--;paint();}};
     const api={set:n=>{i=Math.max(0,Math.min(slides.length-1,n));paint();},end:close};
     ov.onclick=e=>{const a=e.target.closest&&e.target.closest('a[href]');if(a){e.preventDefault();if(/^https?:/i.test(a.href))open(a.href,'_blank','noopener');return;}
       if(e.target.closest&&e.target.closest('.med video,.med audio,.med iframe'))return;
-      const el=e.target.closest&&e.target.closest('.ob[data-lk]'),o=el&&slides[i].objs.find(x=>x.id===el.dataset.id);if(o&&runLink(o.link,i,api))return;next();};
+      const el=e.target.closest&&e.target.closest('.ob[data-lk]'),o=el&&slides[i].objs.find(x=>x.id===el.dataset.id);if(o&&runLink(o.link,i,api))return;if(getTr(slides[i]).click)next();};
     ov.onkeydown=e=>{const k=e.key;if(k==='Escape')close();else if(['ArrowRight','ArrowDown','PageDown',' ','Enter'].includes(k)){e.preventDefault();next();}else if(['ArrowLeft','ArrowUp','PageUp','Backspace'].includes(k)){e.preventDefault();prev();}};
-    paint();ov.focus();addEventListener('resize',paint);
+    paint();ov.focus();addEventListener('resize',()=>paint());
     if(ov.requestFullscreen){ov.requestFullscreen().then(()=>document.addEventListener('fullscreenchange',fc)).catch(()=>{});}
   }
   function printAll(){
@@ -652,7 +729,7 @@ function mount(root,opts={}){
       await lib('jszip',()=>window.JSZip);await lib('pptxio',()=>window.PptxIO);
       const r=await PptxIO.read(await file.arrayBuffer(),window.JSZip);
       slides=r.slides.map(s=>{const n={layout:s.layout,notes:s.notes||'',objs:s.objs.map(o=>mk(o.k==='ph'?Object.assign({},o,{ph:PH[o.role]||PH.body}):o))};
-        if(s.bg)n.bg=s.bg;if(s.sec!=null)n.sec=s.sec;return n;});
+        if(s.bg)n.bg=s.bg;if(s.tr)n.tr=s.tr;if(s.sec!=null)n.sec=s.sec;return n;});
       themeOn=false;cur=0;sel=[];lastR=null;name=file.name;setName();hist=[];hi=-1;
       draw();thumbs();notes.innerHTML=S0().notes||'';commit();
       const w=r.warn,skip=[w.table&&w.table+' tabel',w.chart&&w.chart+' bagan',w.media&&w.media+' gambar (format tidak didukung)',w.other&&w.other+' objek lain'].filter(Boolean);
@@ -1051,6 +1128,40 @@ function mount(root,opts={}){
   acts.reset=()=>{_rst();if(themeOn){styleSlide(S0());draw();commit();}};
   acts.new=()=>{_new();themeOn=false;curT=0;curV=0;refreshDesign();};
   refreshDesign();
+
+  /* ===== tab TRANSISI ===== */
+  function syncTr(){
+    const t=getTr(S0()),q=n=>$('[data-s='+n+']');if(!q('trdur'))return;
+    $$('.trb').forEach(b=>b.classList.toggle('on',b.dataset.tr===t.t));
+    q('trsnd').value=t.snd;q('trdur').value=t.dur;q('trclk').checked=!!t.click;q('traft').checked=!!t.afterOn;q('traftv').value=t.after;
+    const e=$('.treff');if(e)e.disabled=!TROPT[t.t];
+  }
+  function setTr(p){sync();S0().tr=Object.assign(getTr(S0()),p);commit();syncTr();}
+  Object.assign(acts,{
+    trset(id){setTr({t:id,o:(TROPT[id]||[['']])[0][0]});acts.trprev(true);},
+    treff(v){setTr({o:v});acts.trprev(true);},
+    trscroll(d){$('.trg').scrollBy({left:+d*320,behavior:'smooth'});},
+    trall(){sync();const t=getTr(S0());slides.forEach(x=>x.tr=Object.assign({},t));commit();toast('Transisi diterapkan ke semua slide');},
+    trprev(quiet){
+      sync();const t=getTr(S0());
+      if(t.t==='none'||t.t==='cut'){if(!quiet)toast('Pilih transisi terlebih dahulu');return;}
+      hold.querySelectorAll('.trpv').forEach(x=>x.remove());
+      const b=document.createElement('div');b.className='trpv';b.style.cssText=`position:absolute;left:0;top:0;width:${W*scale}px;height:${H*scale}px;overflow:hidden;z-index:8;background:#fff`;
+      const od=svEl(cur>0?slides[cur-1]:null,scale,false),nw=svEl(S0(),scale,false);b.append(od,nw);hold.appendChild(b);playSnd(t.snd);runTr(b,od,nw,t,()=>b.remove());
+    }
+  });
+  Object.assign(sels,{
+    trsnd:v=>{setTr({snd:v});playSnd(v);},
+    trdur:v=>{const d=parseFloat(String(v).replace(',','.'));if(d>0)setTr({dur:Math.min(60,d)});},
+    trclk:()=>setTr({click:$('[data-s=trclk]').checked?1:0}),
+    traft:()=>setTr({afterOn:$('[data-s=traft]').checked?1:0}),
+    traftv:v=>setTr({after:Math.max(0,parseFloat(v)||0)})
+  });
+  Object.assign(MENUS,{
+    trmenu:()=>[TRS.map(([id,n])=>[n,'trset:'+id,trIcon(id)]),'grid thm'],
+    treff:()=>{const t=getTr(S0()),L=TROPT[t.t]||[],cu=t.o||(L[0]&&L[0][0]);return L.map(([v,n])=>[(v===cu?'✓ ':'\u2003')+n,'treff:'+v]);}
+  });
+  syncTr();
 
   /* ===== event ===== */
   root.addEventListener('mousedown',e=>{
