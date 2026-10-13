@@ -664,7 +664,7 @@ function tableStyle(i){
 }
 
 /* ---------- palet warna ---------- */
-const PAL=[
+let PAL=[
  ['#ffffff','#000000','#e7e6e6','#44546a','#4472c4','#ed7d31','#a5a5a5','#ffc000','#5b9bd5','#70ad47'],
  ['#f2f2f2','#7f7f7f','#d0cece','#d6dce4','#d9e2f3','#fbe5d5','#ededed','#fff2cc','#deebf6','#e2efd9'],
  ['#d8d8d8','#595959','#aeaaaa','#adb9ca','#b4c6e7','#f7cbac','#dbdbdb','#ffe599','#bdd7ee','#c5e0b3'],
@@ -751,7 +751,7 @@ const CSS=`
 .xl .gv,.xl .gh{background:var(--gl);pointer-events:none}
 .xl .gv{width:1px}.xl .gh{height:1px}
 .xl .cb{overflow:hidden;pointer-events:none}
-.xl .ct{display:flex;flex-direction:column;overflow:hidden;pointer-events:none;font:11pt Calibri,Carlito,"Segoe UI",sans-serif;color:#000;line-height:1.2;padding:0 2px}
+.xl .ct{display:flex;flex-direction:column;overflow:hidden;pointer-events:none;font:11pt var(--df,Calibri),Carlito,"Segoe UI",sans-serif;color:#000;line-height:1.2;padding:0 2px}
 .xl .ct span{display:block;width:100%;white-space:pre}
 .xl .ct.w span{white-space:pre-wrap;word-break:break-word}
 .xl .dbar{pointer-events:none}
@@ -763,7 +763,7 @@ const CSS=`
 .xl .pnt{border:2px solid #4472c4;pointer-events:none;background:rgba(68,114,196,.08)}
 .xl .fdd{width:16px;height:16px;border:1px solid #999;background:#f5f5f5;font-size:8px;display:grid;place-items:center;cursor:pointer;z-index:2;padding:0}
 .xl .fdd.on{background:#d3e8d9;border-color:var(--g)}
-.xl .ed{z-index:4;border:2px solid var(--g);background:#fff;outline:none;resize:none;overflow:hidden;font:11pt Calibri,Carlito,"Segoe UI",sans-serif;color:#000;padding:0 2px;line-height:1.2;user-select:text;-webkit-user-select:text;white-space:pre;margin:0}
+.xl .ed{z-index:4;border:2px solid var(--g);background:#fff;outline:none;resize:none;overflow:hidden;font:11pt var(--df,Calibri),Carlito,"Segoe UI",sans-serif;color:#000;padding:0 2px;line-height:1.2;user-select:text;-webkit-user-select:text;white-space:pre;margin:0}
 .xl .stbar{background:var(--g);color:#fff;height:22px;display:flex;align-items:center;justify-content:space-between;padding:0 8px;font-size:11px;flex:none}
 .xl .stbar .s{display:flex;gap:18px;align-items:center}
 .xl .stbar button{background:none;border:0;color:#fff;cursor:pointer;width:22px;height:20px;font-size:13px}
@@ -840,12 +840,21 @@ const CSS=`
 .xl .ob .orz{position:absolute;right:-5px;bottom:-5px;width:9px;height:9px;background:#fff;border:1px solid var(--g);cursor:nwse-resize}
 .xl .ob svg{display:block;pointer-events:none}
 .xl .ob img{display:block;width:100%;height:100%;pointer-events:none;user-select:none;-webkit-user-drag:none}
-.xl .ob .tx{width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;font-family:Calibri,Carlito,sans-serif;overflow:hidden;padding:4px;white-space:pre-wrap;pointer-events:none;box-sizing:border-box}
+.xl .ob .tx{width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;font-family:var(--df,Calibri),Carlito,sans-serif;overflow:hidden;padding:4px;white-space:pre-wrap;pointer-events:none;box-sizing:border-box}
 .xl .sym{display:grid;grid-template-columns:repeat(10,32px);gap:2px}
 .xl .sym button{width:32px;height:30px;border:1px solid #ccc;background:#fff;cursor:pointer;font-size:15px;padding:0}
 .xl .sym button:hover{background:#d3e8d9}
 .xl .chg{display:grid;grid-template-columns:auto auto;gap:2px 0;align-self:flex-start}
 .xl .chg .b{height:21px}
+.xl .corner{grid-column:1;grid-row:1}.xl .colh{grid-column:2;grid-row:1}.xl .rowh{grid-column:1;grid-row:2}.xl .vp{grid-column:2;grid-row:2}
+.xl .gwrap.nh .corner,.xl .gwrap.nh .colh,.xl .gwrap.nh .rowh{display:none}
+.xl .row label{display:flex;gap:4px;align-items:center;font-size:12px;cursor:pointer}
+.xl .selp{position:absolute;right:22px;top:128px;width:230px;max-height:50%;overflow:auto;background:#fff;border:1px solid #aaa;box-shadow:0 2px 8px rgba(0,0,0,.25);z-index:20;font-size:12px}
+.xl .selp .sh{display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:#f3f3f3;font-weight:600;color:var(--g)}
+.xl .selp .sh button{border:0;background:none;cursor:pointer}
+.xl .selp .si{display:flex;gap:6px;align-items:center;padding:4px 8px;cursor:pointer}
+.xl .selp .si:hover{background:#eef6f0}.xl .selp .si.on{background:#d3e8d9}
+.xl .selp .si button{border:0;background:none;cursor:pointer;width:20px}
 .xl.rc .ribbon{display:none}
 @media (pointer:coarse){
  .xl .qat{height:36px}.xl .qat button{width:34px;height:32px;font-size:16px}
@@ -925,8 +934,29 @@ RIB.insert=
  G('Tautan',B('🔗','Hyperlink','hyperlink','big','Hyperlink'))+
  G('Teks',B('A','Kotak Teks','textbox','big','Kotak Teks')+BD('▭','Header & Footer','Header<br>& Footer')+BD('𝒜','WordArt')+BD('✍','Baris Tanda Tangan','Baris Tanda<br>Tangan')+BD('▢','Objek'))+
  G('Simbol',BD('π','Persamaan')+B('Ω','Simbol','symbol','big','Simbol'));
+const FITO=[['0','Otomatis'],...[1,2,3,4,5,6,7,8,9].map(n=>[String(n),n+' halaman'])];
+RIB.layout=
+ G('Tema',B('Aa','Tema','m:themes','big','Tema',1)+`<div class="rows t3">${B('◍','Warna','m:tcolors','rw','Warna',1)}${B('A','Font','m:tfonts','rw','Font',1)}<button class="b rw" disabled title="Efek (belum tersedia)"><em>◉</em><span>Efek ▾</span></button></div>`)+
+ G('Penyiapan Halaman',B('▭','Margin','m:margins','big','Margin',1)+B('⬒','Orientasi','m:orient2','big','Orientasi',1)+B('▯','Ukuran','m:psize','big','Ukuran',1)+B('▦','Area Cetak','m:parea','big','Area<br>Cetak',1)+BD('⇥','Sela')+B('🖼','Latar Belakang','bg','big','Latar<br>Belakang')+B('⊞','Judul Cetak','ptitles','big','Judul<br>Cetak'),'page')+
+ G('Skala agar Muat',`<div class="rows t3"><div class="row"><span style="width:46px">Lebar:</span>${S('fitw',FITO,98)}</div><div class="row"><span style="width:46px">Tinggi:</span>${S('fith',FITO,98)}</div><div class="row"><span style="width:46px">Skala:</span><input type="number" data-s="scale" min="10" max="400" value="100" style="width:60px;height:23px;border:1px solid #ababab"> %</div></div>`,'page')+
+ G('Opsi Lembar',`<div class="rows t3" style="min-width:72px"><div class="row"><b>Garis Kisi</b></div><div class="row"><label><input type="checkbox" data-s="gview"> Tampilan</label></div><div class="row"><label><input type="checkbox" data-s="gprint"> Cetak</label></div></div><div class="rows t3" style="min-width:72px"><div class="row"><b>Tajuk</b></div><div class="row"><label><input type="checkbox" data-s="hview"> Tampilan</label></div><div class="row"><label><input type="checkbox" data-s="hprint"> Cetak</label></div></div>`,'page')+
+ G('Susun',B('⬆','Majukan','m:fwd','big','Majukan',1)+B('⬇','Mundurkan','m:back','big','Mundurkan',1)+B('▤','Panel Seleksi','selpane','big','Panel<br>Seleksi')+B('⇤','Ratakan','m:align','big','Ratakan',1)+BD('▣','Grup')+B('⟳','Putar','m:rot','big','Putar',1));
 const SOON='<div class="soon">Menu ini akan dibuat pada tahap berikutnya.</div>';
 
+const PAPER={A4:[210,297],A3:[297,420],A5:[148,210],Letter:[215.9,279.4],Legal:[215.9,355.6]};
+const PAPERN={A4:'A4 (21 × 29,7 cm)',A3:'A3 (29,7 × 42 cm)',A5:'A5 (14,8 × 21 cm)',Letter:'Letter (21,6 × 27,9 cm)',Legal:'Legal (21,6 × 35,6 cm)'};
+const newPage=()=>({orient:'portrait',paper:'A4',m:{t:.75,b:.75,l:.7,r:.7},area:null,tRows:null,tCols:null,fitW:0,fitH:0,scale:100,pg:false,ph:false});
+const THEMES=[
+ {n:'Office',c:['#ffffff','#000000','#e7e6e6','#44546a','#4472c4','#ed7d31','#a5a5a5','#ffc000','#5b9bd5','#70ad47'],f:'Calibri'},
+ {n:'Skala Abu-abu',c:['#ffffff','#000000','#e7e6e6','#262626','#595959','#7f7f7f','#a5a5a5','#bfbfbf','#d9d9d9','#3f3f3f'],f:'Arial'},
+ {n:'Biru',c:['#ffffff','#000000','#dfe9f5','#17406d','#0f6fc6','#009dd9','#0bd0d9','#10cf9b','#7cca62','#a5c249'],f:'Segoe UI'},
+ {n:'Hijau',c:['#ffffff','#000000','#e6efd9','#2c4a2a','#54a021','#e6b91e','#e76618','#c42f1a','#918655','#4a6f4e'],f:'Verdana'},
+ {n:'Oranye',c:['#ffffff','#000000','#fbe9d5','#5a3a1c','#e48312','#bd582c','#865640','#9b8357','#c2bc80','#94a088'],f:'Georgia'},
+ {n:'Klasik',c:['#ffffff','#000000','#eeece1','#1f497d','#4f81bd','#c0504d','#9bbb59','#8064a2','#4bacc6','#f79646'],f:'Times New Roman'}
+];
+const shade=(h,t)=>{const n=parseInt(h.slice(1),16),f=x=>Math.round(x*(1-t)).toString(16).padStart(2,'0');return '#'+f(n>>16)+f((n>>8)&255)+f(n&255);};
+const buildPal=cols=>{const col=h=>h==='#ffffff'?['#f2f2f2','#d9d9d9','#bfbfbf','#a5a5a5','#7f7f7f']:h==='#000000'?['#7f7f7f','#595959','#3f3f3f','#262626','#0c0c0c']:[mix(h,.8),mix(h,.6),mix(h,.4),shade(h,.25),shade(h,.5)];
+  const cs=cols.map(col);return [cols,...[0,1,2,3,4].map(i=>cs.map(c=>c[i]))];};
 const BTYPES={thin:['1px','solid'],medium:['2px','solid'],thick:['3px','solid'],dashed:['1px','dashed'],dotted:['1px','dotted'],double:['3px','double'],hair:['1px','dotted']};
 const SIDES=['t','r','b','l'];
 const hexOk=c=>/^#[0-9a-f]{6}$/i.test(c||'');
@@ -953,20 +983,21 @@ function mount(root,opts={}){
       <button data-a="new">📄  Buku kerja kosong baru</button><button data-a="open">📂  Buka…</button>
       <button data-a="save">💾  Simpan sebagai .xlsx</button><button data-a="savecsv">📑  Simpan lembar sebagai .csv</button><button data-a="print">🖨  Cetak / simpan PDF</button>
       <hr><button data-a="home">⬅  Kembali ke menu utama</button></div>
-    <input type="file" class="fin" accept=".xlsx,.csv,.tsv,.txt" hidden><input type="file" class="imgin" accept="image/*" hidden>
+    <input type="file" class="fin" accept=".xlsx,.csv,.tsv,.txt" hidden><input type="file" class="imgin" accept="image/*" hidden><input type="file" class="bgin" accept="image/*" hidden>
   </div>`;
   const $=s=>root.querySelector(s),$$=s=>[...root.querySelectorAll(s)];
   const X=$('.xl'),vp=$('.vp'),stage=$('.stage'),sizer=$('.sizer'),colh=$('.colh'),rowh=$('.rowh'),menu=$('.menu'),fin=$('.fin');
   const nb=$('.nb'),fxi=$('.fx'),fd=$('.find');
 
   /* ===== model ===== */
-  const wb={sheets:[],active:0,ver:0,circ:false};
+  const wb={sheets:[],active:0,ver:0,circ:false,font:'Calibri',theme:0};
   let cur=null,Z=1,name='Buku1.xlsx',showGrid=true,showHead=true;
-  let ed=null,clip=null,pointing=null,painting=null,tabStart=null,selObj=null;
+  let ed=null,clip=null,pointing=null,painting=null,tabStart=null,selObj=null,selSet=new Set(),selpEl=null;
   let undoS=[],redoS=[],dirty=false;
-  const newSheet=n=>({name:n,cells:new Map(),cw:new Axis(DW,MAXC),rh:new Axis(DH,MAXR),merges:[],cf:[],filter:null,tab:null,objs:[],spark:[],
+  const newSheet=n=>({name:n,cells:new Map(),cw:new Axis(DW,MAXC),rh:new Axis(DH,MAXR),merges:[],cf:[],filter:null,tab:null,objs:[],spark:[],grid:true,head:true,bg:null,page:newPage(),
     sel:{ar:0,ac:0,fr:0,fc:0},sx:0,sy:0});
   const uniqueName=(base,except)=>{let n=base,i=1;while(wb.sheets.some(s=>s!==except&&s.name.toLowerCase()===n.toLowerCase()))n=base.replace(/\d+$/,'')+(++i);return n;};
+  const DF=()=>wb.font||'Calibri';
   const toast=m=>{const t=document.createElement('div');t.className='toast';t.textContent=m;X.appendChild(t);setTimeout(()=>t.remove(),3200);};
   const setName=n=>{name=n;$('.fn').textContent=n.replace(/\.(xlsx|csv)$/i,'')+' - Excel';document.title=$('.fn').textContent;};
 
@@ -989,7 +1020,7 @@ function mount(root,opts={}){
   };
   const rawText=cell=>!cell?'':cell.f!==undefined&&cell.f!==null?'='+cell.f:cell.v===null||cell.v===undefined?'':typeof cell.v==='boolean'?(cell.v?'TRUE':'FALSE'):typeof cell.v==='number'?(isDateCode(cell.st&&cell.st.fmt||'')?fmtValue(cell.v,cell.st.fmt).t:String(cell.v).replace('.',',')):String(cell.v);
   const recalcAll=()=>{wb.ver++;recalc(wb);};
-  function shotSheet(s){return {name:s.name,cells:new Map(s.cells),cw:s.cw.clone(),rh:s.rh.clone(),merges:s.merges.map(m=>({...m})),cf:[...s.cf],filter:s.filter?{...s.filter,crit:{...s.filter.crit}}:null,tab:s.tab,objs:(s.objs||[]).map(o=>({...o,src:o.src&&typeof o.src==='object'?{...o.src}:o.src})),spark:(s.spark||[]).map(o=>({...o,src:{...o.src}})),sel:{...s.sel}};}
+  function shotSheet(s){return {name:s.name,cells:new Map(s.cells),cw:s.cw.clone(),rh:s.rh.clone(),merges:s.merges.map(m=>({...m})),cf:[...s.cf],filter:s.filter?{...s.filter,crit:{...s.filter.crit}}:null,tab:s.tab,grid:s.grid,head:s.head,bg:s.bg,page:JSON.parse(JSON.stringify(s.page||newPage())),objs:(s.objs||[]).map(o=>({...o,src:o.src&&typeof o.src==='object'?{...o.src}:o.src})),spark:(s.spark||[]).map(o=>({...o,src:{...o.src}})),sel:{...s.sel}};}
   const snapshot=()=>({sheets:wb.sheets.map(shotSheet),active:wb.active});
   function restore(sn){
     wb.sheets=sn.sheets.map(shotSheet);wb.active=Math.min(sn.active,wb.sheets.length-1);
@@ -1018,7 +1049,7 @@ function mount(root,opts={}){
     return g;
   }
   function select(ar,ac,fr,fc,keepScroll){
-    tabStart=null;selObj=null;const s=cur.sel;s.ar=ar;s.ac=ac;s.fr=fr===undefined?ar:fr;s.fc=fc===undefined?ac:fc;
+    tabStart=null;selObj=null;selSet=new Set();const s=cur.sel;s.ar=ar;s.ac=ac;s.fr=fr===undefined?ar:fr;s.fc=fc===undefined?ac:fc;
     if(!keepScroll)reveal(fr===undefined?ar:fr,fc===undefined?ac:fc);
     sync();
   }
@@ -1040,7 +1071,7 @@ function mount(root,opts={}){
   const cwid=c=>cx(c+1)-cx(c),rhei=r=>ry(r+1)-ry(r);
   const rectOf=(r1,c1,r2,c2)=>({x:cx(c1),y:ry(r1),w:cx(c2+1)-cx(c1),h:ry(r2+1)-ry(r1)});
   const mctx=document.createElement('canvas').getContext('2d');
-  const tw=(t,st)=>{mctx.font=`${st.i?'italic ':''}${st.b?'bold ':''}${(st.sz||11)*4/3*Z}px ${st.font||'Calibri'},Carlito,sans-serif`;return mctx.measureText(t).width;};
+  const tw=(t,st)=>{mctx.font=`${st.i?'italic ':''}${st.b?'bold ':''}${(st.sz||11)*4/3*Z}px ${st.font||DF()},Carlito,sans-serif`;return mctx.measureText(t).width;};
   const isEmptyCell=(sh,r,c)=>{const cl=sh.cells.get(key(r,c));if(!cl)return true;return (cl.v===null||cl.v===undefined)&&(cl.f===undefined||cl.f===null);};
   const hasVal=(sh,r,c)=>{const v=cellVal(sh,r,c);return v!==null&&v!==undefined&&v!=='';};
   function fitRows(rows){ /* tinggi baris otomatis untuk teks yang dibungkus */
@@ -1051,7 +1082,7 @@ function mount(root,opts={}){
       for(const [k,cl] of cur.cells){if(Math.floor(k/MAXC)!==r)continue;const st=cl.st||{};
         const v=cellVal(cur,r,k%MAXC);const t=fmtValue(v,st.fmt).t;
         if(!t)continue;const mg=mergeAtSh(cur,r,k%MAXC);if(mg&&mg.r1!==mg.r2)continue;
-        const sz=(st.sz||11)*4/3;m.style.font=`${st.i?'italic ':''}${st.b?'bold ':''}${sz}px ${st.font||'Calibri'},Carlito,sans-serif`;m.style.lineHeight='1.2';
+        const sz=(st.sz||11)*4/3;m.style.font=`${st.i?'italic ':''}${st.b?'bold ':''}${sz}px ${st.font||DF()},Carlito,sans-serif`;m.style.lineHeight='1.2';
         let w=cur.cw.size(k%MAXC);if(mg)for(let c=mg.c1+1;c<=mg.c2;c++)w+=cur.cw.size(c);
         m.style.width=(st.wrap?w:100000)+'px';m.textContent=t;h=Math.max(h,Math.ceil(m.scrollHeight)+(st.sz&&st.sz>11?3:2));}
       if(h!==DH)cur.rh.ov.set(r,h);else cur.rh.ov.delete(r);
@@ -1131,7 +1162,7 @@ function mount(root,opts={}){
     const cs=Math.max(0,c0-1),rs=Math.max(0,r0-1);
     let html='';
     /* garis kisi */
-    if(showGrid){
+    if(cur.grid!==false){
       for(let c=c0;c<=c1;c++){const x=cx(c+1)-sl-1;if(cwid(c)>0)html+=`<div class="gv" style="left:${x}px;top:0;height:${H}px"></div>`;}
       for(let r=r0;r<=r1;r++){const y=ry(r+1)-st0-1;if(rhei(r)>0)html+=`<div class="gh" style="top:${y}px;left:0;width:${W}px"></div>`;}
     }
@@ -1277,8 +1308,20 @@ function mount(root,opts={}){
     T('va:top',st.va==='top');T('va:middle',st.va==='middle');T('va:bottom',!st.va||st.va==='bottom');
     T('ha:left',st.ha==='left');T('ha:center',st.ha==='center'||st.ha==='centerAcross');T('ha:right',st.ha==='right');
     T('merge:center',!!mergeAt(s.ar,s.ac));
-    setSel2('font',st.font||'Calibri');setSel2('size',st.sz||11);
+    setSel2('font',st.font||DF());setSel2('size',st.sz||11);
     const k=fmtKey(st.fmt||'General');setSel2('nfmt',k||'custom');
+    refreshLayout();
+  }
+  function refreshLayout(){
+    const P=cur.page;
+    setSel2('fitw',P.fitW);setSel2('fith',P.fitH);
+    const sc=root.querySelector('[data-s=scale]');if(sc){if(document.activeElement!==sc)sc.value=P.scale;sc.disabled=!!(P.fitW||P.fitH);}
+    const C=(n,v)=>{const e=root.querySelector(`[data-s=${n}]`);if(e)e.checked=!!v;};
+    C('gview',cur.grid!==false);C('gprint',P.pg);C('hview',cur.head!==false);C('hprint',P.ph);
+    const bg=root.querySelector('[data-a=bg] span');if(bg)bg.innerHTML=cur.bg?'Hapus Latar<br>Belakang':'Latar<br>Belakang';
+    $('.gwrap').classList.toggle('nh',cur.head===false);
+    vp.style.backgroundImage=cur.bg?`url(${cur.bg})`:'';vp.style.backgroundAttachment='local';
+    if(selpEl)renderSelp();
   }
   function sync(){
     if(!cur)return;
@@ -1315,13 +1358,14 @@ function mount(root,opts={}){
     const st=stOf(ed.r,ed.c),sl=vp.scrollLeft,sy=vp.scrollTop;
     const m=mergeAt(ed.r,ed.c);
     const rr=m?m.r2:ed.r,cc=m?m.c2:ed.c;
-    const x=HW+cx(ed.c)-sl,y=HH+ry(ed.r)-sy,w0=cx(cc+1)-cx(ed.c),h0=ry(rr+1)-ry(ed.r);
+    const hwid=cur.head===false?0:HW,hhei=cur.head===false?0:HH;
+    const x=hwid+cx(ed.c)-sl,y=hhei+ry(ed.r)-sy,w0=cx(cc+1)-cx(ed.c),h0=ry(rr+1)-ry(ed.r);
     const sz=(st.sz||11)*4/3*Z;
-    edEl.style.fontSize=sz+'px';edEl.style.fontFamily=(st.font||'Calibri')+',Carlito,sans-serif';
+    edEl.style.fontSize=sz+'px';edEl.style.fontFamily=(st.font||DF())+',Carlito,sans-serif';
     edEl.style.fontWeight=st.b?'700':'400';edEl.style.fontStyle=st.i?'italic':'normal';edEl.style.color=st.color||'#000';
     const lines=edEl.value.split('\n');
     let mw=0;for(const l of lines)mw=Math.max(mw,tw(l,{i:st.i,b:st.b,sz:st.sz,font:st.font}));
-    const maxW=vp.clientWidth+HW-x;
+    const maxW=vp.clientWidth+hwid-x;
     const w=Math.max(w0,Math.min(maxW,mw+16)),h=Math.max(h0,lines.length*sz*1.2+4);
     Object.assign(edEl.style,{left:x-1+'px',top:y-1+'px',width:w+2+'px',height:h+2+'px'});
     edEl.style.whiteSpace=w>=maxW?'pre-wrap':'pre';
@@ -1527,7 +1571,7 @@ function mount(root,opts={}){
     const W=vp.clientWidth,H=vp.clientHeight;
     if(drag.kind==='obj'){
       const dx=(ev.clientX-drag.x0)/Z,dy=(ev.clientY-drag.y0)/Z;if(Math.abs(dx)+Math.abs(dy)>2)drag.moved=true;
-      const o=drag.o;if(drag.mode==='mv'){o.x=Math.max(0,drag.ox+dx);o.y=Math.max(0,drag.oy+dy);}else{o.w=Math.max(24,drag.ow+dx);o.h=Math.max(16,drag.oh+dy);}
+      const o=drag.o;if(drag.mode==='mv'){for(const q of drag.group){q.o.x=Math.max(0,q.ox+dx);q.o.y=Math.max(0,q.oy+dy);}}else{o.w=Math.max(24,drag.ow+dx);o.h=Math.max(16,drag.oh+dy);}
       schedule();return;}
     if(drag.kind==='cell'){
       let {r,c}=h;moveToDrag(r,c);
@@ -1562,7 +1606,10 @@ function mount(root,opts={}){
     if(ob){
       e.preventDefault();if(ed&&!commitEdit())return;vp.focus({preventScroll:true});
       const o=cur.objs.find(q=>q.id===ob.dataset.o);
-      if(o){selObj=o.id;drag={kind:'obj',o,mode:e.target.dataset.orz?'rz':'mv',x0:e.clientX,y0:e.clientY,ox:o.x,oy:o.y,ow:o.w,oh:o.h,snap:snapshot(),moved:false};
+      if(o){
+        if(e.shiftKey){if(selSet.has(o.id)){selSet.delete(o.id);selObj=[...selSet].pop()||null;sync();return;}selSet.add(o.id);selObj=o.id;}
+        else if(!selSet.has(o.id)){selSet=new Set([o.id]);selObj=o.id;}else selObj=o.id;
+        drag={kind:'obj',o,mode:e.target.dataset.orz?'rz':'mv',x0:e.clientX,y0:e.clientY,ox:o.x,oy:o.y,ow:o.w,oh:o.h,group:cur.objs.filter(q=>selSet.has(q.id)).map(q=>({o:q,ox:q.x,oy:q.y})),snap:snapshot(),moved:false};
         vp.setPointerCapture(e.pointerId);startDragLoop();lastEv=e;sync();return;}
     }
     if(e.ctrlKey||e.metaKey){const lc=cellAt(cur,h.r,h.c);if(lc&&lc.st&&lc.st.link){e.preventDefault();openLink(lc.st.link);return;}}
@@ -1598,7 +1645,7 @@ function mount(root,opts={}){
   vp.addEventListener('click',e=>{
     if(e.pointerType==='mouse'||e.detail>0&&e.pointerType==='')return;
     if(e.target.closest&&e.target.closest('[data-fc]'))return;
-    const tob=e.target.closest&&e.target.closest('[data-o]');if(tob){selObj=tob.dataset.o;sync();return;}
+    const tob=e.target.closest&&e.target.closest('[data-o]');if(tob){selObj=tob.dataset.o;selSet=new Set([selObj]);sync();return;}
     const rc=vp.getBoundingClientRect();if(e.clientX-rc.left>vp.clientWidth||e.clientY-rc.top>vp.clientHeight)return;
     const h=hit(e);
     if(ed){if(canPoint()){startPoint(h.r,h.c);return;}if(!commitEdit())return;}
@@ -2311,7 +2358,7 @@ function mount(root,opts={}){
     addsheet:addSheet,
     fnext:findNext,frep:replaceOne,frall:replaceAll,fclose(){fd.hidden=true;},
     insdlg(){insertDialog();},deldlg(){deleteDialog();},
-    fmtcells(tab){formatCells(tab);},
+    fmtcells(tab){if(tab==='page'){pageSetupDialog();return;}formatCells(tab);},
     rowh(){const r=rg().r1;askNumber('Tinggi Baris','Tinggi baris (pt):',+(cur.rh.size(r)*.75).toFixed(2),v=>tx(()=>{const g=rg();for(let i=g.r1;i<=Math.min(g.r2,g.r1+5000);i++){cur.rh.ov.set(i,Math.round(v/.75));cur.rh.hid.delete(i);(cur.rh.manual=cur.rh.manual||new Set()).add(i);}cur.rh.dirty=true;}));},
     colw(){const c=rg().c1;askNumber('Lebar Kolom','Lebar kolom:',+((cur.cw.size(c)-5)/7).toFixed(2),v=>tx(()=>{const g=rg();for(let i=g.c1;i<=Math.min(g.c2,g.c1+2000);i++){cur.cw.ov.set(i,Math.round(v*7+5));cur.cw.hid.delete(i);}cur.cw.dirty=true;}));},
     defw(){askNumber('Lebar Default','Lebar kolom standar:',+((cur.cw.def-5)/7).toFixed(2),v=>tx(()=>{cur.cw.def=Math.round(v*7+5);cur.cw.dirty=true;}));},
@@ -2324,7 +2371,7 @@ function mount(root,opts={}){
     mvl(){moveSheet(wb.active,-1);},mvr(){moveSheet(wb.active,1);}
   };
   const sels={
-    font:v=>applyStyle({font:v==='Calibri'?null:v}),
+    font:v=>applyStyle({font:v===DF()?null:v}),
     size:v=>applyStyle({sz:+v===11?null:+v},true),
     nfmt(v){if(v==='custom'){formatCells('number');return;}applyStyle({fmt:FMT[v]==='General'?null:FMT[v]});}
   };
@@ -2416,7 +2463,7 @@ function mount(root,opts={}){
   function formatCells(tab){
     const s=cur.sel,st0=stOf(s.ar,s.ac),v0=cellVal(cur,s.ar,s.ac);
     const S={fmt:st0.fmt||'General',ha:st0.ha||'general',va:st0.va||'bottom',ind:st0.ind||0,wrap:!!st0.wrap,merge:!!mergeAt(s.ar,s.ac),rot:st0.rot||0,
-      font:st0.font||'Calibri',sz:st0.sz||11,b:!!st0.b,i:!!st0.i,u:st0.u||0,s:!!st0.s,color:st0.color||'#000000',fill:st0.fill||null,bd:{}};
+      font:st0.font||DF(),sz:st0.sz||11,b:!!st0.b,i:!!st0.i,u:st0.u||0,s:!!st0.s,color:st0.color||'#000000',fill:st0.fill||null,bd:{}};
     const bdSet={t:null,b:null,l:null,r:null,h:undefined,v:undefined};let bdStyleSel='thin',bdColorSel='#000000';
     const TABN=[['number','Angka'],['align','Perataan'],['font','Font'],['border','Garis Tepi'],['fill','Isi']];
     const CATS=[['General','Umum'],['Number','Angka'],['Currency','Mata uang'],['Accounting','Akuntansi'],['Date','Tanggal'],['Time','Waktu'],['Percent','Persentase'],['Fraction','Pecahan'],['Sci','Ilmiah'],['Text','Teks'],['Custom','Kustom']];
@@ -2430,7 +2477,7 @@ function mount(root,opts={}){
     catSt.thou=/#,##0/.test(S.fmt);
     const d=dlg('Format Sel',`<div class="dtabs">${TABN.map(t=>`<button data-t="${t[0]}">${t[1]}</button>`).join('')}</div><div class="dp"></div>`,()=>{
       const patch={fmt:S.fmt==='General'?null:S.fmt,ha:S.ha==='general'?null:S.ha,va:S.va==='bottom'?null:S.va,ind:S.ind||null,wrap:S.wrap||null,rot:S.rot||null,
-        font:S.font==='Calibri'?null:S.font,sz:S.sz===11?null:S.sz,b:S.b||null,i:S.i||null,u:S.u||null,s:S.s||null,color:S.color==='#000000'?null:S.color,fill:S.fill};
+        font:S.font===DF()?null:S.font,sz:S.sz===11?null:S.sz,b:S.b||null,i:S.i||null,u:S.u||null,s:S.s||null,color:S.color==='#000000'?null:S.color,fill:S.fill};
       const hasB=Object.values(bdSet).some(x=>x!==undefined&&x!==null)||bdTouched;
       styleSel(st=>({...st,...patch}),true);
       if(hasB||bdTouched)applyBorderSpec(Object.fromEntries(Object.entries(bdSet).filter(([,v])=>v!==undefined)));
@@ -2699,12 +2746,13 @@ function mount(root,opts={}){
     return `<svg width="${w}" height="${h}" viewBox="0 0 100 100" preserveAspectRatio="none">${b}</svg>`;
   }
   function objHtml(o,x,y,w,h){
-    const sel=o.id===selObj;let inner='';const fz=11*4/3*Z;
+    if(o.hidden)return '';
+    const sel=selSet.has(o.id);let inner='';const fz=11*4/3*Z;
     if(o.type==='img')inner=`<img src="${o.url||o.src}" draggable="false">`;
     else if(o.type==='chart')inner=chartSvg(o,w,h);
     else if(o.type==='shape')inner=shapeSvg(o,w,h)+(o.text?`<div class="tx" style="position:absolute;left:0;top:0;color:#fff;font-size:${fz}px">${esc(o.text)}</div>`:'');
     else inner=`<div class="tx" style="background:#fff;border:1px solid #7f7f7f;justify-content:flex-start;align-items:flex-start;text-align:left;color:#000;font-size:${fz}px">${esc(o.text||'')}</div>`;
-    return `<div class="ob${sel?' sel':''}" data-o="${o.id}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px">${inner}${sel?'<i class="orz" data-orz="1"></i>':''}</div>`;
+    return `<div class="ob${sel?' sel':''}" data-o="${o.id}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;${o.rot||o.fx||o.fy?`transform:rotate(${o.rot||0}deg) scale(${o.fx?-1:1},${o.fy?-1:1});`:''}">${inner}${sel&&selSet.size===1?'<i class="orz" data-orz="1"></i>':''}</div>`;
   }
   function sparkSvg(sp,w,h){
     const g=sp.src,v=[];
@@ -2721,8 +2769,8 @@ function mount(root,opts={}){
 
   const newId=()=>'o'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
   const viewPos=()=>{const k=(cur.objs.length%8)*24;return {x:Math.round(vp.scrollLeft/Z)+60+k,y:Math.round(vp.scrollTop/Z)+40+k};};
-  function addObj(o){tx(()=>{o.id=newId();Object.assign(o,viewPos());cur.objs=[...cur.objs,o];selObj=o.id;});}
-  function deleteObj(){const id=selObj;tx(()=>{cur.objs=cur.objs.filter(o=>o.id!==id);selObj=null;});}
+  function addObj(o){tx(()=>{o.id=newId();Object.assign(o,viewPos());cur.objs=[...cur.objs,o];selObj=o.id;selSet=new Set([o.id]);});}
+  function deleteObj(){const ids=new Set(selSet);tx(()=>{cur.objs=cur.objs.filter(o=>!ids.has(o.id));selObj=null;selSet=new Set();});}
   function addChart(type){
     let g=rg();if(g.r1===g.r2&&g.c1===g.c2)g=region();
     if(g.r1===g.r2&&g.c1===g.c2&&!hasVal(cur,g.r1,g.c1)){toast('Pilih data yang akan dibuat bagan.');return;}
@@ -2730,7 +2778,7 @@ function mount(root,opts={}){
     addObj({type:'chart',ct:type,src:{r1:g.r1,c1:g.c1,r2:g.r2,c2:g.c2},w:480,h:288,title:null});
   }
   function objEdit(id){
-    const o=cur.objs.find(q=>q.id===id);if(!o)return;selObj=id;schedule();
+    const o=cur.objs.find(q=>q.id===id);if(!o)return;selObj=id;selSet=new Set([id]);schedule();
     const upd=p=>tx(()=>{cur.objs=cur.objs.map(q=>q.id===id?{...q,...p}:q);});
     if(o.type==='text'||o.type==='shape'){
       const d=dlg(o.type==='text'?'Kotak Teks':'Teks Bentuk',`<textarea class="t" rows="4" style="width:300px">${esc(o.text||'')}</textarea>`,d=>{upd({text:d.querySelector('.t').value});});
@@ -2795,6 +2843,100 @@ function mount(root,opts={}){
     spark(v){sparkDialog(v);}
   });
 
+
+  /* ===== TATA LETAK HALAMAN ===== */
+  const setPage=p=>tx(()=>{cur.page={...cur.page,m:{...cur.page.m},...p};});
+  function applyTheme(i,part){
+    const t=THEMES[i];if(part!=='font'){PAL=buildPal(t.c);wb.themeC=i;}
+    if(part!=='color'){wb.font=t.f;wb.themeF=i;}
+    X.style.setProperty('--df',DF());wb.ver++;sync();
+  }
+  const FTL=['Calibri','Cambria','Arial','Times New Roman','Georgia','Verdana','Segoe UI','Tahoma'];
+  const near=(a,b)=>Math.abs(a-b)<.005;
+  function pageSetupDialog(){
+    const P=cur.page,cm=v=>+(v*2.54).toFixed(2);
+    const d=dlg('Penyiapan Halaman',`<div class="r2"><span>Orientasi:</span><select class="o"><option value="portrait">Potret</option><option value="landscape">Lanskap</option></select>
+      <span>Ukuran kertas:</span><select class="p">${Object.keys(PAPER).map(k=>`<option value="${k}">${PAPERN[k]}</option>`).join('')}</select>
+      <span>Margin atas (cm):</span><input type="number" class="mt" step="0.1" min="0" value="${cm(P.m.t)}"><span>Margin bawah (cm):</span><input type="number" class="mb" step="0.1" min="0" value="${cm(P.m.b)}">
+      <span>Margin kiri (cm):</span><input type="number" class="ml" step="0.1" min="0" value="${cm(P.m.l)}"><span>Margin kanan (cm):</span><input type="number" class="mr" step="0.1" min="0" value="${cm(P.m.r)}">
+      <span>Skala (%):</span><input type="number" class="sc" min="10" max="400" value="${P.scale}"><span>Muat ke lebar:</span><select class="fw">${FITO.map(x=>`<option value="${x[0]}">${x[1]}</option>`).join('')}</select><span>Muat ke tinggi:</span><select class="fh">${FITO.map(x=>`<option value="${x[0]}">${x[1]}</option>`).join('')}</select></div>
+      <label><input type="checkbox" class="pg"> Cetak garis kisi</label><label><input type="checkbox" class="ph"> Cetak tajuk baris dan kolom</label>`,d=>{
+      const n=c=>Math.max(0,+d.querySelector(c).value||0)/2.54;
+      setPage({orient:d.querySelector('.o').value,paper:d.querySelector('.p').value,m:{t:n('.mt'),b:n('.mb'),l:n('.ml'),r:n('.mr')},scale:Math.max(10,Math.min(400,+d.querySelector('.sc').value||100)),fitW:+d.querySelector('.fw').value,fitH:+d.querySelector('.fh').value,pg:d.querySelector('.pg').checked,ph:d.querySelector('.ph').checked});});
+    d.querySelector('.o').value=P.orient;d.querySelector('.p').value=P.paper;d.querySelector('.fw').value=P.fitW;d.querySelector('.fh').value=P.fitH;d.querySelector('.pg').checked=P.pg;d.querySelector('.ph').checked=P.ph;
+  }
+  function titlesDialog(){
+    const P=cur.page;
+    dlg('Judul Cetak',`<div class="r2"><span>Baris untuk diulang di atas:</span><input type="text" class="r" placeholder="mis. 1:2" value="${P.tRows?`${P.tRows.r1+1}:${P.tRows.r2+1}`:''}"><span>Kolom untuk diulang di kiri:</span><input type="text" class="c" placeholder="mis. A:B" value="${P.tCols?`${colName(P.tCols.c1)}:${colName(P.tCols.c2)}`:''}"></div>`,d=>{
+      const rv=d.querySelector('.r').value.trim(),cv=d.querySelector('.c').value.trim();let tr=null,tc=null,m;
+      if(rv){m=/^\$?(\d+)(?::\$?(\d+))?$/.exec(rv);if(!m){toast('Baris tidak valid. Contoh: 1:2');return false;}tr={r1:+m[1]-1,r2:+(m[2]||m[1])-1};if(tr.r2<tr.r1||tr.r1<0){toast('Baris tidak valid.');return false;}}
+      if(cv){m=/^\$?([A-Za-z]+)(?::\$?([A-Za-z]+))?$/.exec(cv);if(!m){toast('Kolom tidak valid. Contoh: A:B');return false;}tc={c1:colIdx(m[1]),c2:colIdx(m[2]||m[1])};}
+      setPage({tRows:tr,tCols:tc});});
+  }
+  function renderSelp(){
+    if(!selpEl)return;
+    const cnt={};const name=o=>{const L={img:'Gambar',chart:'Bagan',shape:'Bentuk',text:'Kotak Teks'}[o.type]||'Objek';return o.name||L+' '+o._n;};
+    cur.objs.forEach(o=>{const k=o.type;cnt[k]=(cnt[k]||0)+1;o._n=cnt[k];});
+    selpEl.innerHTML=`<div class="sh"><span>Panel Seleksi</span><button data-x="1" title="Tutup">✕</button></div>${[...cur.objs].reverse().map(o=>`<div class="si${selSet.has(o.id)?' on':''}" data-id="${o.id}"><button data-eye="${o.id}" title="Tampilkan/sembunyikan">${o.hidden?'🚫':'👁'}</button><span>${esc(name(o))}</span></div>`).join('')||'<div class="si" style="color:#888">Tidak ada objek</div>'}`;
+  }
+  function toggleSelp(){
+    if(selpEl){selpEl.remove();selpEl=null;return;}
+    selpEl=document.createElement('div');selpEl.className='selp';$('.gwrap').appendChild(selpEl);renderSelp();
+    selpEl.onclick=e=>{
+      if(e.target.dataset.x){selpEl.remove();selpEl=null;return;}
+      const eye=e.target.dataset.eye;
+      if(eye){tx(()=>{cur.objs=cur.objs.map(o=>o.id===eye?{...o,hidden:!o.hidden}:o);});return;}
+      const it=e.target.closest('[data-id]');if(it){selObj=it.dataset.id;selSet=e.shiftKey?new Set([...selSet,selObj]):new Set([selObj]);sync();}};
+  }
+  const selList=()=>cur.objs.filter(o=>selSet.has(o.id));
+  function zMove(k){
+    if(!selSet.size){toast('Pilih objek terlebih dahulu.');return;}
+    tx(()=>{let a=[...cur.objs];const ids=selSet;
+      if(k==='front')a=a.filter(o=>!ids.has(o.id)).concat(a.filter(o=>ids.has(o.id)));
+      else if(k==='back')a=a.filter(o=>ids.has(o.id)).concat(a.filter(o=>!ids.has(o.id)));
+      else if(k==='fwd'){for(let i=a.length-2;i>=0;i--)if(ids.has(a[i].id)&&!ids.has(a[i+1].id))[a[i],a[i+1]]=[a[i+1],a[i]];}
+      else{for(let i=1;i<a.length;i++)if(ids.has(a[i].id)&&!ids.has(a[i-1].id))[a[i],a[i-1]]=[a[i-1],a[i]];}
+      cur.objs=a;});
+  }
+  function alignObjs(k){
+    const L=selList();if(L.length<2)return;
+    tx(()=>{const x0=Math.min(...L.map(o=>o.x)),x1=Math.max(...L.map(o=>o.x+o.w)),y0=Math.min(...L.map(o=>o.y)),y1=Math.max(...L.map(o=>o.y+o.h));
+      for(const o of cur.objs){if(!selSet.has(o.id))continue;
+        if(k==='l')o.x=x0;else if(k==='r')o.x=x1-o.w;else if(k==='c')o.x=(x0+x1)/2-o.w/2;
+        else if(k==='t')o.y=y0;else if(k==='b')o.y=y1-o.h;else o.y=(y0+y1)/2-o.h/2;}});
+  }
+  function rotObjs(k){
+    if(!selSet.size){toast('Pilih objek terlebih dahulu.');return;}
+    tx(()=>{for(const o of cur.objs){if(!selSet.has(o.id))continue;
+      if(k==='r')o.rot=((o.rot||0)+90)%360;else if(k==='l')o.rot=((o.rot||0)+270)%360;else if(k==='v')o.fy=!o.fy;else o.fx=!o.fx;}});
+  }
+  $('.bgin').onchange=e=>{const f=e.target.files[0];e.target.value='';if(!f)return;cur.bg=URL.createObjectURL(f);dirty=true;sync();toast('Latar belakang hanya tampil di lembar ini dan belum disimpan ke .xlsx.');};
+  Object.assign(sels,{
+    fitw:v=>setPage({fitW:+v}),fith:v=>setPage({fitH:+v}),
+    scale:v=>setPage({scale:Math.max(10,Math.min(400,Math.round(+v)||100))}),
+    gview:v=>{cur.grid=!!v;sync();},gprint:v=>setPage({pg:!!v}),hview:v=>{cur.head=!!v;sync();},hprint:v=>setPage({ph:!!v})
+  });
+  Object.assign(acts,{
+    bg(){if(cur.bg){cur.bg=null;sync();}else $('.bgin').click();},
+    ptitles:titlesDialog,selpane:toggleSelp
+  });
+  const MG={n:[.75,.75,.7,.7],w:[1,1,1,1],s:[.75,.75,.25,.25]};
+  const mgItem=(l,k)=>{const v=MG[k],P=cur.page.m;return I(l,()=>setPage({m:{t:v[0],b:v[1],l:v[2],r:v[3]}}),'▭',{ck:near(P.t,v[0])&&near(P.b,v[1])&&near(P.l,v[2])&&near(P.r,v[3])});};
+  Object.assign(menus,{
+    themes:()=>THEMES.map((t,i)=>I(t.n+'  ('+t.f+')',()=>applyTheme(i),'Aa',{ck:wb.themeC===i&&wb.themeF===i})),
+    tcolors:()=>THEMES.map((t,i)=>({html:`<div class="mi" style="gap:6px"><span style="display:flex;gap:1px">${t.c.slice(2).map(c=>`<i style="display:block;width:10px;height:14px;background:${c}"></i>`).join('')}</span><span>${t.n}</span></div>`,on:d=>d.onclick=()=>{closePop();applyTheme(i,'color');}})),
+    tfonts:()=>FTL.map(f=>I(f,()=>{wb.font=f;wb.themeF=-1;X.style.setProperty('--df',DF());wb.ver++;sync();},'A',{ck:DF()===f})),
+    margins:()=>[mgItem('Normal  (atas/bawah 1,9 cm · kiri/kanan 1,8 cm)','n'),mgItem('Lebar  (2,5 cm di semua sisi)','w'),mgItem('Sempit  (kiri/kanan 0,6 cm)','s'),{sep:1},I('Margin Kustom…',pageSetupDialog,'⚙')],
+    orient2:()=>[I('Potret',()=>setPage({orient:'portrait'}),'▯',{ck:cur.page.orient==='portrait'}),I('Lanskap',()=>setPage({orient:'landscape'}),'▭',{ck:cur.page.orient==='landscape'})],
+    psize:()=>Object.keys(PAPER).map(k=>I(PAPERN[k],()=>setPage({paper:k}),'▯',{ck:cur.page.paper===k})),
+    parea:()=>[I('Atur Area Cetak',()=>{let g=expandMerge(limitRange(rg()));setPage({area:{r1:g.r1,c1:g.c1,r2:g.r2,c2:g.c2}});},'▦'),I('Hapus Area Cetak',()=>setPage({area:null}),'✖',{dis:!cur.page.area})],
+    fwd:()=>[I('Majukan',()=>zMove('fwd'),'⬆'),I('Bawa ke Depan',()=>zMove('front'),'⇈')],
+    back:()=>[I('Mundurkan',()=>zMove('bk'),'⬇'),I('Kirim ke Belakang',()=>zMove('back'),'⇊')],
+    align:()=>{const ok=selSet.size>=2;return [['Rata Kiri','l'],['Rata Tengah','c'],['Rata Kanan','r'],['Rata Atas','t'],['Rata Tengah Vertikal','m'],['Rata Bawah','b']].map(([l,k])=>I(l,()=>alignObjs(k),'⇤',{dis:!ok}));},
+    rot:()=>[I('Putar Kanan 90°',()=>rotObjs('r'),'↻'),I('Putar Kiri 90°',()=>rotObjs('l'),'↺'),I('Balik Vertikal',()=>rotObjs('v'),'⇵'),I('Balik Horizontal',()=>rotObjs('h'),'⇄')]
+  });
+  X.style.setProperty('--df',DF());
+
   /* ===== berkas ===== */
   const hex6=c=>c?c.replace('#','').toUpperCase():null;
   const argb=c=>'FF'+hex6(c);
@@ -2813,6 +2955,14 @@ function mount(root,opts={}){
     const sheets=[];
     for(const ws of w.worksheets){
       const s=newSheet(ws.name);
+      try{const v=ws.views&&ws.views[0];if(v){if(v.showGridLines===false)s.grid=false;if(v.showRowColHeaders===false)s.head=false;}
+        const ps=ws.pageSetup;if(ps){const P=s.page;P.paper={9:'A4',8:'A3',11:'A5',1:'Letter',5:'Legal'}[ps.paperSize]||'A4';P.orient=ps.orientation==='landscape'?'landscape':'portrait';
+          if(ps.margins){for(const [k,n] of [['t','top'],['b','bottom'],['l','left'],['r','right']])if(typeof ps.margins[n]==='number')P.m[k]=ps.margins[n];}
+          P.pg=!!ps.showGridLines;P.ph=!!ps.showRowColHeaders;
+          if(ps.fitToPage){P.fitW=ps.fitToWidth===undefined?1:ps.fitToWidth;P.fitH=ps.fitToHeight===undefined?1:ps.fitToHeight;}else if(ps.scale)P.scale=ps.scale;
+          if(typeof ps.printArea==='string'){const q=parseRng(ps.printArea.split(',')[0].replace(/^.*!/,''));if(q)P.area=q;}
+          if(typeof ps.printTitlesRow==='string'){const m=/^\$?(\d+):\$?(\d+)$/.exec(ps.printTitlesRow);if(m)P.tRows={r1:+m[1]-1,r2:+m[2]-1};}
+          if(typeof ps.printTitlesColumn==='string'){const m=/^\$?([A-Za-z]+):\$?([A-Za-z]+)$/.exec(ps.printTitlesColumn);if(m)P.tCols={c1:colIdx(m[1]),c2:colIdx(m[2])};}}}catch(e){}
       const dc=ws.properties&&ws.properties.defaultColWidth;if(dc)s.cw.def=Math.round(dc*7+5);
       const cc=ws.columnCount||0;
       for(let c=1;c<=cc;c++){const col=ws.getColumn(c);if(col.width)s.cw.ov.set(c-1,Math.round(col.width*7+5));if(col.hidden)s.cw.hid.add(c-1);}
@@ -2906,8 +3056,12 @@ function mount(root,opts={}){
       await lib('exceljs',()=>window.ExcelJS);
       const w=new ExcelJS.Workbook();w.creator='Office Web';let unsup=0;
       for(const s of wb.sheets){
-        const ws=w.addWorksheet(s.name,{properties:s.tab?{tabColor:{argb:argb(s.tab)}}:{},views:[{showGridLines:showGrid}]});
+        const ws=w.addWorksheet(s.name,{properties:s.tab?{tabColor:{argb:argb(s.tab)}}:{},views:[{showGridLines:s.grid!==false,showRowColHeaders:s.head!==false}]});
         if(s.cw.def!==DW)ws.properties.defaultColWidth=(s.cw.def-5)/7;
+        {const P=s.page||newPage();
+          ws.pageSetup={paperSize:{A4:9,A3:8,A5:11,Letter:1,Legal:5}[P.paper]||9,orientation:P.orient==='landscape'?'landscape':'portrait',margins:{left:P.m.l,right:P.m.r,top:P.m.t,bottom:P.m.b,header:.3,footer:.3},showGridLines:!!P.pg,showRowColHeaders:!!P.ph,
+            ...(P.area?{printArea:rngStr(P.area)}:{}),...(P.tRows?{printTitlesRow:`${P.tRows.r1+1}:${P.tRows.r2+1}`}:{}),...(P.tCols?{printTitlesColumn:`${colName(P.tCols.c1)}:${colName(P.tCols.c2)}`}:{}),
+            ...(P.fitW||P.fitH?{fitToPage:true,fitToWidth:P.fitW||0,fitToHeight:P.fitH||0}:{scale:P.scale})};}
         for(const [c,v] of s.cw.ov)ws.getColumn(c+1).width=Math.max(0,(v-5)/7);
         for(const c of s.cw.hid)ws.getColumn(c+1).hidden=true;
         for(const [r,v] of s.rh.ov)ws.getRow(r+1).height=v*.75;
@@ -2960,13 +3114,35 @@ function mount(root,opts={}){
     dl(new Blob(['\uFEFF'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),name.replace(/\.[^.]+$/,'')+'.csv');
   }
   function printSheet(){
-    const u=usedRange(cur);let h='<table style="border-collapse:collapse;font:11pt Calibri,sans-serif">';
-    if(u.any)for(let r=0;r<=u.r2;r++){if(cur.rh.size(r)===0)continue;h+='<tr>';for(let c=0;c<=u.c2;c++){if(cur.cw.size(c)===0)continue;const m=mergeAtSh(cur,r,c);if(m&&(m.r1!==r||m.c1!==c))continue;
+    if(ed&&!commitEdit())return;
+    const P=cur.page,u=usedRange(cur);
+    const g=P.area?{...P.area}:{r1:0,c1:0,r2:u.r2,c2:u.c2};
+    let [pw,ph]=PAPER[P.paper]||PAPER.A4;if(P.orient==='landscape')[pw,ph]=[ph,pw];
+    let totW=P.ph?40:0,totH=P.ph?20:0;
+    for(let c=g.c1;c<=g.c2;c++)totW+=cur.cw.size(c);
+    for(let r=g.r1;r<=g.r2;r++)totH+=cur.rh.size(r);
+    const availW=(pw/25.4-P.m.l-P.m.r)*96,availH=(ph/25.4-P.m.t-P.m.b)*96;
+    let zoom=P.scale/100;
+    if(P.fitW||P.fitH)zoom=Math.min(1,P.fitW?availW*P.fitW/totW:Infinity,P.fitH?availH*P.fitH/totH:Infinity);
+    const gl=P.pg?'border:1px solid #bbb;':'';
+    const cell=(r,c)=>{
+      if(cur.cw.size(c)===0)return '';
+      const m=mergeAtSh(cur,r,c);if(m&&(m.r1!==r||m.c1!==c))return '';
       const cl=cellAt(cur,r,c),st=(cl&&cl.st)||{},f=fmtValue(cl?cellVal(cur,r,c):null,st.fmt);
-      h+=`<td ${m?`rowspan="${m.r2-m.r1+1}" colspan="${m.c2-m.c1+1}"`:''} style="padding:1px 4px;height:${cur.rh.size(r)*.75}pt;min-width:${cur.cw.size(c)}px;text-align:${st.ha&&st.ha!=='general'?st.ha:(f.al||'left')};${st.fill?'background:'+st.fill+';':''}${st.color?'color:'+st.color+';':''}${st.b?'font-weight:700;':''}${st.i?'font-style:italic;':''}${st.sz?'font-size:'+st.sz+'pt;':''}${st.bd?SIDES.map(s=>st.bd[s]?`border-${{t:'top',r:'right',b:'bottom',l:'left'}[s]}:${BTYPES[st.bd[s][0]].join(' ')} ${st.bd[s][1]};`:'').join(''):''}">${esc(f.t)}</td>`;}h+='</tr>';}
-    h+='</table>';
-    const p=document.createElement('div');p.id='xl-print';p.innerHTML=h;document.body.appendChild(p);
-    const done=()=>{removeEventListener('afterprint',done);p.remove();};addEventListener('afterprint',done);window.print();
+      const bds=st.bd?SIDES.map(sd=>st.bd[sd]?`border-${{t:'top',r:'right',b:'bottom',l:'left'}[sd]}:${BTYPES[st.bd[sd][0]].join(' ')} ${st.bd[sd][1]};`:'').join(''):'';
+      return `<td ${m?`rowspan="${m.r2-m.r1+1}" colspan="${m.c2-m.c1+1}"`:''} style="${gl}padding:1px 4px;height:${cur.rh.size(r)*.75}pt;min-width:${cur.cw.size(c)}px;max-width:${cur.cw.size(c)}px;overflow:hidden;white-space:nowrap;text-align:${st.ha&&st.ha!=='general'?st.ha:(f.al||'left')};${st.fill?'background:'+st.fill+';':''}${st.color?'color:'+st.color+';':''}${st.b?'font-weight:700;':''}${st.i?'font-style:italic;':''}${st.u?'text-decoration:underline;':''}${st.sz?'font-size:'+st.sz+'pt;':''}${st.font?'font-family:'+st.font+';':''}${bds}">${esc(f.t)}</td>`;};
+    const th='border:1px solid #bbb;background:#eee;font-weight:400;text-align:center;';
+    const row=r=>{let h='<tr>';if(P.ph)h+=`<th style="${th}">${r+1}</th>`;for(let c=g.c1;c<=g.c2;c++)h+=cell(r,c);return h+'</tr>';};
+    let head='',body='';
+    if(P.ph){head+='<tr><th style="'+th+'"></th>';for(let c=g.c1;c<=g.c2;c++)if(cur.cw.size(c))head+=`<th style="${th}">${colName(c)}</th>`;head+='</tr>';}
+    const tr=[];if(P.tRows)for(let r=P.tRows.r1;r<=P.tRows.r2;r++)tr.push(r);
+    for(const r of tr)if(cur.rh.size(r))head+=row(r);
+    for(let r=g.r1;r<=g.r2;r++){if(tr.includes(r)||cur.rh.size(r)===0)continue;body+=row(r);}
+    const p=document.createElement('div');p.id='xl-print';
+    p.innerHTML=`<table style="border-collapse:collapse;table-layout:fixed;font:11pt ${DF()},Calibri,Carlito,sans-serif;zoom:${zoom}"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+    const pst=document.createElement('style');pst.textContent=`@page{size:${pw}mm ${ph}mm;margin:${P.m.t}in ${P.m.r}in ${P.m.b}in ${P.m.l}in}`;
+    document.head.appendChild(pst);document.body.appendChild(p);
+    const done=()=>{removeEventListener('afterprint',done);p.remove();pst.remove();};addEventListener('afterprint',done);window.print();
   }
 
   /* ===== event ===== */
@@ -2988,7 +3164,7 @@ function mount(root,opts={}){
   });
   root.addEventListener('dblclick',e=>{const sh=e.target.closest('[data-sh]');if(sh){switchSheet(+sh.dataset.sh);renameSheet(+sh.dataset.sh);}});
   root.addEventListener('contextmenu',e=>{const sh=e.target.closest('[data-sh]');if(sh){e.preventDefault();switchSheet(+sh.dataset.sh);openMenuAt(e.clientX,e.clientY-120,menus.sheetctx());}});
-  root.addEventListener('change',e=>{const s=e.target.dataset&&e.target.dataset.s;if(!s||!sels[s])return;sels[s](e.target.value);if(!ed)vp.focus({preventScroll:true});});
+  root.addEventListener('change',e=>{const s=e.target.dataset&&e.target.dataset.s;if(!s||!sels[s])return;sels[s](e.target.type==='checkbox'?e.target.checked:e.target.value);if(e.target.type!=='number'&&!ed)vp.focus({preventScroll:true});});
   $('.zr').oninput=e=>setZoom(+e.target.value);
   vp.addEventListener('mousedown',()=>{menu.hidden=true;});
   root.addEventListener('keydown',e=>{
