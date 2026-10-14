@@ -196,6 +196,10 @@ function parseInput(t){
 /* ---------- mesin rumus ---------- */
 const FN_NAMES=new Set();
 function tokenize(src){
+  if(src.includes(';')){ /* gaya Indonesia: pemisah argumen ';' dan koma desimal */
+    let o='',q=false;for(let k=0;k<src.length;k++){const ch=src[k];if(ch==='"')q=!q;
+      if(!q&&ch===','&&/\d/.test(src[k-1]||'')&&/\d/.test(src[k+1]||'')&&!/[A-Za-z_$]\d*$/.test(o.replace(/\d+$/,'')+'')){o+='.';}else o+=ch;}
+    src=o;}
   const out=[];let i=0;const n=src.length;
   while(i<n){
     const ch=src[i];
@@ -336,7 +340,13 @@ function evalAst(a,cx){
     case 'num':case 'str':case 'bool':return a.v;
     case 'empty':return null;
     case 'err':return new XErr(a.v);
-    case 'name':return E.NAME;
+    case 'name':{
+      const nm=cx.wb.names&&cx.wb.names.find(n=>n.name.toLowerCase()===a.v.toLowerCase());
+      if(!nm)return E.NAME;
+      if(nm.ast===undefined){try{nm.ast=parseFormula(nm.ref.replace(/^=/,''));}catch(e){nm.ast=null;}}
+      if(nm.ast===null||nm.depth>8)return E.NAME;
+      nm.depth=(nm.depth||0)+1;let r;try{r=evalAst(nm.ast,{wb:cx.wb,sh:cx.sh,cell:cx.cell});}finally{nm.depth--;}
+      return r;}
     case 'ref':{
       let sh=cx.sh;
       if(a.sheet){sh=cx.wb.sheets.find(s=>s.name.toLowerCase()===a.sheet.toLowerCase());if(!sh)return E.REF;}
@@ -591,6 +601,30 @@ def('LOOKUP',(a,cx)=>{const k=S1(a,cx),l=a[1],r=a[2]||l;const lv=flatVals(l,cx);
 def('TRANSPOSE',(a,cx)=>E.VAL);
 
 /* semua fungsi yang menerima nilai tunggal dengan kosong -> 0 */
+
+
+/* ---------- fungsi keuangan ---------- */
+const FA=(a,i,d,cx)=>a[i]===undefined||a[i]===null?d:num(scalar(a[i],cx));
+const pw=(r,n)=>Math.pow(1+r,n);
+function fvF(r,n,p,pv,t){return r===0?-(pv+p*n):-(pv*pw(r,n)+p*(1+r*t)*(pw(r,n)-1)/r);}
+function pmtF(r,n,pv,fv,t){return r===0?-(pv+fv)/n:-(r*(pv*pw(r,n)+fv))/((1+r*t)*(pw(r,n)-1));}
+const fin=(n,f)=>def(n,(a,cx)=>{const v=f(a,cx);return typeof v==='number'&&!isFinite(v)?E.NUM:v;});
+const chk=(...v)=>v.find(isErr);
+fin('PMT',(a,cx)=>{const r=FA(a,0,0,cx),n=FA(a,1,0,cx),pv=FA(a,2,0,cx),fv=FA(a,3,0,cx),t=FA(a,4,0,cx);return chk(r,n,pv,fv,t)||(n===0?E.NUM:pmtF(r,n,pv,fv,t?1:0));});
+fin('FV',(a,cx)=>{const r=FA(a,0,0,cx),n=FA(a,1,0,cx),p=FA(a,2,0,cx),pv=FA(a,3,0,cx),t=FA(a,4,0,cx);return chk(r,n,p,pv,t)||fvF(r,n,p,pv,t?1:0);});
+fin('PV',(a,cx)=>{const r=FA(a,0,0,cx),n=FA(a,1,0,cx),p=FA(a,2,0,cx),fv=FA(a,3,0,cx),t0=FA(a,4,0,cx);if(chk(r,n,p,fv,t0))return chk(r,n,p,fv,t0);const t=t0?1:0;return r===0?-(fv+p*n):-(fv+p*(1+r*t)*(pw(r,n)-1)/r)/pw(r,n);});
+fin('NPER',(a,cx)=>{const r=FA(a,0,0,cx),p=FA(a,1,0,cx),pv=FA(a,2,0,cx),fv=FA(a,3,0,cx),t=FA(a,4,0,cx);if(chk(r,p,pv,fv,t))return chk(r,p,pv,fv,t);const tt=t?1:0;if(r===0)return p===0?E.NUM:-(pv+fv)/p;const q=(p*(1+r*tt)-fv*r)/(p*(1+r*tt)+pv*r);return q<=0?E.NUM:Math.log(q)/Math.log(1+r);});
+fin('NPV',(a,cx)=>{const r=FA(a,0,0,cx);if(isErr(r))return r;const v=nums(a.slice(1),cx);if(isErr(v))return v;return v.reduce((s,x,i)=>s+x/pw(r,i+1),0);});
+fin('SLN',(a,cx)=>{const c=FA(a,0,0,cx),s2=FA(a,1,0,cx),l=FA(a,2,0,cx);return chk(c,s2,l)||(l===0?E.DIV:(c-s2)/l);});
+fin('IPMT',(a,cx)=>{const r=FA(a,0,0,cx),per=FA(a,1,0,cx),n=FA(a,2,0,cx),pv=FA(a,3,0,cx),fv=FA(a,4,0,cx);if(chk(r,per,n,pv,fv))return chk(r,per,n,pv,fv);if(per<1||per>n)return E.NUM;const p=pmtF(r,n,pv,fv,0);return fvF(r,per-1,p,pv,0)*r;});
+fin('PPMT',(a,cx)=>{const r=FA(a,0,0,cx),per=FA(a,1,0,cx),n=FA(a,2,0,cx),pv=FA(a,3,0,cx),fv=FA(a,4,0,cx);if(chk(r,per,n,pv,fv))return chk(r,per,n,pv,fv);if(per<1||per>n)return E.NUM;const p=pmtF(r,n,pv,fv,0);return p-fvF(r,per-1,p,pv,0)*r;});
+fin('IRR',(a,cx)=>{const v=nums([a[0]],cx);if(isErr(v))return v;if(!v.some(x=>x>0)||!v.some(x=>x<0))return E.NUM;
+  const f=r=>v.reduce((s,x,i)=>s+x/Math.pow(1+r,i),0);let lo=-0.9999,hi=10,flo=f(lo),fhi=f(hi);if(flo*fhi>0)return E.NUM;
+  for(let i=0;i<200;i++){const m=(lo+hi)/2,fm=f(m);if(Math.abs(fm)<1e-10)return m;if(fm*flo<0){hi=m;fhi=fm;}else{lo=m;flo=fm;}}return (lo+hi)/2;});
+fin('RATE',(a,cx)=>{const n=FA(a,0,0,cx),p=FA(a,1,0,cx),pv=FA(a,2,0,cx),fv=FA(a,3,0,cx),t=FA(a,4,0,cx),g=FA(a,5,.1,cx);if(chk(n,p,pv,fv,t,g))return chk(n,p,pv,fv,t,g);
+  const tt=t?1:0,f=r=>r===0?pv+p*n+fv:pv*pw(r,n)+p*(1+r*tt)*(pw(r,n)-1)/r+fv;let r=g;
+  for(let i=0;i<100;i++){const y=f(r),h=1e-7,d=(f(r+h)-y)/h;if(!d||!isFinite(d))break;const nr=r-y/d;if(Math.abs(nr-r)<1e-10)return nr;r=nr;if(r<=-1)r=-0.99;}return E.NUM;});
+def('TRANSPOSE',(a,cx)=>E.VAL);
 
 /* ---------- evaluasi seluruh buku kerja ---------- */
 function recalc(wb){
@@ -941,6 +975,155 @@ RIB.layout=
  G('Skala agar Muat',`<div class="rows t3"><div class="row"><span style="width:46px">Lebar:</span>${S('fitw',FITO,98)}</div><div class="row"><span style="width:46px">Tinggi:</span>${S('fith',FITO,98)}</div><div class="row"><span style="width:46px">Skala:</span><input type="number" data-s="scale" min="10" max="400" value="100" style="width:60px;height:23px;border:1px solid #ababab"> %</div></div>`,'page')+
  G('Opsi Lembar',`<div class="rows t3" style="min-width:72px"><div class="row"><b>Garis Kisi</b></div><div class="row"><label><input type="checkbox" data-s="gview"> Tampilan</label></div><div class="row"><label><input type="checkbox" data-s="gprint"> Cetak</label></div></div><div class="rows t3" style="min-width:72px"><div class="row"><b>Tajuk</b></div><div class="row"><label><input type="checkbox" data-s="hview"> Tampilan</label></div><div class="row"><label><input type="checkbox" data-s="hprint"> Cetak</label></div></div>`,'page')+
  G('Susun',B('⬆','Majukan','m:fwd','big','Majukan',1)+B('⬇','Mundurkan','m:back','big','Mundurkan',1)+B('▤','Panel Seleksi','selpane','big','Panel<br>Seleksi')+B('⇤','Ratakan','m:align','big','Ratakan',1)+BD('▣','Grup')+B('⟳','Putar','m:rot','big','Putar',1));
+
+const FNL=`SUM|mt|SUM(angka1; [angka2]; …)|Menjumlahkan semua angka dalam rentang sel.
+SUMIF|mt|SUMIF(rentang; kriteria; [rentang_jumlah])|Menjumlahkan sel yang memenuhi satu kriteria.
+SUMIFS|mt|SUMIFS(rentang_jumlah; rentang_kriteria1; kriteria1; …)|Menjumlahkan sel yang memenuhi beberapa kriteria.
+SUMPRODUCT|mt|SUMPRODUCT(larik1; [larik2]; …)|Mengalikan komponen larik lalu menjumlahkan hasilnya.
+PRODUCT|mt|PRODUCT(angka1; [angka2]; …)|Mengalikan semua angka pada argumen.
+ABS|mt|ABS(angka)|Mengembalikan nilai absolut angka.
+SQRT|mt|SQRT(angka)|Mengembalikan akar kuadrat.
+POWER|mt|POWER(angka; pangkat)|Memangkatkan angka.
+EXP|mt|EXP(angka)|Mengembalikan e dipangkatkan angka.
+LN|mt|LN(angka)|Logaritma natural.
+LOG|mt|LOG(angka; [basis])|Logaritma dengan basis tertentu.
+LOG10|mt|LOG10(angka)|Logaritma basis 10.
+MOD|mt|MOD(angka; pembagi)|Sisa hasil bagi.
+QUOTIENT|mt|QUOTIENT(pembilang; penyebut)|Bagian bulat dari pembagian.
+INT|mt|INT(angka)|Membulatkan ke bawah ke bilangan bulat terdekat.
+ROUND|mt|ROUND(angka; jumlah_digit)|Membulatkan angka ke jumlah digit tertentu.
+ROUNDUP|mt|ROUNDUP(angka; jumlah_digit)|Membulatkan ke atas, menjauhi nol.
+ROUNDDOWN|mt|ROUNDDOWN(angka; jumlah_digit)|Membulatkan ke bawah, mendekati nol.
+TRUNC|mt|TRUNC(angka; [jumlah_digit])|Memotong angka menjadi bilangan bulat.
+CEILING|mt|CEILING(angka; kelipatan)|Membulatkan ke atas ke kelipatan terdekat.
+FLOOR|mt|FLOOR(angka; kelipatan)|Membulatkan ke bawah ke kelipatan terdekat.
+MROUND|mt|MROUND(angka; kelipatan)|Membulatkan ke kelipatan yang diinginkan.
+EVEN|mt|EVEN(angka)|Membulatkan ke bilangan genap terdekat (menjauhi nol).
+ODD|mt|ODD(angka)|Membulatkan ke bilangan ganjil terdekat (menjauhi nol).
+SIGN|mt|SIGN(angka)|Tanda angka: 1, 0, atau -1.
+FACT|mt|FACT(angka)|Faktorial.
+PI|mt|PI()|Nilai pi, 3,14159265358979.
+SIN|mt|SIN(angka)|Sinus sudut (radian).
+COS|mt|COS(angka)|Kosinus sudut (radian).
+TAN|mt|TAN(angka)|Tangen sudut (radian).
+ASIN|mt|ASIN(angka)|Arkus sinus.
+ACOS|mt|ACOS(angka)|Arkus kosinus.
+ATAN|mt|ATAN(angka)|Arkus tangen.
+DEGREES|mt|DEGREES(sudut)|Mengubah radian menjadi derajat.
+RADIANS|mt|RADIANS(sudut)|Mengubah derajat menjadi radian.
+RAND|mt|RAND()|Angka acak antara 0 dan 1.
+RANDBETWEEN|mt|RANDBETWEEN(bawah; atas)|Bilangan bulat acak di antara dua angka.
+AVERAGE|st|AVERAGE(angka1; [angka2]; …)|Rata-rata dari argumen.
+AVERAGEIF|st|AVERAGEIF(rentang; kriteria; [rentang_rata])|Rata-rata sel yang memenuhi kriteria.
+AVERAGEIFS|st|AVERAGEIFS(rentang_rata; rentang_kriteria1; kriteria1; …)|Rata-rata sel yang memenuhi beberapa kriteria.
+COUNT|st|COUNT(nilai1; [nilai2]; …)|Menghitung sel yang berisi angka.
+COUNTA|st|COUNTA(nilai1; [nilai2]; …)|Menghitung sel yang tidak kosong.
+COUNTBLANK|st|COUNTBLANK(rentang)|Menghitung sel kosong.
+COUNTIF|st|COUNTIF(rentang; kriteria)|Menghitung sel yang memenuhi kriteria.
+COUNTIFS|st|COUNTIFS(rentang1; kriteria1; …)|Menghitung sel yang memenuhi beberapa kriteria.
+MAX|st|MAX(angka1; [angka2]; …)|Nilai terbesar.
+MIN|st|MIN(angka1; [angka2]; …)|Nilai terkecil.
+MAXIFS|st|MAXIFS(rentang_maks; rentang_kriteria1; kriteria1; …)|Nilai terbesar dengan kriteria.
+MINIFS|st|MINIFS(rentang_min; rentang_kriteria1; kriteria1; …)|Nilai terkecil dengan kriteria.
+MEDIAN|st|MEDIAN(angka1; [angka2]; …)|Nilai tengah.
+LARGE|st|LARGE(larik; k)|Nilai terbesar ke-k.
+SMALL|st|SMALL(larik; k)|Nilai terkecil ke-k.
+RANK|st|RANK(angka; ref; [urutan])|Peringkat angka dalam daftar.
+STDEV|st|STDEV(angka1; …)|Simpangan baku sampel.
+STDEV.S|st|STDEV.S(angka1; …)|Simpangan baku sampel.
+STDEV.P|st|STDEV.P(angka1; …)|Simpangan baku populasi.
+VAR|st|VAR(angka1; …)|Varians sampel.
+VAR.S|st|VAR.S(angka1; …)|Varians sampel.
+VAR.P|st|VAR.P(angka1; …)|Varians populasi.
+IF|log|IF(uji_logika; [nilai_jika_benar]; [nilai_jika_salah])|Memeriksa kondisi dan memberi satu nilai bila benar, nilai lain bila salah.
+IFS|log|IFS(uji1; nilai1; [uji2; nilai2]; …)|Memeriksa beberapa kondisi dan memberi nilai untuk yang pertama benar.
+IFERROR|log|IFERROR(nilai; nilai_jika_galat)|Memberi nilai lain bila rumus menghasilkan galat.
+IFNA|log|IFNA(nilai; nilai_jika_na)|Memberi nilai lain bila hasilnya #N/A.
+AND|log|AND(logika1; [logika2]; …)|BENAR jika semua argumen benar.
+OR|log|OR(logika1; [logika2]; …)|BENAR jika salah satu argumen benar.
+XOR|log|XOR(logika1; [logika2]; …)|XOR logika dari semua argumen.
+NOT|log|NOT(logika)|Membalik BENAR/SALAH.
+SWITCH|log|SWITCH(ekspresi; nilai1; hasil1; …; [default])|Mencocokkan ekspresi dengan daftar nilai.
+TRUE|log|TRUE()|Mengembalikan BENAR.
+FALSE|log|FALSE()|Mengembalikan SALAH.
+LEN|txt|LEN(teks)|Jumlah karakter dalam teks.
+LEFT|txt|LEFT(teks; [jumlah])|Karakter paling kiri dari teks.
+RIGHT|txt|RIGHT(teks; [jumlah])|Karakter paling kanan dari teks.
+MID|txt|MID(teks; awal; jumlah)|Karakter dari tengah teks.
+UPPER|txt|UPPER(teks)|Mengubah teks menjadi huruf besar.
+LOWER|txt|LOWER(teks)|Mengubah teks menjadi huruf kecil.
+PROPER|txt|PROPER(teks)|Huruf pertama tiap kata menjadi kapital.
+TRIM|txt|TRIM(teks)|Menghapus spasi berlebih.
+CLEAN|txt|CLEAN(teks)|Menghapus karakter yang tidak tercetak.
+CONCATENATE|txt|CONCATENATE(teks1; [teks2]; …)|Menggabungkan beberapa teks.
+CONCAT|txt|CONCAT(teks1; [teks2]; …)|Menggabungkan teks dari beberapa rentang.
+TEXTJOIN|txt|TEXTJOIN(pemisah; abaikan_kosong; teks1; …)|Menggabungkan teks dengan pemisah.
+SUBSTITUTE|txt|SUBSTITUTE(teks; lama; baru; [instans])|Mengganti teks tertentu.
+REPLACE|txt|REPLACE(teks; awal; jumlah; baru)|Mengganti sebagian teks berdasarkan posisi.
+FIND|txt|FIND(cari; dalam_teks; [awal])|Posisi teks (peka huruf besar/kecil).
+SEARCH|txt|SEARCH(cari; dalam_teks; [awal])|Posisi teks (tidak peka huruf).
+EXACT|txt|EXACT(teks1; teks2)|Memeriksa dua teks identik.
+REPT|txt|REPT(teks; kali)|Mengulang teks beberapa kali.
+TEXT|txt|TEXT(nilai; format)|Mengubah nilai menjadi teks dengan format tertentu.
+VALUE|txt|VALUE(teks)|Mengubah teks menjadi angka.
+CODE|txt|CODE(teks)|Kode karakter pertama.
+CHAR|txt|CHAR(angka)|Karakter dari kode.
+T|txt|T(nilai)|Mengembalikan teks bila nilai berupa teks.
+TODAY|dt|TODAY()|Tanggal hari ini.
+NOW|dt|NOW()|Tanggal dan waktu saat ini.
+DATE|dt|DATE(tahun; bulan; hari)|Membuat tanggal dari tahun, bulan, hari.
+TIME|dt|TIME(jam; menit; detik)|Membuat waktu.
+YEAR|dt|YEAR(tanggal)|Tahun dari tanggal.
+MONTH|dt|MONTH(tanggal)|Bulan dari tanggal.
+DAY|dt|DAY(tanggal)|Hari dari tanggal.
+HOUR|dt|HOUR(waktu)|Jam dari waktu.
+MINUTE|dt|MINUTE(waktu)|Menit dari waktu.
+SECOND|dt|SECOND(waktu)|Detik dari waktu.
+WEEKDAY|dt|WEEKDAY(tanggal; [tipe])|Hari dalam seminggu (angka).
+DAYS|dt|DAYS(tanggal_akhir; tanggal_awal)|Selisih hari antar dua tanggal.
+EDATE|dt|EDATE(tanggal; bulan)|Tanggal beberapa bulan sebelum/sesudah.
+EOMONTH|dt|EOMONTH(tanggal; bulan)|Hari terakhir bulan.
+DATEDIF|dt|DATEDIF(awal; akhir; unit)|Selisih dua tanggal dalam "Y", "M", atau "D".
+VLOOKUP|lk|VLOOKUP(nilai; tabel; no_kolom; [cocok_perkiraan])|Mencari nilai di kolom pertama tabel dan mengambil dari kolom lain.
+HLOOKUP|lk|HLOOKUP(nilai; tabel; no_baris; [cocok_perkiraan])|Mencari nilai di baris pertama tabel dan mengambil dari baris lain.
+XLOOKUP|lk|XLOOKUP(nilai; rentang_cari; rentang_hasil; [jika_tak_ada])|Mencari di satu rentang dan mengembalikan hasil dari rentang lain.
+LOOKUP|lk|LOOKUP(nilai; vektor_cari; [vektor_hasil])|Mencari nilai dalam satu baris atau kolom.
+INDEX|lk|INDEX(larik; no_baris; [no_kolom])|Mengambil nilai pada posisi tertentu.
+MATCH|lk|MATCH(nilai; larik; [tipe_cocok])|Posisi relatif nilai dalam larik.
+CHOOSE|lk|CHOOSE(no_indeks; nilai1; [nilai2]; …)|Memilih nilai dari daftar.
+ROW|lk|ROW([ref])|Nomor baris referensi.
+COLUMN|lk|COLUMN([ref])|Nomor kolom referensi.
+ROWS|lk|ROWS(larik)|Jumlah baris dalam referensi.
+COLUMNS|lk|COLUMNS(larik)|Jumlah kolom dalam referensi.
+ISNUMBER|inf|ISNUMBER(nilai)|BENAR jika nilai berupa angka.
+ISTEXT|inf|ISTEXT(nilai)|BENAR jika nilai berupa teks.
+ISBLANK|inf|ISBLANK(nilai)|BENAR jika sel kosong.
+ISLOGICAL|inf|ISLOGICAL(nilai)|BENAR jika nilai logika.
+ISERROR|inf|ISERROR(nilai)|BENAR jika nilai adalah galat.
+ISERR|inf|ISERR(nilai)|BENAR jika galat selain #N/A.
+ISNA|inf|ISNA(nilai)|BENAR jika nilai #N/A.
+NA|inf|NA()|Mengembalikan galat #N/A.
+N|inf|N(nilai)|Mengubah nilai menjadi angka.
+PMT|fin|PMT(bunga; nper; pv; [fv]; [tipe])|Pembayaran berkala pinjaman dengan bunga tetap.
+IPMT|fin|IPMT(bunga; per; nper; pv; [fv])|Bagian bunga dari pembayaran pada periode tertentu.
+PPMT|fin|PPMT(bunga; per; nper; pv; [fv])|Bagian pokok dari pembayaran pada periode tertentu.
+FV|fin|FV(bunga; nper; pmt; [pv]; [tipe])|Nilai masa depan investasi.
+PV|fin|PV(bunga; nper; pmt; [fv]; [tipe])|Nilai sekarang investasi.
+NPV|fin|NPV(bunga; nilai1; [nilai2]; …)|Nilai bersih sekarang dari arus kas.
+IRR|fin|IRR(nilai; [tebakan])|Tingkat pengembalian internal.
+NPER|fin|NPER(bunga; pmt; pv; [fv]; [tipe])|Jumlah periode investasi.
+RATE|fin|RATE(nper; pmt; pv; [fv]; [tipe]; [tebakan])|Suku bunga per periode.
+SLN|fin|SLN(biaya; sisa; umur)|Penyusutan garis lurus per periode.`;
+const FNI={};FNL.split('\n').forEach(l=>{const p=l.split('|');FNI[p[0]]={c:p[1],syn:p[2],d:p[3]};});
+const FNCAT=[['all','Semua'],['rec','Baru Digunakan'],['fin','Keuangan'],['log','Logika'],['txt','Teks'],['dt','Tanggal & Waktu'],['lk','Pencarian & Referensi'],['mt','Matematika & Trigonometri'],['st','Statistik'],['inf','Informasi']];
+const BC=(ic,tip,a,lab,col)=>`<button class="b big" title="${tip}" data-a="${a}"><em style="color:${col};font-weight:700">${ic}</em><span>${lab}<br>▾</span></button>`;
+RIB.formulas=
+ G('Pustaka Fungsi',B('<i style="font-family:Georgia,serif">fx</i>','Sisipkan Fungsi','fxdlg','big','Sisipkan<br>Fungsi')+
+   B('Σ','Jumlah Otomatis','m:sum','big','Jumlah<br>Otomatis',1)+BC('★','Baru Digunakan','m:cRec','Baru<br>Digunakan','#2f5496')+BC('$','Keuangan','m:cfin','Keuangan','#4a8a6e')+BC('?','Logika','m:clog','Logika','#8a4aa6')+
+   BC('A','Teks','m:ctxt','Teks','#e69b2c')+BC('▦','Tanggal & Waktu','m:cdt','Tanggal &<br>Waktu','#d2562b')+BC('🔍','Pencarian & Referensi','m:clk','Pencarian &<br>Referensi','#2f5496')+BC('θ','Matematika & Trigonometri','m:cmt','Matematika<br>& Trig','#4a8a6e')+BC('…','Fungsi Lainnya','m:cmore','Fungsi<br>Lainnya','#d2562b'))+
+ G('Nama Terdefinisi',B('▤','Pengelola Nama','namemgr','big','Pengelola<br>Nama')+`<div class="rows t3">${B('▭','Tentukan Nama','m:defn','rw','Tentukan Nama',1)}${B('ƒ','Gunakan di Rumus','m:usef','rw','Gunakan di Rumus',1)}${B('▦','Buat dari Pilihan','namesel','rw','Buat dari Pilihan')}</div>`)+
+ G('Audit Rumus',`<div class="rows t3">${B('⇢','Telusuri Preseden','trace:prec','rw','Telusuri Preseden')}${B('⇠','Telusuri Dependen','trace:dep','rw','Telusuri Dependen')}${B('✖','Hapus Panah','m:rmarr','rw','Hapus Panah',1)}</div><div class="rows t3">${B('ƒ','Tampilkan Rumus','showf','rw','Tampilkan Rumus')}${B('⚠','Pemeriksaan Galat','m:errchk','rw','Pemeriksaan Galat',1)}${B('ƒ','Evaluasi Rumus','evalf','rw','Evaluasi Rumus')}</div>`+B('👓','Jendela Pantau','watch','big','Jendela<br>Pantau'))+
+ G('Perhitungan',B('▦','Opsi Perhitungan','m:calcopt','big','Opsi<br>Perhitungan',1)+`<div class="rows t3">${B('▦','Hitung Sekarang (F9)','calcnow','rw','Hitung Sekarang')}${B('▦','Hitung Lembar (Shift+F9)','calcsheet','rw','Hitung Lembar')}</div>`);
 const SOON='<div class="soon">Menu ini akan dibuat pada tahap berikutnya.</div>';
 
 const PAPER={A4:[210,297],A3:[297,420],A5:[148,210],Letter:[215.9,279.4],Legal:[215.9,355.6]};
@@ -967,13 +1150,13 @@ function mount(root,opts={}){
     <div class="qat"><div class="l"><span class="w">X</span><button data-a="save" title="Simpan (Ctrl+S)">💾</button><button data-a="undo" title="Urungkan (Ctrl+Z)">↶</button><button data-a="redo" title="Ulangi (Ctrl+Y)">↷</button></div><span class="fn"></span></div>
     <div class="tabs"><button class="tab file" data-a="menu">BERKAS</button>${TABS.map((t,i)=>`<button class="tab${i?'':' on'}" data-tab="${t[0]}">${t[1]}</button>`).join('')}</div>
     ${TABS.map((t,i)=>`<div class="ribbon" data-pane="${t[0]}"${i?' hidden':''}>${RIB[t[0]]||SOON}</div>`).join('')}
-    <div class="fbar"><div class="nbw"><input class="nb" value="A1" spellcheck="false" title="Kotak Nama"></div>
+    <div class="fbar"><div class="nbw"><input class="nb" value="A1" spellcheck="false" title="Kotak Nama"><button class="fb" data-a="m:nbnames" title="Daftar nama" style="width:16px;font-size:8px">▾</button></div>
       <button class="fb no dis" data-a="editcancel" title="Batal">✕</button><button class="fb ok dis" data-a="editok" title="Masukkan">✓</button><button class="fb" data-a="fxdlg" title="Sisipkan fungsi"><i style="font-family:Georgia,serif">fx</i></button>
       <input class="fx" spellcheck="false" autocomplete="off"></div>
     <div class="gwrap"><div class="corner" title="Pilih semua"></div><div class="colh"></div><div class="rowh"></div>
       <div class="vp" tabindex="0"><div class="stage"></div><div class="sizer"></div></div><textarea class="ed" hidden spellcheck="false" style="position:absolute"></textarea></div>
     <div class="shbar"><div class="shnav"><button data-a="shprev">◀</button><button data-a="shnext">▶</button></div><div class="shs"></div><button class="shadd" data-a="addsheet" title="Lembar baru">+</button></div>
-    <div class="stbar"><div class="s"><span class="mode">SIAP</span></div><div class="s"><span class="sum"></span></div>
+    <div class="stbar"><div class="s"><span class="mode">SIAP</span><span class="calcs"></span></div><div class="s"><span class="sum"></span></div>
       <div class="s"><span><button class="on" title="Normal">▦</button><button data-a="soonv" title="Tata Letak Halaman">▭</button><button data-a="soonv" title="Pratinjau Sela Halaman">▥</button></span>
       <span><button data-a="zoomd:-10">−</button><input type="range" min="20" max="200" step="10" value="100" class="zr"><button data-a="zoomd:10">+</button> <span class="zv" style="display:inline-block;min-width:34px;text-align:right">100%</span></span></div></div>
     <div class="find" hidden><span>Cari:</span><input type="text" class="f1"><span>Ganti:</span><input type="text" class="f2">
@@ -990,9 +1173,9 @@ function mount(root,opts={}){
   const nb=$('.nb'),fxi=$('.fx'),fd=$('.find');
 
   /* ===== model ===== */
-  const wb={sheets:[],active:0,ver:0,circ:false,font:'Calibri',theme:0};
+  const wb={sheets:[],active:0,ver:0,circ:false,font:'Calibri',theme:0,names:[],manual:false,stale:false,recent:['SUM','AVERAGE','IF','COUNT','MAX','MIN','VLOOKUP','TODAY','ROUND','CONCATENATE'],watch:[]};
   let cur=null,Z=1,name='Buku1.xlsx',showGrid=true,showHead=true;
-  let ed=null,clip=null,pointing=null,painting=null,tabStart=null,selObj=null,selSet=new Set(),selpEl=null;
+  let ed=null,clip=null,pointing=null,painting=null,tabStart=null,selObj=null,selSet=new Set(),selpEl=null,watchEl=null,watchSel=-1;
   let undoS=[],redoS=[],dirty=false;
   const newSheet=n=>({name:n,cells:new Map(),cw:new Axis(DW,MAXC),rh:new Axis(DH,MAXR),merges:[],cf:[],filter:null,tab:null,objs:[],spark:[],grid:true,head:true,bg:null,page:newPage(),
     sel:{ar:0,ac:0,fr:0,fc:0},sx:0,sy:0});
@@ -1019,11 +1202,12 @@ function mount(root,opts={}){
     return {v:p.v,st:ns};
   };
   const rawText=cell=>!cell?'':cell.f!==undefined&&cell.f!==null?'='+cell.f:cell.v===null||cell.v===undefined?'':typeof cell.v==='boolean'?(cell.v?'TRUE':'FALSE'):typeof cell.v==='number'?(isDateCode(cell.st&&cell.st.fmt||'')?fmtValue(cell.v,cell.st.fmt).t:String(cell.v).replace('.',',')):String(cell.v);
-  const recalcAll=()=>{wb.ver++;recalc(wb);};
-  function shotSheet(s){return {name:s.name,cells:new Map(s.cells),cw:s.cw.clone(),rh:s.rh.clone(),merges:s.merges.map(m=>({...m})),cf:[...s.cf],filter:s.filter?{...s.filter,crit:{...s.filter.crit}}:null,tab:s.tab,grid:s.grid,head:s.head,bg:s.bg,page:JSON.parse(JSON.stringify(s.page||newPage())),objs:(s.objs||[]).map(o=>({...o,src:o.src&&typeof o.src==='object'?{...o.src}:o.src})),spark:(s.spark||[]).map(o=>({...o,src:{...o.src}})),sel:{...s.sel}};}
-  const snapshot=()=>({sheets:wb.sheets.map(shotSheet),active:wb.active});
+  const recalcAll=()=>{wb.ver++;if(wb.manual){wb.stale=true;updCalcLabel();return;}recalc(wb);};
+  const updCalcLabel=()=>{const e=$('.calcs');if(e)e.textContent=wb.manual&&wb.stale?'Hitung':'';};
+  function shotSheet(s){return {name:s.name,cells:new Map(s.cells),cw:s.cw.clone(),rh:s.rh.clone(),merges:s.merges.map(m=>({...m})),cf:[...s.cf],filter:s.filter?{...s.filter,crit:{...s.filter.crit}}:null,tab:s.tab,grid:s.grid,showF:s.showF,head:s.head,bg:s.bg,page:JSON.parse(JSON.stringify(s.page||newPage())),objs:(s.objs||[]).map(o=>({...o,src:o.src&&typeof o.src==='object'?{...o.src}:o.src})),spark:(s.spark||[]).map(o=>({...o,src:{...o.src}})),sel:{...s.sel}};}
+  const snapshot=()=>({sheets:wb.sheets.map(shotSheet),active:wb.active,names:wb.names.map(n=>({...n,ast:undefined,depth:0}))});
   function restore(sn){
-    wb.sheets=sn.sheets.map(shotSheet);wb.active=Math.min(sn.active,wb.sheets.length-1);
+    wb.sheets=sn.sheets.map(shotSheet);if(sn.names)wb.names=sn.names.map(n=>({...n,ast:undefined}));wb.active=Math.min(sn.active,wb.sheets.length-1);
     wb.sheets.forEach(s=>{s.sx=0;s.sy=0;});
     cur=wb.sheets[wb.active];recalcAll();drawTabs();sync();
   }
@@ -1176,6 +1360,7 @@ function mount(root,opts={}){
       const x=cx(c)-sl,y=ry(r)-st0,w=cx(cc2+1)-cx(c),h=ry(rr2+1)-ry(r);
       if(w<=0||h<=0)return;
       let v=cell?cellVal(cur,r,c):null;
+      if(cur.showF&&cell&&cell.f!==undefined&&cell.f!==null)v='='+cell.f;
       const cf=cur.cf.length?cfFor(r,c,v):null;
       const fill=(cf&&cf.fill)||stl.fill,color=(cf&&cf.color)||stl.color;
       const b=cf&&cf.b?1:stl.b;
@@ -1260,6 +1445,19 @@ function mount(root,opts={}){
       for(let c=f.c1;c<=f.c2;c++){if(c<c0||c>c1||ry(f.r1)-st0>H||ry(f.r1+1)<st0)continue;
         const x=cx(c+1)-sl-17,y=ry(f.r1+1)-st0-17;
         html+=`<button class="fdd${f.crit[c]?' on':''}" data-fc="${c}" style="left:${x}px;top:${y}px">${f.crit[c]?'⧩':'▾'}</button>`;}}
+    if(cur.tr){
+      if(cur.tr.ver!==wb.ver)computeTrace();
+      let ar='';
+      const cc=(r,c)=>[cx(c)+cwid(c)/2-sl,ry(r)+rhei(r)/2-st0];
+      for(const a of cur.tr.arrows){
+        const f=a.from,[x2,y2]=cc(a.to.r,a.to.c);
+        const multi=f.r1!==f.r2||f.c1!==f.c2,q=rectOf(f.r1,f.c1,f.r2,f.c2);
+        if(multi)ar+=`<rect x="${q.x-sl}" y="${q.y-st0}" width="${q.w}" height="${q.h}" fill="none" stroke="#2f5aa6" stroke-width="1.5"/>`;
+        const [x1,y1]=multi?[q.x-sl+3,q.y-st0+3]:cc(f.r1,f.c1);
+        ar+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#2f5aa6" stroke-width="1.5" marker-end="url(#xlah)"/><circle cx="${x1}" cy="${y1}" r="3" fill="#2f5aa6"/>`;
+      }
+      if(ar)html+=`<svg style="position:absolute;left:0;top:0;pointer-events:none;z-index:3" width="${W}" height="${H}"><defs><marker id="xlah" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8z" fill="#2f5aa6"/></marker></defs>${ar}</svg>`;
+    }
     /* seleksi */
     const g0=rg(),g=expandMerge(g0),s=cur.sel;
     const ac=mergeAt(s.ar,s.ac),ar=ac?{r1:ac.r1,c1:ac.c1,r2:ac.r2,c2:ac.c2}:{r1:s.ar,c1:s.ac,r2:s.ar,c2:s.ac};
@@ -1311,6 +1509,9 @@ function mount(root,opts={}){
     setSel2('font',st.font||DF());setSel2('size',st.sz||11);
     const k=fmtKey(st.fmt||'General');setSel2('nfmt',k||'custom');
     refreshLayout();
+    const sf=root.querySelector('[data-a=showf]');if(sf)sf.classList.toggle('on',!!cur.showF);
+    if(watchEl)renderWatch();
+    if(!document.activeElement||document.activeElement!==nb){const nn=nameOfSel();if(nn)nb.value=nn;}
   }
   function refreshLayout(){
     const P=cur.page;
@@ -1836,6 +2037,7 @@ function mount(root,opts={}){
       case 'Enter':e.preventDefault();moveSel(e.shiftKey?-1:1,0);return true;
       case 'Tab':e.preventDefault();moveSel(0,e.shiftKey?-1:1);return true;
       case 'F2':e.preventDefault();startEdit(s.ar,s.ac);return true;
+      case 'F9':e.preventDefault();e.shiftKey?calcSheet():calcNow();return true;
       case 'Delete':e.preventDefault();if(selObj){deleteObj();return true;}acts.clearc();return true;
       case 'Backspace':e.preventDefault();startEdit(s.ar,s.ac,'');return true;
       case 'Escape':if(clip){clip=null;schedule();}if(painting){painting=null;vp.style.cursor='';}return true;
@@ -1856,6 +2058,7 @@ function mount(root,opts={}){
       if(l==='f'||l==='h'){e.preventDefault();showFind();return true;}
       if(l==='g'){e.preventDefault();acts.goto();return true;}
       if(l==='1'){e.preventDefault();acts['fmtcells']('number');return true;}
+      if(k==='`'){e.preventDefault();acts.showf();return true;}
       if(l==='s'){e.preventDefault();acts.save();return true;}
       if(l==='x'&&!e.shiftKey){return false;}
       if(k===';'){e.preventDefault();startEdit(s.ar,s.ac,fmtValue(today(),'dd/mm/yyyy').t);return true;}
@@ -1999,7 +2202,20 @@ function mount(root,opts={}){
   }
 
   /* ===== struktur: sisip/hapus ===== */
+  function adjNames(kind,at,n,del,target){
+    wb.names=wb.names.map(nm=>{
+      const nf=rewriteRefs(nm.ref,(a,b,sn)=>{
+        if(!sn||sn.toLowerCase()!==target.name.toLowerCase())return [a,b];
+        const idx=kind==='r'?'r':'c';
+        const fx=x=>{const v=x[idx];if(!del)return v>=at?v+n:v;if(v<at)return v;if(v<at+n)return -1;return v-n;};
+        if(!b){const v=fx(a);if(v<0)return null;return [{...a,[idx]:v},null];}
+        let lo=a[idx],hi=b[idx];
+        if(!del){if(lo>=at)lo+=n;if(hi>=at)hi+=n;}else{const e=at+n-1;lo=lo<at?lo:lo<=e?at:lo-n;hi=hi<at?hi:hi<=e?at-1:hi-n;if(hi<lo)return null;}
+        return [{...a,[idx]:lo},{...b,[idx]:hi}];});
+      return nf===nm.ref?nm:{...nm,ref:nf,ast:undefined};});
+  }
   function adjRefsAll(kind,at,n,del,target){
+    adjNames(kind,at,n,del,target);
     for(const sh of wb.sheets){
       for(const [k,cell] of sh.cells){
         if(cell.f===undefined||cell.f===null)continue;
@@ -2321,7 +2537,7 @@ function mount(root,opts={}){
     return false;
   }
   nb.addEventListener('keydown',e=>{e.stopPropagation();
-    if(e.key==='Enter'){if(selectAddr(nb.value)){vp.focus();}else{toast('Referensi tidak valid.');}}
+    if(e.key==='Enter'){if(selectAddr(nb.value)||gotoName(nb.value.trim())){vp.focus();}else{toast('Referensi tidak valid.');}}
     else if(e.key==='Escape'){sync();vp.focus();}});
   nb.addEventListener('focus',()=>nb.select());
   nb.addEventListener('blur',()=>sync());
@@ -2392,18 +2608,7 @@ function mount(root,opts={}){
       const v=d.querySelector('input:checked').value;const g=rg();
       if(v==='row')structOp('r',g.r1,g.r2-g.r1+1,true);else if(v==='col')structOp('c',g.c1,g.c2-g.c1+1,true);else shiftCells(v==='left'?'right':'down',false);});
   }
-  function fnDialog(){
-    const names=[...FN_NAMES].sort();
-    dlg('Sisipkan Fungsi',`<input type="text" class="q" placeholder="Cari fungsi"><div class="fcl">${names.map(n=>`<div data-n="${n}">${n}</div>`).join('')}</div>`,d=>{
-      const on=d.querySelector('.fcl .on');if(!on)return false;
-      const s=cur.sel;const t=(ed?ed.text:'=')+'';
-      if(!ed)startEdit(s.ar,s.ac,'='+on.dataset.n+'(');else{const p=ed.bar?fxi:edEl;p.setRangeText(on.dataset.n+'(',p.selectionStart,p.selectionEnd,'end');onEdInput(p);}
-    },'Sisipkan');
-    const d=X.querySelector('.ov'),list=d.querySelector('.fcl');
-    list.onclick=e=>{const t=e.target.closest('[data-n]');if(!t)return;list.querySelectorAll('.on').forEach(x=>x.classList.remove('on'));t.classList.add('on');};
-    list.ondblclick=()=>d.querySelector('.ok').click();
-    d.querySelector('.q').oninput=e=>{const q=e.target.value.toUpperCase();list.querySelectorAll('[data-n]').forEach(x=>x.hidden=!x.dataset.n.includes(q));};
-  }
+  function fnDialog(){fxDialog();}
 
   /* ===== format tabel ===== */
   function applyTable(i){
@@ -2937,6 +3142,214 @@ function mount(root,opts={}){
   });
   X.style.setProperty('--df',DF());
 
+
+  /* ===== RUMUS ===== */
+  const q1=n=>/^[A-Za-z_][\w.]*$/.test(n)?n:"'"+n.replace(/'/g,"''")+"'";
+  const absRef=(sh,g)=>`${q1(sh.name)}!$${colName(g.c1)}$${g.r1+1}`+(g.r1===g.r2&&g.c1===g.c2?'':`:$${colName(g.c2)}$${g.r2+1}`);
+  const validName=n=>/^[A-Za-z_\u00C0-\uFFFF][\w.\u00C0-\uFFFF]*$/.test(n)&&!/^[A-Za-z]{1,3}\d+$/.test(n)&&!/^[RrCc]$/.test(n)&&!/^(TRUE|FALSE)$/i.test(n)&&n.length<=255;
+  const nameTarget=nm=>{try{const a=parseFormula(nm.ref.replace(/^=/,''));if(a.k!=='ref')return null;const sh=a.sheet?wb.sheets.find(x=>x.name.toLowerCase()===a.sheet.toLowerCase()):cur;return sh?{sh,r1:a.r1,c1:a.c1,r2:a.r2,c2:a.c2}:null;}catch(e){return null;}};
+  function gotoName(t){
+    const nm=wb.names.find(n=>n.name.toLowerCase()===t.toLowerCase());if(!nm)return false;
+    const tg=nameTarget(nm);if(!tg){toast('Nama ini tidak merujuk ke rentang sel.');return true;}
+    const i=wb.sheets.indexOf(tg.sh);if(i!==wb.active)switchSheet(i);
+    select(tg.r1,tg.c1,tg.r2,tg.c2);return true;
+  }
+  function nameOfSel(){
+    const g=expandMerge(rg());
+    for(const nm of wb.names){const t=nameTarget(nm);if(t&&t.sh===cur&&t.r1===g.r1&&t.c1===g.c1&&t.r2===g.r2&&t.c2===g.c2)return nm.name;}
+    return null;
+  }
+  const insertText=t=>{
+    const s=cur.sel;
+    if(!ed)startEdit(s.ar,s.ac,undefined);
+    const el=ed.bar?fxi:edEl;if(el.value==='')el.value=ed.text='=';
+    const p=el.selectionStart==null?el.value.length:el.selectionStart;
+    el.setRangeText(t,p,el.selectionEnd==null?p:el.selectionEnd,'end');onEdInput(el);el.focus();
+  };
+  function insertFn(n){
+    wb.recent=[n,...wb.recent.filter(x=>x!==n)].slice(0,10);
+    const s=cur.sel;
+    if(!ed)startEdit(s.ar,s.ac,'='+n+'(');else insertText((ed.text===''||!isFormulaText(ed.text)&&ed.text==='='?'':'')+n+'(');
+    if(FNI[n])toast(FNI[n].syn);
+  }
+  const fnItems=list=>list.filter(n=>FN[n]).map(n=>({l:n,i:'ƒ',a:()=>insertFn(n),tip:FNI[n]&&FNI[n].d}));
+  const catList=c=>Object.keys(FNI).filter(n=>FNI[n].c===c&&FN[n]);
+  function fxDialog(){
+    const d=dlg('Sisipkan Fungsi',`<div class="r2"><span>Cari fungsi:</span><input type="text" class="q" placeholder="mis. jumlah, SUM"><span>Kategori:</span><select class="cat">${FNCAT.map(c=>`<option value="${c[0]}">${c[1]}</option>`).join('')}</select></div><div class="fcl" style="height:170px"></div><div class="fdesc" style="min-height:54px;font-size:12px"></div>`,d=>{
+      const on=d.querySelector('.fcl .on');if(!on)return false;insertFn(on.dataset.n);},'OK');
+    const list=d.querySelector('.fcl'),desc=d.querySelector('.fdesc'),q=d.querySelector('.q'),cat=d.querySelector('.cat');
+    const fill=()=>{
+      const c=cat.value,t=q.value.trim().toUpperCase(),tl=q.value.trim().toLowerCase();
+      let names=c==='rec'?wb.recent.filter(n=>FN[n]):c==='all'?Object.keys(FNI).filter(n=>FN[n]):catList(c);
+      if(t)names=Object.keys(FNI).filter(n=>FN[n]&&(n.includes(t)||FNI[n].d.toLowerCase().includes(tl)));
+      names=[...names].sort((a,b)=>c==='rec'&&!t?0:a.localeCompare(b));
+      list.innerHTML=names.map(n=>`<div data-n="${n}">${n}</div>`).join('');desc.innerHTML='';
+    };
+    q.oninput=fill;cat.onchange=fill;fill();
+    list.onclick=e=>{const t=e.target.closest('[data-n]');if(!t)return;list.querySelectorAll('.on').forEach(x=>x.classList.remove('on'));t.classList.add('on');const i=FNI[t.dataset.n];desc.innerHTML=`<b>${esc(i.syn)}</b><br>${esc(i.d)}`;};
+    list.ondblclick=()=>d.querySelector('.ok').click();
+  }
+  /* nama terdefinisi */
+  function defineName(existing,ref0){
+    const g=expandMerge(rg());
+    const nm0=existing||{name:'',ref:'='+absRef(cur,g)};
+    dlg(existing?'Edit Nama':'Nama Baru',`<div class="r2"><span>Nama:</span><input type="text" class="n" value="${esc(nm0.name)}"><span>Merujuk ke:</span><input type="text" class="r" value="${esc(ref0||nm0.ref)}" style="width:260px"></div><div style="font-size:11px;color:#666">Nama harus diawali huruf atau _, tanpa spasi, dan bukan alamat sel.</div>`,d=>{
+      const n=d.querySelector('.n').value.trim();let r=d.querySelector('.r').value.trim();
+      if(!validName(n)){toast('Nama tidak valid.');return false;}
+      if(!r){toast('Isi bagian "Merujuk ke".');return false;}
+      if(r[0]!=='=')r='='+r;
+      try{parseFormula(r.slice(1));}catch(e){toast('Rumus "Merujuk ke" tidak valid.');return false;}
+      if(wb.names.some(x=>x!==existing&&x.name.toLowerCase()===n.toLowerCase())){toast('Nama ini sudah ada.');return false;}
+      tx(()=>{const o={name:n,ref:r};if(existing)wb.names=wb.names.map(x=>x===existing?o:x);else wb.names=[...wb.names,o];},true);sync();
+      if(nameMgrRefresh)nameMgrRefresh();});
+  }
+  let nameMgrRefresh=null;
+  function nameManager(){
+    let selI=-1;
+    const body=()=>`<table style="border-collapse:collapse;width:100%;font-size:12px"><tr style="background:#f3f3f3"><th align="left" style="padding:3px 6px">Nama</th><th align="left" style="padding:3px 6px">Nilai</th><th align="left" style="padding:3px 6px">Merujuk ke</th></tr>${wb.names.map((n,i)=>{const t=nameTarget(n);let v='';if(t){const x=rawVal(wb,t.sh,t.r1,t.c1);v=t.r1===t.r2&&t.c1===t.c2?fmtValue(x,'General').t:'{…}';}
+      return `<tr data-i="${i}" style="cursor:pointer;${i===selI?'background:#d3e8d9':''}"><td style="padding:3px 6px">${esc(n.name)}</td><td style="padding:3px 6px">${esc(v)}</td><td style="padding:3px 6px">${esc(n.ref)}</td></tr>`;}).join('')||'<tr><td colspan="3" style="padding:8px;color:#888">Belum ada nama terdefinisi</td></tr>'}</table>`;
+    const d=dlg('Pengelola Nama',`<div class="nm" style="min-width:420px;max-height:220px;overflow:auto;border:1px solid #bbb"></div><div style="display:flex;gap:6px"><button class="bt nw">Baru…</button><button class="bt ed">Edit…</button><button class="bt dl">Hapus</button></div>`,()=>{nameMgrRefresh=null;},'Tutup',true);
+    const box=d.querySelector('.nm'),draw=()=>{box.innerHTML=body();};draw();nameMgrRefresh=()=>{selI=-1;draw();};
+    box.onclick=e=>{const tr=e.target.closest('[data-i]');if(tr){selI=+tr.dataset.i;draw();}};
+    d.querySelector('.nw').onclick=()=>defineName(null);
+    d.querySelector('.ed').onclick=()=>{if(selI>=0)defineName(wb.names[selI]);else toast('Pilih nama terlebih dahulu.');};
+    d.querySelector('.dl').onclick=()=>{if(selI<0){toast('Pilih nama terlebih dahulu.');return;}const n=wb.names[selI];tx(()=>{wb.names=wb.names.filter(x=>x!==n);},true);sync();selI=-1;draw();};
+  }
+  function namesFromSel(){
+    const g=expandMerge(rg());if(g.r1===g.r2&&g.c1===g.c2){toast('Pilih rentang yang berisi label dan data.');return;}
+    const hasT=(r,c)=>typeof cellVal(cur,r,c)==='string'&&cellVal(cur,r,c)!=='';
+    let top=true;for(let c=g.c1;c<=g.c2;c++)if(!hasT(g.r1,c))top=false;
+    let left=!top;if(!top)for(let r=g.r1;r<=g.r2;r++)if(!hasT(r,g.c1))left=false;
+    const d=dlg('Buat Nama dari Pilihan',`<div style="font-size:12px">Buat nama dari nilai di:</div><label><input type="checkbox" class="t" ${top?'checked':''}> Baris atas</label><label><input type="checkbox" class="l" ${left?'checked':''}> Kolom kiri</label><label><input type="checkbox" class="b"> Baris bawah</label><label><input type="checkbox" class="r"> Kolom kanan</label>`,d=>{
+      const out=[];const clean=t=>{let x=String(t).trim().replace(/[^\w.\u00C0-\uFFFF]/g,'_');if(/^\d/.test(x))x='_'+x;return x;};
+      const add=(label,rg2)=>{const n=clean(label);if(validName(n))out.push({name:n,ref:'='+absRef(cur,rg2)});};
+      if(d.querySelector('.t').checked)for(let c=g.c1;c<=g.c2;c++)add(cellVal(cur,g.r1,c),{r1:g.r1+1,r2:g.r2,c1:c,c2:c});
+      if(d.querySelector('.b').checked)for(let c=g.c1;c<=g.c2;c++)add(cellVal(cur,g.r2,c),{r1:g.r1,r2:g.r2-1,c1:c,c2:c});
+      if(d.querySelector('.l').checked)for(let r=g.r1;r<=g.r2;r++)add(cellVal(cur,r,g.c1),{r1:r,r2:r,c1:g.c1+1,c2:g.c2});
+      if(d.querySelector('.r').checked)for(let r=g.r1;r<=g.r2;r++)add(cellVal(cur,r,g.c2),{r1:r,r2:r,c1:g.c1,c2:g.c2-1});
+      if(!out.length){toast('Tidak ada label yang valid untuk dijadikan nama.');return false;}
+      tx(()=>{const keep=wb.names.filter(x=>!out.some(o=>o.name.toLowerCase()===x.name.toLowerCase()));wb.names=[...keep,...out];},true);sync();toast(out.length+' nama dibuat');});
+  }
+  /* penelusuran */
+  function refsOf(sh,r,c){
+    const cl=sh.cells.get(key(r,c));if(!cl||cl.f===undefined||cl.f===null)return [];
+    let ast;try{ast=parseFormula(cl.f);}catch(e){return [];}
+    const out=[];
+    const walk=n=>{
+      if(n.k==='ref'){if(!n.sheet||n.sheet.toLowerCase()===sh.name.toLowerCase()){if((n.r2-n.r1+1)*(n.c2-n.c1+1)<=10000)out.push({r1:n.r1,c1:n.c1,r2:n.r2,c2:n.c2});}}
+      else if(n.k==='name'){const nm=wb.names.find(x=>x.name.toLowerCase()===n.v.toLowerCase());const t=nm&&nameTarget(nm);if(t&&t.sh===sh)out.push({r1:t.r1,c1:t.c1,r2:t.r2,c2:t.c2});}
+      else if(n.k==='bin'){walk(n.l);walk(n.r);}else if(n.k==='un'||n.k==='pct')walk(n.e);else if(n.k==='fn')n.a.forEach(walk);};
+    walk(ast);return out;
+  }
+  function computeTrace(){
+    const t=cur.tr,arrows=[];t.ver=wb.ver;
+    if(t.prec){let fr=[{r:t.r,c:t.c}];const seen=new Set();
+      for(let d=0;d<t.prec&&fr.length;d++){const nx=[];
+        for(const f of fr){const k=key(f.r,f.c);if(seen.has(k))continue;seen.add(k);
+          for(const rg2 of refsOf(cur,f.r,f.c)){arrows.push({from:rg2,to:f});
+            if((rg2.r2-rg2.r1+1)*(rg2.c2-rg2.c1+1)<=100)for(let r=rg2.r1;r<=rg2.r2;r++)for(let c=rg2.c1;c<=rg2.c2;c++)if(cellAt(cur,r,c)&&cellAt(cur,r,c).f!=null)nx.push({r,c});}}
+        fr=nx;}}
+    if(t.dep){let fr=[{r:t.r,c:t.c}];const seen=new Set();
+      const fcells=[];for(const [k,cl] of cur.cells)if(cl.f!==undefined&&cl.f!==null)fcells.push([Math.floor(k/MAXC),k%MAXC]);
+      for(let d=0;d<t.dep&&fr.length;d++){const nx=[];
+        for(const f of fr){const k=key(f.r,f.c);if(seen.has(k))continue;seen.add(k);
+          for(const [r,c] of fcells){if(refsOf(cur,r,c).some(g=>f.r>=g.r1&&f.r<=g.r2&&f.c>=g.c1&&f.c<=g.c2)){arrows.push({from:{r1:f.r,c1:f.c,r2:f.r,c2:f.c},to:{r,c}});nx.push({r,c});}}}
+        fr=nx;}}
+    t.arrows=arrows;
+  }
+  function trace(kind){
+    const s=cur.sel,m=mergeAt(s.ar,s.ac),r=m?m.r1:s.ar,c=m?m.c1:s.ac;
+    if(kind==='prec'&&!refsOf(cur,r,c).length){toast('Sel ini tidak memiliki sel preseden pada lembar ini.');return;}
+    if(!cur.tr||cur.tr.r!==r||cur.tr.c!==c)cur.tr={r,c,prec:0,dep:0,arrows:[],ver:-1};
+    cur.tr[kind]++;cur.tr.ver=-1;computeTrace();
+    if(kind==='dep'&&!cur.tr.arrows.some(a=>a.from.r1===r&&a.from.c1===c)&&cur.tr.dep===1)toast('Tidak ada sel dependen pada lembar ini.');
+    schedule();
+  }
+  const clearArrows=k=>{if(!cur.tr)return;if(k==='all')cur.tr=null;else{cur.tr[k]=0;if(!cur.tr.prec&&!cur.tr.dep)cur.tr=null;else cur.tr.ver=-1;}schedule();};
+  /* pemeriksaan galat */
+  function errorCheck(){
+    const errs=[];for(const [k,cl] of cur.cells){const r=Math.floor(k/MAXC),c=k%MAXC;const v=cellVal(cur,r,c);if(isErr(v))errs.push({r,c,e:v.code,f:cl.f!=null?'='+cl.f:''});}
+    errs.sort((a,b)=>a.r-b.r||a.c-b.c);
+    const d=dlg('Pemeriksaan Galat',`<div>${errs.length?errs.length+' sel berisi galat:':'Tidak ada galat yang ditemukan pada lembar ini.'}${wb.circ?'<br><b style="color:#c00">Terdeteksi referensi melingkar.</b>':''}</div>${errs.length?`<div class="fcl" style="height:160px;min-width:340px">${errs.map((x,i)=>`<div data-i="${i}">${addr(x.r,x.c)} — ${esc(x.e)} <span style="opacity:.7">${esc(x.f)}</span></div>`).join('')}</div>`:''}`,null,'Tutup',true);
+    const l=d.querySelector('.fcl');if(l)l.onclick=e=>{const t=e.target.closest('[data-i]');if(!t)return;l.querySelectorAll('.on').forEach(x=>x.classList.remove('on'));t.classList.add('on');const x=errs[+t.dataset.i];select(x.r,x.c);};
+  }
+  /* evaluasi rumus */
+  function evalDialog(){
+    const s=cur.sel,m=mergeAt(s.ar,s.ac),r0=m?m.r1:s.ar,c0=m?m.c1:s.ac,cl=cellAt(cur,r0,c0);
+    if(!cl||cl.f===undefined||cl.f===null){toast('Pilih sel yang berisi rumus.');return;}
+    let ast;const init=()=>{try{ast=parseFormula(cl.f);}catch(e){ast=null;}};init();
+    if(!ast){toast('Rumus tidak valid.');return;}
+    const kids=n=>n.k==='bin'?[n.l,n.r]:n.k==='un'||n.k==='pct'?[n.e]:n.k==='fn'?n.a:[];
+    const lit=n=>n.k==='num'||n.k==='str'||n.k==='bool'||n.k==='err'||n.k==='empty';
+    const rangeRef=n=>n.k==='ref'&&!n.single;
+    const next=n=>{if(lit(n)||rangeRef(n))return null;for(const c of kids(n)){const r=next(c);if(r)return r;}return n;};
+    const PR={'=':1,'<>':1,'<':1,'>':1,'<=':1,'>=':1,'&':2,'+':3,'-':3,'*':4,'/':4,'^':5};
+    const st=(n,par,mark)=>{let t;
+      switch(n.k){
+        case 'num':t=String(+n.v.toPrecision(12)).replace('.',',');break;
+        case 'str':t='"'+n.v.replace(/"/g,'""')+'"';break;
+        case 'bool':t=n.v?'TRUE':'FALSE';break;case 'err':t=n.v;break;case 'empty':t='';break;case 'name':t=n.v;break;
+        case 'ref':t=(n.sheet?n.sheet+'!':'')+(n.single?addr(n.r1,n.c1):addr(n.r1,n.c1)+':'+addr(n.r2,n.c2));break;
+        case 'un':t=n.o+st(n.e,6,mark);break;case 'pct':t=st(n.e,6,mark)+'%';break;
+        case 'bin':{const p=PR[n.o];t=st(n.l,p,mark)+(p<=2?' '+n.o+' ':n.o)+st(n.r,p+.5,mark);if(p<par)t='('+t+')';break;}
+        case 'fn':t=n.n+'('+n.a.map(x=>st(x,0,mark)).join(';')+')';break;
+        default:t='?';}
+      return n===mark?'\u0001'+t+'\u0002':t;};
+    const toLit=v=>{if(isErr(v))return {k:'err',v:v.code};if(typeof v==='string')return {k:'str',v};if(typeof v==='boolean')return {k:'bool',v};if(v===null||v===undefined)return {k:'num',v:0};return {k:'num',v};};
+    const d=dlg('Evaluasi Rumus',`<div class="r2"><span>Referensi:</span><b>${esc(q1(cur.name))}!${addr(r0,c0)}</b><span>Evaluasi:</span><div class="ev" style="border:1px solid #aaa;padding:6px;min-width:320px;min-height:34px;font-family:Consolas,monospace;background:#fff;word-break:break-all"></div></div><div style="display:flex;gap:6px"><button class="bt go">Evaluasi</button><button class="bt rs">Mulai Ulang</button></div><div style="font-size:11px;color:#666">Bagian bergaris bawah akan dievaluasi pada langkah berikutnya.</div>`,null,'Tutup',true);
+    const box=d.querySelector('.ev'),go=d.querySelector('.go');
+    const show=()=>{const n=next(ast);const h=esc(st(ast,0,n)).replace('\u0001','<u>').replace('\u0002','</u>');box.innerHTML=h||'&nbsp;';go.disabled=!n;};
+    go.onclick=()=>{const n=next(ast);if(!n)return;let v;try{v=evalAst(n,{wb,sh:cur,cell:{r:r0,c:c0}});}catch(e){v=E.VAL;}
+      if(v instanceof Rng){v=v.rows*v.cols===1?rawVal(wb,v.sh,v.r1,v.c1):E.VAL;}
+      const L=toLit(v);for(const k of Object.keys(n))delete n[k];Object.assign(n,L);show();};
+    d.querySelector('.rs').onclick=()=>{init();show();};show();
+  }
+  /* jendela pantau */
+  function renderWatch(){
+    if(!watchEl)return;
+    const rows=wb.watch.map((w,i)=>{const sh=wb.sheets.find(x=>x.name===w.sh);let v='',f='',nm='';
+      if(sh){const cl=sh.cells.get(key(w.r,w.c));v=fmtValue(rawVal(wb,sh,w.r,w.c),cl&&cl.st&&cl.st.fmt).t;f=cl&&cl.f!=null?'='+cl.f:'';
+        const hit=wb.names.find(n=>{const t=nameTarget(n);return t&&t.sh===sh&&t.r1===w.r&&t.r2===w.r&&t.c1===w.c&&t.c2===w.c;});nm=hit?hit.name:'';}
+      return `<tr data-i="${i}" style="cursor:pointer;${i===watchSel?'background:#d3e8d9':''}"><td>${esc(w.sh)}</td><td>${esc(nm)}</td><td>${addr(w.r,w.c)}</td><td>${esc(v)}</td><td>${esc(f)}</td></tr>`;}).join('');
+    watchEl.querySelector('.wt').innerHTML=`<tr style="background:#f3f3f3"><th align="left">Lembar</th><th align="left">Nama</th><th align="left">Sel</th><th align="left">Nilai</th><th align="left">Rumus</th></tr>${rows||'<tr><td colspan="5" style="color:#888;padding:8px">Belum ada sel yang dipantau</td></tr>'}`;
+  }
+  function toggleWatch(){
+    if(watchEl){watchEl.remove();watchEl=null;return;}
+    watchEl=document.createElement('div');watchEl.className='selp';watchEl.style.cssText='width:min(540px,92%);top:auto;bottom:62px;right:22px';
+    watchEl.innerHTML=`<div class="sh"><span>Jendela Pantau</span><span><button data-add="1" title="Tambah pantau">＋ Tambah</button><button data-del="1" title="Hapus pantau">🗑 Hapus</button><button data-x="1">✕</button></span></div><table class="wt" style="width:100%;border-collapse:collapse;font-size:12px"></table>`;
+    watchEl.querySelectorAll('td,th');$('.gwrap').appendChild(watchEl);renderWatch();
+    watchEl.onclick=e=>{
+      if(e.target.dataset.x){watchEl.remove();watchEl=null;return;}
+      if(e.target.dataset.add){const g=expandMerge(rg());const arr=[];for(let r=g.r1;r<=Math.min(g.r2,g.r1+99);r++)for(let c=g.c1;c<=Math.min(g.c2,g.c1+99);c++)if(!wb.watch.some(w=>w.sh===cur.name&&w.r===r&&w.c===c))arr.push({sh:cur.name,r,c});wb.watch=[...wb.watch,...arr];renderWatch();return;}
+      if(e.target.dataset.del){if(watchSel>=0){wb.watch=wb.watch.filter((_,i)=>i!==watchSel);watchSel=-1;renderWatch();}return;}
+      const tr=e.target.closest('[data-i]');if(tr){watchSel=+tr.dataset.i;renderWatch();}};
+    watchEl.ondblclick=e=>{const tr=e.target.closest('[data-i]');if(!tr)return;const w=wb.watch[+tr.dataset.i],i=wb.sheets.findIndex(x=>x.name===w.sh);if(i>=0){if(i!==wb.active)switchSheet(i);select(w.r,w.c);}};
+  }
+  /* perhitungan */
+  function calcNow(){wb.stale=false;wb.ver++;recalc(wb);updCalcLabel();sync();}
+  function calcSheet(){
+    wb.ver++;wb.circ=false;
+    for(const [k,cl] of cur.cells)if(cl.f!==undefined&&cl.f!==null)cl.pass=undefined;
+    for(const [k,cl] of cur.cells)if(cl.f!==undefined&&cl.f!==null)calcCell(wb,cur,cl,Math.floor(k/MAXC),k%MAXC);
+    updCalcLabel();sync();
+  }
+  Object.assign(acts,{
+    namemgr:nameManager,namesel:namesFromSel,
+    trace(k){trace(k);},showf(){cur.showF=!cur.showF;sync();},evalf:evalDialog,watch:toggleWatch,
+    calcnow:calcNow,calcsheet:calcSheet
+  });
+  const catMenu=c=>()=>fnItems(catList(c));
+  Object.assign(menus,{
+    cRec:()=>fnItems(wb.recent),cfin:catMenu('fin'),clog:catMenu('log'),ctxt:catMenu('txt'),cdt:catMenu('dt'),clk:catMenu('lk'),cmt:catMenu('mt'),
+    cmore:()=>[{l:'Statistik',i:'∑',sub:()=>fnItems(catList('st'))},{l:'Informasi',i:'ⓘ',sub:()=>fnItems(catList('inf'))}],
+    defn:()=>[I('Tentukan Nama…',()=>defineName(null),'▭'),I('Pengelola Nama…',nameManager,'▤')],
+    usef:()=>wb.names.length?[...wb.names.map(n=>({l:n.name,i:'▭',a:()=>insertText(n.name)})),{sep:1},I('Pengelola Nama…',nameManager,'▤')]:[{l:'(belum ada nama)',dis:true,i:''},{sep:1},I('Pengelola Nama…',nameManager,'▤')],
+    nbnames:()=>wb.names.length?wb.names.map(n=>({l:n.name,i:'▭',a:()=>gotoName(n.name)})):[{l:'(belum ada nama)',dis:true,i:''}],
+    rmarr:()=>[I('Hapus Semua Panah',()=>clearArrows('all'),'✖',{dis:!cur.tr}),I('Hapus Panah Preseden',()=>clearArrows('prec'),'⇢',{dis:!cur.tr}),I('Hapus Panah Dependen',()=>clearArrows('dep'),'⇠',{dis:!cur.tr})],
+    errchk:()=>[I('Periksa Galat…',errorCheck,'⚠'),I(wb.circ?'Referensi Melingkar terdeteksi':'Referensi Melingkar: tidak ada',()=>toast(wb.circ?'Ada rumus yang merujuk ke dirinya sendiri, langsung maupun tidak langsung.':'Tidak ada referensi melingkar.'),'↻')],
+    calcopt:()=>[I('Otomatis',()=>{if(wb.manual){wb.manual=false;calcNow();}},'',{ck:!wb.manual}),I('Manual',()=>{wb.manual=true;sync();},'',{ck:wb.manual}),{sep:1},I('Hitung Sekarang (F9)',calcNow,'▦',{dis:!wb.manual}),I('Hitung Lembar (Shift+F9)',calcSheet,'▦')]
+  });
+
   /* ===== berkas ===== */
   const hex6=c=>c?c.replace('#','').toUpperCase():null;
   const argb=c=>'FF'+hex6(c);
@@ -2953,6 +3366,7 @@ function mount(root,opts={}){
     await lib('exceljs',()=>window.ExcelJS);
     const w=new ExcelJS.Workbook();await w.xlsx.load(buf);
     const sheets=[];
+    try{const nm=[];for(const d of (w.definedNames.model||[])){if(!d.name||!d.ranges||!d.ranges.length||/^_xlnm/.test(d.name))continue;const rr=d.ranges[0];if(/^'?[^!]+'?!\$?[A-Za-z]+\$?\d+(:\$?[A-Za-z]+\$?\d+)?$/.test(rr)&&validName(d.name))nm.push({name:d.name,ref:'='+rr});}wb.names=nm;}catch(e){wb.names=[];}
     for(const ws of w.worksheets){
       const s=newSheet(ws.name);
       try{const v=ws.views&&ws.views[0];if(v){if(v.showGridLines===false)s.grid=false;if(v.showRowColHeaders===false)s.head=false;}
@@ -3039,6 +3453,7 @@ function mount(root,opts={}){
       else{const rows=parseCsv(await file.text());const s=newSheet(file.name.replace(/\.[^.]+$/,'').slice(0,31)||'Sheet1');
         rows.forEach((row,r)=>row.forEach((t,c)=>{if(t==='')return;const o=mkInput(t.trim()===t?t:t,null);if(o)s.cells.set(key(r,c),o);}));sheets=[s];}
       if(!sheets.length)sheets=[newSheet('Sheet1')];
+      if(ext!=='xlsx'&&ext!=='xlsm')wb.names=[];
       wb.sheets=sheets;wb.active=0;cur=sheets[0];undoS=[];redoS=[];clip=null;dirty=false;
       sheets.forEach(s=>{const rs=[];for(const [k,cl] of s.cells)if(cl.st&&cl.st.wrap)rs.push(Math.floor(k/MAXC));if(rs.length){const save=cur;cur=s;fitRows([...new Set(rs)].filter(r=>!(s.rh.ov.has(r))));cur=save;}if(s.filter){const save=cur;cur=s;applyFilter(true);cur=save;}});
       recalcAll();setName(file.name.replace(/\.(csv|tsv|txt|xlsm)$/i,'.xlsx'));updUndo();drawTabs();
@@ -3046,7 +3461,7 @@ function mount(root,opts={}){
     }catch(e){console.error(e);toast('Tidak bisa membuka berkas: '+e.message);}
   }
   function confirmNew(){
-    const run=()=>{wb.sheets=[newSheet('Sheet1')];wb.active=0;cur=wb.sheets[0];undoS=[];redoS=[];clip=null;dirty=false;setName('Buku1.xlsx');recalcAll();updUndo();drawTabs();vp.scrollLeft=0;vp.scrollTop=0;select(0,0);};
+    const run=()=>{wb.names=[];wb.watch=[];wb.manual=false;wb.sheets=[newSheet('Sheet1')];wb.active=0;cur=wb.sheets[0];undoS=[];redoS=[];clip=null;dirty=false;setName('Buku1.xlsx');recalcAll();updUndo();drawTabs();vp.scrollLeft=0;vp.scrollTop=0;select(0,0);};
     if(dirty)confirmDlg('Perubahan belum disimpan akan hilang. Lanjutkan membuat buku kerja baru?',run);else run();
   }
   const dl=(blob,fn)=>{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fn;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast('Tersimpan: '+fn);};
@@ -3102,6 +3517,7 @@ function mount(root,opts={}){
           if(rule)try{ws.addConditionalFormatting({ref,rules:[{priority:1,...rule}]});}catch(e){}
         }
       }
+      try{for(const n of wb.names){const t=nameTarget(n);if(t&&/^[^!]+![$A-Za-z0-9:']+$/.test(n.ref.slice(1)))w.definedNames.add(n.ref.slice(1),n.name);}}catch(e){}
       const buf=await w.xlsx.writeBuffer();
       dl(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),/\.xlsx$/i.test(name)?name:name.replace(/\.[^.]+$/,'')+'.xlsx');
       dirty=false;
