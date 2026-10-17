@@ -599,6 +599,26 @@ def('XLOOKUP',(a,cx)=>{const k=S1(a,cx),l=a[1],r=a[2];if(!(l instanceof Rng)||!(
   if(i<0)return a[3]!==undefined?scalar(a[3],cx):E.NA;return flatVals(r,cx)[i];});
 def('LOOKUP',(a,cx)=>{const k=S1(a,cx),l=a[1],r=a[2]||l;const lv=flatVals(l,cx);let best=-1;for(let i=0;i<lv.length;i++){const v=lv[i];if(v===null||typeof v!==typeof k)continue;if(compare(v,k)<=0)best=i;else break;}return best<0?E.NA:flatVals(r,cx)[best];});
 def('TRANSPOSE',(a,cx)=>E.VAL);
+def('SUBTOTAL',(a,cx)=>{
+  const code=num(S1(a,cx));if(isErr(code))return code;
+  const base=code>100?code-100:code,skipHid=code>100;
+  if(base<1||base>11)return E.VAL;
+  const vals=[],all=[];
+  for(const x of a.slice(1)){
+    if(!(x instanceof Rng)){if(typeof x==='number')vals.push(x);continue;}
+    for(const [r,c] of cellsIn(x)){
+      const cl=x.sh.cells.get(key(r,c));if(!cl)continue;
+      if(cl.f&&/^SUBTOTAL\(/i.test(cl.f))continue;
+      if(x.sh.rh.fil.has(r)||(skipHid&&x.sh.rh.hid.has(r)))continue;
+      const v=rawVal(cx.wb,x.sh,r,c);if(isErr(v))return v;
+      if(v!==null&&v!=='')all.push(v);if(typeof v==='number')vals.push(v);}
+  }
+  const sum=vals.reduce((p,q)=>p+q,0),n=vals.length;
+  const vr=pop=>{if(n<(pop?1:2))return E.DIV;const m=sum/n;return vals.reduce((p,q)=>p+(q-m)**2,0)/(n-(pop?0:1));};
+  switch(base){case 1:return n?sum/n:E.DIV;case 2:return n;case 3:return all.length;case 4:return n?Math.max(...vals):0;case 5:return n?Math.min(...vals):0;
+    case 6:return n?vals.reduce((p,q)=>p*q,1):0;case 7:{const v=vr(false);return isErr(v)?v:Math.sqrt(v);}case 8:{const v=vr(true);return isErr(v)?v:Math.sqrt(v);}
+    case 9:return sum;case 10:return vr(false);default:return vr(true);}
+});
 
 /* semua fungsi yang menerima nilai tunggal dengan kosong -> 0 */
 
@@ -889,6 +909,10 @@ const CSS=`
 .xl .selp .si{display:flex;gap:6px;align-items:center;padding:4px 8px;cursor:pointer}
 .xl .selp .si:hover{background:#eef6f0}.xl .selp .si.on{background:#d3e8d9}
 .xl .selp .si button{border:0;background:none;cursor:pointer;width:20px}
+.xl .ogl{position:absolute;background:#7f7f7f}
+.xl .ogb{position:absolute;width:12px;height:12px;border:1px solid #7f7f7f;background:#fff;font-size:11px;line-height:8px;padding:0;cursor:pointer;display:grid;place-items:center;color:#333}
+.xl .ogb:hover{background:#d3e8d9}
+.xl .dvtip{background:#ffffe1;border:1px solid #888;padding:4px 7px;font-size:11px;max-width:220px;pointer-events:none;z-index:6;color:#222;box-shadow:1px 1px 3px rgba(0,0,0,.25)}
 .xl.rc .ribbon{display:none}
 @media (pointer:coarse){
  .xl .qat{height:36px}.xl .qat button{width:34px;height:32px;font-size:16px}
@@ -1124,6 +1148,12 @@ RIB.formulas=
  G('Nama Terdefinisi',B('▤','Pengelola Nama','namemgr','big','Pengelola<br>Nama')+`<div class="rows t3">${B('▭','Tentukan Nama','m:defn','rw','Tentukan Nama',1)}${B('ƒ','Gunakan di Rumus','m:usef','rw','Gunakan di Rumus',1)}${B('▦','Buat dari Pilihan','namesel','rw','Buat dari Pilihan')}</div>`)+
  G('Audit Rumus',`<div class="rows t3">${B('⇢','Telusuri Preseden','trace:prec','rw','Telusuri Preseden')}${B('⇠','Telusuri Dependen','trace:dep','rw','Telusuri Dependen')}${B('✖','Hapus Panah','m:rmarr','rw','Hapus Panah',1)}</div><div class="rows t3">${B('ƒ','Tampilkan Rumus','showf','rw','Tampilkan Rumus')}${B('⚠','Pemeriksaan Galat','m:errchk','rw','Pemeriksaan Galat',1)}${B('ƒ','Evaluasi Rumus','evalf','rw','Evaluasi Rumus')}</div>`+B('👓','Jendela Pantau','watch','big','Jendela<br>Pantau'))+
  G('Perhitungan',B('▦','Opsi Perhitungan','m:calcopt','big','Opsi<br>Perhitungan',1)+`<div class="rows t3">${B('▦','Hitung Sekarang (F9)','calcnow','rw','Hitung Sekarang')}${B('▦','Hitung Lembar (Shift+F9)','calcsheet','rw','Hitung Lembar')}</div>`);
+RIB.data=
+ G('Ambil Data Eksternal',BD('🗄','Dari Access','Dari<br>Access')+B('🌐','Dari Web','fromweb','big','Dari<br>Web')+B('📄','Dari Teks','fromtext','big','Dari<br>Teks')+BD('⚙','Dari Sumber Lain','Dari Sumber<br>Lain ▾')+BD('🔗','Koneksi yang Ada','Koneksi<br>yang Ada'))+
+ G('Koneksi',B('⟳','Segarkan Semua','m:refresh','big','Segarkan<br>Semua',1)+`<div class="rows t3">${B('⛓','Koneksi','conns','rw','Koneksi')}<button class="b rw" disabled title="Properti (belum tersedia)"><em>▤</em><span>Properti</span></button><button class="b rw" disabled title="Edit Tautan (belum tersedia)"><em>🔗</em><span>Edit Tautan</span></button></div>`)+
+ G('Urutkan & Filter',`<div class="rows">${B('<small style="line-height:1;font-size:10px">A↓<br>Z</small>','Urutkan A ke Z','sortaz')}${B('<small style="line-height:1;font-size:10px">Z↓<br>A</small>','Urutkan Z ke A','sortza')}</div>`+B('⇅','Urutkan','sortdlg','big','Urutkan')+B('⧩','Filter','filter','big','Filter')+`<div class="rows t3">${B('✖','Bersihkan','fclear','rw','Bersihkan')}${B('⟳','Terapkan Ulang','freapply','rw','Terapkan Ulang')}${B('⧩','Lanjutan','fadv','rw','Lanjutan')}</div>`)+
+ G('Alat Data',B('▥','Teks ke Kolom','t2c','big','Teks ke<br>Kolom')+B('⚡','Isi Cepat (Ctrl+E)','flash','big','Isi<br>Cepat')+B('⊟','Hapus Duplikat','rmdup','big','Hapus<br>Duplikat')+B('✔','Validasi Data','m:dval','big','Validasi<br>Data',1)+B('⇥','Konsolidasi','consol','big','Konsolidasi')+B('?','Analisis Bagaimana-Jika','m:whatif','big','Analisis<br>Bagaimana-Jika',1)+BD('⇄','Hubungan','Hubungan'))+
+ G('Kerangka',B('▣','Grup','m:grpm','big','Grup',1)+B('▢','Pisahkan Grup','m:ungrpm','big','Pisahkan<br>Grup',1)+B('Σ','Subtotal','subtotal','big','Subtotal')+`<div class="rows t3">${B('＋','Tampilkan Detail','showdet','rw','Tampilkan Detail')}${B('－','Sembunyikan Detail','hidedet','rw','Sembunyikan Detail')}</div>`);
 const SOON='<div class="soon">Menu ini akan dibuat pada tahap berikutnya.</div>';
 
 const PAPER={A4:[210,297],A3:[297,420],A5:[148,210],Letter:[215.9,279.4],Legal:[215.9,355.6]};
@@ -1166,18 +1196,18 @@ function mount(root,opts={}){
       <button data-a="new">📄  Buku kerja kosong baru</button><button data-a="open">📂  Buka…</button>
       <button data-a="save">💾  Simpan sebagai .xlsx</button><button data-a="savecsv">📑  Simpan lembar sebagai .csv</button><button data-a="print">🖨  Cetak / simpan PDF</button>
       <hr><button data-a="home">⬅  Kembali ke menu utama</button></div>
-    <input type="file" class="fin" accept=".xlsx,.csv,.tsv,.txt" hidden><input type="file" class="imgin" accept="image/*" hidden><input type="file" class="bgin" accept="image/*" hidden>
+    <input type="file" class="fin" accept=".xlsx,.csv,.tsv,.txt" hidden><input type="file" class="imgin" accept="image/*" hidden><input type="file" class="txtin" accept=".txt,.csv,.tsv,.prn" hidden><input type="file" class="bgin" accept="image/*" hidden>
   </div>`;
   const $=s=>root.querySelector(s),$$=s=>[...root.querySelectorAll(s)];
   const X=$('.xl'),vp=$('.vp'),stage=$('.stage'),sizer=$('.sizer'),colh=$('.colh'),rowh=$('.rowh'),menu=$('.menu'),fin=$('.fin');
-  const nb=$('.nb'),fxi=$('.fx'),fd=$('.find');
+  const cornerEl=$('.corner'),nb=$('.nb'),fxi=$('.fx'),fd=$('.find');
 
   /* ===== model ===== */
-  const wb={sheets:[],active:0,ver:0,circ:false,font:'Calibri',theme:0,names:[],manual:false,stale:false,recent:['SUM','AVERAGE','IF','COUNT','MAX','MIN','VLOOKUP','TODAY','ROUND','CONCATENATE'],watch:[]};
+  const wb={sheets:[],active:0,ver:0,circ:false,font:'Calibri',theme:0,names:[],conns:[],manual:false,stale:false,recent:['SUM','AVERAGE','IF','COUNT','MAX','MIN','VLOOKUP','TODAY','ROUND','CONCATENATE'],watch:[]};
   let cur=null,Z=1,name='Buku1.xlsx',showGrid=true,showHead=true;
-  let ed=null,clip=null,pointing=null,painting=null,tabStart=null,selObj=null,selSet=new Set(),selpEl=null,watchEl=null,watchSel=-1;
+  let ed=null,clip=null,pointing=null,painting=null,tabStart=null,selObj=null,selSet=new Set(),selpEl=null,watchEl=null,watchSel=-1,gutR=0,gutC=0;
   let undoS=[],redoS=[],dirty=false;
-  const newSheet=n=>({name:n,cells:new Map(),cw:new Axis(DW,MAXC),rh:new Axis(DH,MAXR),merges:[],cf:[],filter:null,tab:null,objs:[],spark:[],grid:true,head:true,bg:null,page:newPage(),
+  const newSheet=n=>({name:n,cells:new Map(),cw:new Axis(DW,MAXC),rh:new Axis(DH,MAXR),merges:[],cf:[],filter:null,tab:null,objs:[],spark:[],og:{rows:[],cols:[],hr:new Set(),hc:new Set()},dv:[],adv:null,circ:false,grid:true,head:true,bg:null,page:newPage(),
     sel:{ar:0,ac:0,fr:0,fc:0},sx:0,sy:0});
   const uniqueName=(base,except)=>{let n=base,i=1;while(wb.sheets.some(s=>s!==except&&s.name.toLowerCase()===n.toLowerCase()))n=base.replace(/\d+$/,'')+(++i);return n;};
   const DF=()=>wb.font||'Calibri';
@@ -1204,7 +1234,7 @@ function mount(root,opts={}){
   const rawText=cell=>!cell?'':cell.f!==undefined&&cell.f!==null?'='+cell.f:cell.v===null||cell.v===undefined?'':typeof cell.v==='boolean'?(cell.v?'TRUE':'FALSE'):typeof cell.v==='number'?(isDateCode(cell.st&&cell.st.fmt||'')?fmtValue(cell.v,cell.st.fmt).t:String(cell.v).replace('.',',')):String(cell.v);
   const recalcAll=()=>{wb.ver++;if(wb.manual){wb.stale=true;updCalcLabel();return;}recalc(wb);};
   const updCalcLabel=()=>{const e=$('.calcs');if(e)e.textContent=wb.manual&&wb.stale?'Hitung':'';};
-  function shotSheet(s){return {name:s.name,cells:new Map(s.cells),cw:s.cw.clone(),rh:s.rh.clone(),merges:s.merges.map(m=>({...m})),cf:[...s.cf],filter:s.filter?{...s.filter,crit:{...s.filter.crit}}:null,tab:s.tab,grid:s.grid,showF:s.showF,head:s.head,bg:s.bg,page:JSON.parse(JSON.stringify(s.page||newPage())),objs:(s.objs||[]).map(o=>({...o,src:o.src&&typeof o.src==='object'?{...o.src}:o.src})),spark:(s.spark||[]).map(o=>({...o,src:{...o.src}})),sel:{...s.sel}};}
+  function shotSheet(s){return {name:s.name,cells:new Map(s.cells),cw:s.cw.clone(),rh:s.rh.clone(),merges:s.merges.map(m=>({...m})),cf:[...s.cf],filter:s.filter?{...s.filter,crit:{...s.filter.crit}}:null,tab:s.tab,og:s.og?{rows:s.og.rows.map(g=>({...g})),cols:s.og.cols.map(g=>({...g})),hr:new Set(s.og.hr),hc:new Set(s.og.hc)}:{rows:[],cols:[],hr:new Set(),hc:new Set()},dv:(s.dv||[]).map(d=>({...d})),adv:s.adv?new Set(s.adv):null,circ:s.circ,grid:s.grid,showF:s.showF,head:s.head,bg:s.bg,page:JSON.parse(JSON.stringify(s.page||newPage())),objs:(s.objs||[]).map(o=>({...o,src:o.src&&typeof o.src==='object'?{...o.src}:o.src})),spark:(s.spark||[]).map(o=>({...o,src:{...o.src}})),sel:{...s.sel}};}
   const snapshot=()=>({sheets:wb.sheets.map(shotSheet),active:wb.active,names:wb.names.map(n=>({...n,ast:undefined,depth:0}))});
   function restore(sn){
     wb.sheets=sn.sheets.map(shotSheet);if(sn.names)wb.names=sn.names.map(n=>({...n,ast:undefined}));wb.active=Math.min(sn.active,wb.sheets.length-1);
@@ -1472,16 +1502,39 @@ function mount(root,opts={}){
     html+=`<div class="selb" style="left:${rx-1}px;top:${ryy-1}px;width:${R.w+1}px;height:${R.h+1}px"></div>`;
     if(clip&&clip.sh===cur){const q=rectOf(clip.r1,clip.c1,clip.r2,clip.c2);html+=`<div class="cpy" style="left:${q.x-sl-1}px;top:${q.y-st0-1}px;width:${q.w+1}px;height:${q.h+1}px"></div>`;}
     if(pointing){const q=rectOf(pointing.r1,pointing.c1,pointing.r2,pointing.c2);html+=`<div class="pnt" style="left:${q.x-sl-1}px;top:${q.y-st0-1}px;width:${q.w+1}px;height:${q.h+1}px"></div>`;}
+    {const rule=!ed?dvAt(s.ar,s.ac):null;
+      if(rule){
+        if(rule.type==='list')html+=`<button class="fdd" data-dvl="1" style="left:${ax+A.w-17}px;top:${ay+A.h-17}px;z-index:5">▾</button>`;
+        if(rule.showIn&&(rule.inMsg||rule.inTitle))html+=`<div class="dvtip" style="left:${ax}px;top:${ay+A.h+4}px">${rule.inTitle?'<b>'+esc(rule.inTitle)+'</b><br>':''}${esc(rule.inMsg||'')}</div>`;}
+      if(cur.circ&&cur.dv.length){let ci='';
+        for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++){const rl=dvAt(r,c);if(!rl)continue;const cl=cellAt(cur,r,c);if(!cl||cl.f!=null)continue;const tx0=rawText(cl);if(tx0===''||!dvCheck(r,c,tx0))continue;
+          ci+=`<ellipse cx="${cx(c)+cwid(c)/2-sl}" cy="${ry(r)+rhei(r)/2-st0}" rx="${cwid(c)/2+2}" ry="${rhei(r)/2+1}" fill="none" stroke="#e00" stroke-width="2"/>`;}
+        if(ci)html+=`<svg style="position:absolute;left:0;top:0;pointer-events:none;z-index:3" width="${W}" height="${H}">${ci}</svg>`;}}
     if(!ed)html+=`<div class="fh" style="left:${rx+R.w-5}px;top:${ryy+R.h-5}px" data-fill="1"></div>`;
     stage.innerHTML=html;
     if(ed)placeEditor();
     /* tajuk */
     let ch='',rh2='';
+    const ogl=cur.og||{rows:[],cols:[]};
+    const rgut=14*ogl.rows.reduce((m,x)=>Math.max(m,ogDepth(ogl.rows,x)),0),cgut=14*ogl.cols.reduce((m,x)=>Math.max(m,ogDepth(ogl.cols,x)),0);
+    gutR=cur.head===false?0:rgut;gutC=cur.head===false?0:cgut;
     const all=g.r1===0&&g.r2===MAXR-1,allc=g.c1===0&&g.c2===MAXC-1;
-    for(let c=c0;c<=c1;c++){const w=cwid(c);const on=c>=g.c1&&c<=g.c2;if(w<=0){ch+=`<div class="hc hd" style="left:${cx(c)-sl-1}px;width:3px;top:0;height:${hh}px"></div>`;continue;}
-      ch+=`<div class="hc${on?(all?' a':' s'):''}" data-h="c${c}" style="left:${cx(c)-sl}px;width:${w}px;top:0;height:${hh}px">${colName(c)}</div>`;}
-    for(let r=r0;r<=r1;r++){const h=rhei(r);const on=r>=g.r1&&r<=g.r2;if(h<=0){rh2+=`<div class="hc hd" style="top:${ry(r)-st0-1}px;height:3px;left:0;width:${HW}px"></div>`;continue;}
-      rh2+=`<div class="hc${on?(allc?' a':' s'):''}" data-h="r${r}" style="top:${ry(r)-st0}px;height:${h}px;left:0;width:${HW}px;font-size:${Math.max(8,12*Math.min(1,Z))}px">${r+1}</div>`;}
+    for(let c=c0;c<=c1;c++){const w=cwid(c);const on=c>=g.c1&&c<=g.c2;if(w<=0){ch+=`<div class="hc hd" style="left:${cx(c)-sl-1}px;width:3px;top:${cgut}px;height:${hh}px"></div>`;continue;}
+      ch+=`<div class="hc${on?(all?' a':' s'):''}" data-h="c${c}" style="left:${cx(c)-sl}px;width:${w}px;top:${cgut}px;height:${hh}px">${colName(c)}</div>`;}
+    for(let r=r0;r<=r1;r++){const h=rhei(r);const on=r>=g.r1&&r<=g.r2;if(h<=0){rh2+=`<div class="hc hd" style="top:${ry(r)-st0-1}px;height:3px;left:${rgut}px;width:${HW}px"></div>`;continue;}
+      rh2+=`<div class="hc${on?(allc?' a':' s'):''}" data-h="r${r}" style="top:${ry(r)-st0}px;height:${h}px;left:${rgut}px;width:${HW}px;font-size:${Math.max(8,12*Math.min(1,Z))}px">${r+1}</div>`;}
+    ogl.rows.forEach((x,i)=>{
+      const d=ogDepth(ogl.rows,x),xo=(d-1)*14+3,y1=ry(x.a)-st0,y2=ry(x.b+1)-st0;if(y2<-30||y1>H+30)return;const sh2=rhei(x.b+1);
+      if(y2>y1)rh2+=`<div class="ogl" style="left:${xo+5}px;top:${y1}px;width:1px;height:${y2-y1}px"></div>`;
+      rh2+=`<div class="ogl" style="left:${xo+5}px;top:${y2-1}px;width:7px;height:1px"></div>`;
+      if(sh2>0)rh2+=`<button class="ogb" data-og="r:${i}" style="left:${xo}px;top:${y2+(sh2-11)/2}px">${x.cl?'+':'−'}</button>`;});
+    ogl.cols.forEach((x,i)=>{
+      const d=ogDepth(ogl.cols,x),yo=(d-1)*14+3,x1=cx(x.a)-sl,x2=cx(x.b+1)-sl;if(x2<-30||x1>W+30)return;const sw=cwid(x.b+1);
+      if(x2>x1)ch+=`<div class="ogl" style="top:${yo+5}px;left:${x1}px;height:1px;width:${x2-x1}px"></div>`;
+      ch+=`<div class="ogl" style="top:${yo+5}px;left:${x2-1}px;height:7px;width:1px"></div>`;
+      if(sw>0)ch+=`<button class="ogb" data-og="c:${i}" style="top:${yo}px;left:${x2+(sw-11)/2}px">${x.cl?'+':'−'}</button>`;});
+    colh.style.height=(hh+cgut)+'px';rowh.style.width=(HW+rgut)+'px';cornerEl.style.width=(HW+rgut)+'px';cornerEl.style.height=(hh+cgut)+'px';
+    {const lv=Math.max(rgut,cgut)/14+1,k=(rgut||cgut)?lv:0;if(cornerEl.dataset.lv!==String(k)){cornerEl.dataset.lv=k;cornerEl.innerHTML=k?Array.from({length:k},(_,i)=>`<button class="ogb" data-og="L:${i+1}" style="left:${i*14+2}px;top:2px">${i+1}</button>`).join(''):'';}}
     colh.innerHTML=ch;rowh.innerHTML=rh2;
     sizer.style.width=Math.min(33e6,cx(MAXC))+'px';sizer.style.height=Math.min(33e6,ry(MAXR))+'px';
     stage.style.marginBottom=-H+'px';
@@ -1559,7 +1612,7 @@ function mount(root,opts={}){
     const st=stOf(ed.r,ed.c),sl=vp.scrollLeft,sy=vp.scrollTop;
     const m=mergeAt(ed.r,ed.c);
     const rr=m?m.r2:ed.r,cc=m?m.c2:ed.c;
-    const hwid=cur.head===false?0:HW,hhei=cur.head===false?0:HH;
+    const hwid=cur.head===false?0:HW+gutR,hhei=cur.head===false?0:HH+gutC;
     const x=hwid+cx(ed.c)-sl,y=hhei+ry(ed.r)-sy,w0=cx(cc+1)-cx(ed.c),h0=ry(rr+1)-ry(ed.r);
     const sz=(st.sz||11)*4/3*Z;
     edEl.style.fontSize=sz+'px';edEl.style.fontFamily=(st.font||DF())+',Carlito,sans-serif';
@@ -1576,11 +1629,12 @@ function mount(root,opts={}){
     $('.fb.no').classList.add('dis');$('.fb.ok').classList.add('dis');setMode('Siap');
     if(document.activeElement!==nb)vp.focus({preventScroll:true});
   }
-  function commitEdit(dr,dc){
+  function commitEdit(dr,dc,force){
     if(!ed)return true;
     const {r,c}=ed;let text=ed.text;
     if(isFormulaText(text)){let dp=0,qq=false;for(const ch of text){if(ch==='"')qq=!qq;else if(!qq){if(ch==='(')dp++;else if(ch===')')dp--;}}if(dp>0&&!qq)text+=')'.repeat(dp);}
     const startC=tabStart===null?c:tabStart;
+    if(!force){const bad=dvCheck(r,c,text);if(bad&&dvReject(bad,dr,dc))return false;}
     if(isFormulaText(text)){
       try{parseFormula(text.slice(1));}catch(e){toast('Ada masalah pada rumus ini. Periksa tanda kurung, argumen, dan alamat sel.');return false;}
     }
@@ -1796,6 +1850,8 @@ function mount(root,opts={}){
     if(e.button!==0&&e.button!==2)return;
     const rc=vp.getBoundingClientRect();if(e.clientX-rc.left>vp.clientWidth||e.clientY-rc.top>vp.clientHeight)return;
     closePop();
+    const dvb=e.target.closest&&e.target.closest('[data-dvl]');
+    if(dvb){e.preventDefault();dvDropdown(dvb);return;}
     const fdd=e.target.closest&&e.target.closest('[data-fc]');
     if(fdd){e.preventDefault();filterMenu(+fdd.dataset.fc,fdd);return;}
     if(e.target.dataset&&e.target.dataset.fill){
@@ -1959,7 +2015,10 @@ function mount(root,opts={}){
   [['c',colh],['r',rowh]].forEach(([kind,el])=>{
     el.addEventListener('pointermove',e=>{if(rsz)return;const h=hdrHit(e,kind);el.style.cursor=h.edge!==null?(kind==='c'?'col-resize':'row-resize'):'default';});
     el.addEventListener('pointerdown',e=>{
-      if(e.button!==0)return;if(ed&&!commitEdit())return;
+      if(e.button!==0)return;
+      if(e.target.closest&&e.target.closest('[data-og]'))return;
+      {const rc0=el.getBoundingClientRect();if(kind==='r'&&e.clientX-rc0.left<gutR)return;if(kind==='c'&&e.clientY-rc0.top<gutC)return;}
+      if(ed&&!commitEdit())return;
       e.preventDefault();closePop();vp.focus({preventScroll:true});
       const h=hdrHit(e,kind);
       if(h.edge!==null){rsz={kind,i:h.edge,start:kind==='c'?e.clientX:e.clientY,orig:(kind==='c'?cur.cw:cur.rh).size(h.edge),snap:snapshot(),moved:false};el.setPointerCapture(e.pointerId);return;}
@@ -1982,7 +2041,7 @@ function mount(root,opts={}){
     el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
     el.addEventListener('dblclick',e=>{const h=hdrHit(e,kind);if(h.edge!==null)(kind==='c'?autoFitCols([h.edge]):autoFitRowsH([h.edge]));});
   });
-  $('.corner').addEventListener('pointerdown',e=>{e.preventDefault();if(ed&&!commitEdit())return;select(0,0,MAXR-1,MAXC-1,true);cur.sel.ar=cur.sel.ar;vp.focus();});
+  $('.corner').addEventListener('pointerdown',e=>{if(e.target.closest&&e.target.closest('[data-og]'))return;e.preventDefault();if(ed&&!commitEdit())return;select(0,0,MAXR-1,MAXC-1,true);cur.sel.ar=cur.sel.ar;vp.focus();});
 
   function autoFitCols(cols){
     tx(()=>{for(const c of cols){let w=0;
@@ -2059,6 +2118,7 @@ function mount(root,opts={}){
       if(l==='g'){e.preventDefault();acts.goto();return true;}
       if(l==='1'){e.preventDefault();acts['fmtcells']('number');return true;}
       if(k==='`'){e.preventDefault();acts.showf();return true;}
+      if(l==='e'){e.preventDefault();flashFill();return true;}
       if(l==='s'){e.preventDefault();acts.save();return true;}
       if(l==='x'&&!e.shiftKey){return false;}
       if(k===';'){e.preventDefault();startEdit(s.ar,s.ac,fmtValue(today(),'dd/mm/yyyy').t);return true;}
@@ -2243,8 +2303,9 @@ function mount(root,opts={}){
     if(ax.manual)ax.manual=new Set([...ax.manual].map(f).filter(j=>j>=0));
     ax.dirty=true;
   }
-  function structOp(kind,at,n,del){
-    tx(()=>{
+  function structOp(kind,at,n,del){tx(()=>structRaw(kind,at,n,del));}
+  function structRaw(kind,at,n,del){
+    {
       adjRefsAll(kind,at,n,del,cur);
       const nm=new Map();
       for(const [k,cell] of cur.cells){
@@ -2271,8 +2332,10 @@ function mount(root,opts={}){
       const s=cur.sel;
       if(!del){if(kind==='r'){s.ar=at;s.fr=at+n-1;s.ac=0;s.fc=MAXC-1;}else{s.ac=at;s.fc=at+n-1;s.ar=0;s.fr=MAXR-1;}}
       else{if(kind==='r'){s.fr=s.ar=Math.min(at,MAXR-1);}else{s.fc=s.ac=Math.min(at,MAXC-1);}}
+      cur.dv=cur.dv.map(d=>adj(d,lo,hi)).filter(Boolean);
+      {const ol=kind==='r'?cur.og.rows:cur.og.cols;const nl=ol.map(g=>adj(g,'a','b')).filter(Boolean);if(kind==='r')cur.og.rows=nl;else cur.og.cols=nl;applyOutline();}
       if(cur.filter)applyFilter(true);
-    });
+    }
   }
   function shiftCells(dir,ins){ /* geser sebagian sel (tanpa menyesuaikan rumus lain) */
     const g=expandMerge(rg());const h=g.r2-g.r1+1,w=g.c2-g.c1+1;
@@ -2309,14 +2372,15 @@ function mount(root,opts={}){
       if(r2-r1>200000)break;}
     return {r1,r2,c1,c2};
   }
-  function sortRange(g,col,asc,header){
+  function sortRange(g,cols,asc,header){
+    const keys=Array.isArray(cols)?cols:[{col:cols,asc}];
     const r1=g.r1+(header?1:0);if(r1>=g.r2)return;
     tx(()=>{
       const rows=[];
-      for(let r=r1;r<=g.r2;r++){const line=[];for(let c=g.c1;c<=g.c2;c++)line.push(cellAt(cur,r,c));rows.push({r,line,k:cellVal(cur,r,col)});}
+      for(let r=r1;r<=g.r2;r++){const line=[];for(let c=g.c1;c<=g.c2;c++)line.push(cellAt(cur,r,c));rows.push({r,line,k:keys.map(q=>cellVal(cur,r,q.col))});}
       const rank=v=>v===null||v===''?3:typeof v==='number'?0:typeof v==='string'?1:2;
-      rows.sort((a,b)=>{const ra=rank(a.k),rb=rank(b.k);if(ra!==rb)return ra-rb;if(ra===3)return a.r-b.r;
-        let c=ra===0?a.k-b.k:ra===1?String(a.k).localeCompare(String(b.k),'id',{sensitivity:'base'}):(+a.k)-(+b.k);if(!asc&&ra!==3)c=-c;return c||a.r-b.r;});
+      rows.sort((a,b)=>{for(let i=0;i<keys.length;i++){const x=a.k[i],y=b.k[i],rx=rank(x),ry2=rank(y);if(rx!==ry2)return rx-ry2;if(rx===3)continue;
+        let c=rx===0?x-y:rx===1?String(x).localeCompare(String(y),'id',{sensitivity:'base'}):(+x)-(+y);if(c)return keys[i].asc?c:-c;}return a.r-b.r;});
       rows.forEach((row,i)=>{const R=r1+i;row.line.forEach((cl,j)=>{
         let nc=cl;if(cl&&cl.f!==undefined&&cl.f!==null&&R!==row.r)nc={...cl,f:shiftFormula(cl.f,R-row.r,0),ast:undefined};
         putCell(cur,R,g.c1+j,nc||null);});});
@@ -2335,12 +2399,12 @@ function mount(root,opts={}){
     return allText;
   }
   function toggleFilter(){
-    if(cur.filter){tx(()=>{cur.filter=null;cur.rh.fil=new Set();cur.rh.dirty=true;});return;}
+    if(cur.filter){tx(()=>{cur.filter=null;cur.adv=null;cur.rh.fil=new Set();cur.rh.dirty=true;});return;}
     const g=region();if(g.r1===g.r2&&g.c1===g.c2){toast('Pilih sel di dalam data untuk menerapkan filter.');return;}
     tx(()=>{cur.filter={r1:g.r1,c1:g.c1,r2:g.r2,c2:g.c2,crit:{}};});
   }
   function applyFilter(inTx){
-    const f=cur.filter;const hid=new Set();
+    const f=cur.filter;const hid=new Set(cur.adv||[]);
     if(f){for(let r=f.r1+1;r<=f.r2;r++){
       for(const c in f.crit){const set=f.crit[c];const v=cellVal(cur,r,+c);const t=v===null||v===''?'(Kosong)':fmtValue(v,(stOf(r,+c)||{}).fmt).t;if(!set.has(t)){hid.add(r);break;}}}}
     cur.rh.fil=hid;cur.rh.dirty=true;if(!inTx)sync();
@@ -2816,15 +2880,6 @@ function mount(root,opts={}){
       I('Urutkan A ke Z',()=>quickSort(true),'↓'),I('Lebar Kolom…',acts.colw,'↔'),I('Tinggi Baris…',acts.rowh,'↕'),I('Sembunyikan Baris',acts.hider),I('Sembunyikan Kolom',acts.hidec),{sep:1},I('Format Sel…',()=>formatCells('number'),'▤')],
     sheetctx:()=>[I('Sisipkan Lembar',addSheet,'▭'),I('Hapus',()=>deleteSheet(wb.active),'✖'),I('Ganti Nama',acts.rensheet,'✎'),I('Pindahkan ke Kiri',acts.mvl,'◀'),I('Pindahkan ke Kanan',acts.mvr,'▶'),{l:'Warna Tab',i:'🎨',sub:()=>palette(c=>{tx(()=>{cur.tab=c;},true);drawTabs();},{none:'Tanpa Warna'})}]
   };
-  function sortDialog(){
-    const g=region();if(g.r1===g.r2&&g.c1===g.c2){toast('Pilih sel di dalam data yang akan diurutkan.');return;}
-    const hdr=guessHeader(g);
-    const colLabel=(c,h)=>h?(String(cellVal(cur,g.r1,c)??'')||('Kolom '+colName(c))):'Kolom '+colName(c);
-    const d=dlg('Urutkan',`<label><input type="checkbox" class="hd" ${hdr?'checked':''}> Data saya memiliki header</label><div class="r2"><span>Urutkan menurut:</span><select class="cl"></select><span>Urutan:</span><select class="od"><option value="1">A ke Z / Terkecil ke Terbesar</option><option value="0">Z ke A / Terbesar ke Terkecil</option></select></div>`,d=>{
-      sortRange(g,+d.querySelector('.cl').value,d.querySelector('.od').value==='1',d.querySelector('.hd').checked);});
-    const fill=()=>{const h=d.querySelector('.hd').checked;d.querySelector('.cl').innerHTML=Array.from({length:g.c2-g.c1+1},(_,i)=>`<option value="${g.c1+i}">${esc(colLabel(g.c1+i,h))}</option>`).join('');};
-    d.querySelector('.hd').onchange=fill;fill();
-  }
   function seriesDialog(){
     dlg('Seri',`<div class="r2"><span>Seri dalam:</span><select class="dr"><option value="c">Kolom</option><option value="r">Baris</option></select><span>Tipe:</span><select class="ty"><option value="lin">Linear</option><option value="gro">Pertumbuhan</option></select><span>Nilai langkah:</span><input type="number" class="st" value="1" step="any"><span>Nilai akhir:</span><input type="text" class="en"></div>`,d=>{
       const g=rg(),col=d.querySelector('.dr').value==='c',step=num0(d,'.st'),gro=d.querySelector('.ty').value==='gro',en=d.querySelector('.en').value.trim()===''?null:+d.querySelector('.en').value;
@@ -3350,6 +3405,407 @@ function mount(root,opts={}){
     calcopt:()=>[I('Otomatis',()=>{if(wb.manual){wb.manual=false;calcNow();}},'',{ck:!wb.manual}),I('Manual',()=>{wb.manual=true;sync();},'',{ck:wb.manual}),{sep:1},I('Hitung Sekarang (F9)',calcNow,'▦',{dis:!wb.manual}),I('Hitung Lembar (Shift+F9)',calcSheet,'▦')]
   });
 
+  /* ===== DATA ===== */
+  const txtin=$('.txtin');
+  function putGrid(rows,r0,c0){ /* tulis array 2D teks ke lembar */
+    tx(()=>{rows.forEach((row,i)=>row.forEach((t,j)=>{if(r0+i>=MAXR||c0+j>=MAXC)return;const old=cellAt(cur,r0+i,c0+j);putCell(cur,r0+i,c0+j,t===''?(old&&old.st?{v:null,st:old.st}:null):mkInput(String(t),old));}));});
+    select(r0,c0,r0+rows.length-1,c0+Math.max(...rows.map(r=>r.length))-1);
+  }
+  txtin.onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+    try{const rows=parseCsv(await f.text());if(!rows.length){toast('Berkas kosong.');return;}const s=cur.sel;putGrid(rows,s.ar,s.ac);}catch(err){toast('Gagal membaca berkas: '+err.message);}};
+  function htmlTables(txt){
+    const doc=new DOMParser().parseFromString(txt,'text/html');
+    return [...doc.querySelectorAll('table')].map(t=>[...t.rows].map(r=>[...r.cells].map(c=>c.textContent.replace(/\s+/g,' ').trim()))).filter(t=>t.length);
+  }
+  async function fetchTable(url,idx){
+    const res=await fetch(url);if(!res.ok)throw new Error('HTTP '+res.status);
+    const txt=await res.text();const ct=res.headers.get('content-type')||'';
+    if(/html/i.test(ct)||/<table/i.test(txt)){const T=htmlTables(txt);if(!T.length)throw new Error('Tidak ada tabel pada halaman.');return {tables:T,rows:T[Math.min(idx||0,T.length-1)]};}
+    return {tables:null,rows:parseCsv(txt)};
+  }
+  function fromWebDialog(){
+    const d=dlg('Dari Web',`<div class="r2"><span>Alamat (URL):</span><input type="text" class="u" placeholder="https://contoh.com/data.csv" style="width:300px"></div><div class="tl" style="display:none"><span>Tabel:</span> <select class="ti"></select></div><div style="font-size:11px;color:#666;max-width:340px">Mendukung halaman HTML yang berisi tabel serta berkas CSV. Server harus mengizinkan akses lintas-situs (CORS), kalau tidak browser akan memblokirnya.</div>`,async d=>{
+      const u=d.querySelector('.u').value.trim();if(!u)return false;
+      const idx=+d.querySelector('.ti').value||0;
+      try{
+        const res=await fetchTable(u,idx);
+        if(res.tables&&res.tables.length>1&&d.querySelector('.tl').style.display==='none'){
+          d.querySelector('.tl').style.display='';d.querySelector('.ti').innerHTML=res.tables.map((t,i)=>`<option value="${i}">Tabel ${i+1} (${t.length}×${t[0].length})</option>`).join('');
+          toast('Ditemukan '+res.tables.length+' tabel. Pilih satu lalu tekan OK lagi.');return false;}
+        const s=cur.sel;putGrid(res.rows,s.ar,s.ac);
+        wb.conns.push({name:'Koneksi '+(wb.conns.length+1),url:u,idx,sheet:cur.name,r:s.ar,c:s.ac,rows:res.rows.length,cols:Math.max(...res.rows.map(r=>r.length))});
+        d.remove();
+      }catch(e){toast('Gagal mengambil data: '+e.message+' (kemungkinan diblokir CORS)');}
+      return false;});
+  }
+  async function refreshConn(cn){
+    const res=await fetchTable(cn.url,cn.idx);const i=wb.sheets.findIndex(s=>s.name===cn.sheet);if(i<0)return;
+    const keep=cur;cur=wb.sheets[i];
+    try{putGrid(res.rows,cn.r,cn.c);}finally{cur=keep;}
+    cn.rows=res.rows.length;cn.cols=Math.max(...res.rows.map(r=>r.length));
+  }
+  async function refreshAll(){
+    let n=0,bad=0;
+    for(const cn of wb.conns){try{await refreshConn(cn);n++;}catch(e){bad++;}}
+    calcNow();
+    toast(wb.conns.length?`${n} koneksi disegarkan${bad?`, ${bad} gagal`:''}.`:'Perhitungan disegarkan (tidak ada koneksi data).');
+  }
+  function connsDialog(){
+    const body=()=>wb.conns.length?wb.conns.map((c,i)=>`<div class="si" data-i="${i}" style="display:flex;gap:8px;justify-content:space-between;border-bottom:1px solid #eee;padding:4px 0"><span><b>${esc(c.name)}</b><br><small>${esc(c.url)} → ${esc(c.sheet)}!${addr(c.r,c.c)}</small></span><span><button class="bt rf" data-i="${i}">Segarkan</button> <button class="bt dl" data-i="${i}">Hapus</button></span></div>`).join(''):'<i>Belum ada koneksi data.</i>';
+    const d=dlg('Koneksi Buku Kerja',`<div class="cl" style="min-width:360px;max-height:240px;overflow:auto">${body()}</div>`,null,'Tutup',true);
+    d.querySelector('.cl').onclick=async e=>{const i=e.target.dataset.i;if(i===undefined)return;
+      if(e.target.classList.contains('dl')){wb.conns.splice(+i,1);}else{try{await refreshConn(wb.conns[+i]);toast('Disegarkan.');}catch(err){toast('Gagal: '+err.message);}}
+      d.querySelector('.cl').innerHTML=body();};
+  }
+  /* urut bertingkat */
+  function sortDialog(){
+    const g=region();if(g.r1===g.r2&&g.c1===g.c2){toast('Pilih sel di dalam data yang akan diurutkan.');return;}
+    const hdr=guessHeader(g);
+    const cols=h=>Array.from({length:g.c2-g.c1+1},(_,i)=>`<option value="${g.c1+i}">${esc(h?(String(cellVal(cur,g.r1,g.c1+i)??'')||'Kolom '+colName(g.c1+i)):'Kolom '+colName(g.c1+i))}</option>`).join('');
+    const d=dlg('Urutkan',`<label><input type="checkbox" class="hd" ${hdr?'checked':''}> Data saya memiliki header</label><div class="lv"></div><div style="display:flex;gap:6px"><button class="bt ad">＋ Tambah Tingkat</button><button class="bt rm">✕ Hapus Tingkat</button></div>`,d=>{
+      const keys=[...d.querySelectorAll('.lvr')].map(r=>({col:+r.querySelector('.cl').value,asc:r.querySelector('.od').value==='1'}));
+      sortRange(g,keys,true,d.querySelector('.hd').checked);});
+    const lv=d.querySelector('.lv');
+    const row=i=>`<div class="r2 lvr"><span>${i?'Kemudian menurut':'Urutkan menurut'}:</span><span><select class="cl">${cols(d.querySelector('.hd').checked)}</select> <select class="od"><option value="1">A ke Z / Terkecil</option><option value="0">Z ke A / Terbesar</option></select></span></div>`;
+    const reset=()=>{const n=Math.max(1,lv.children.length);const sv=[...lv.querySelectorAll('.lvr')].map(r=>[r.querySelector('.cl').value,r.querySelector('.od').value]);lv.innerHTML=Array.from({length:n},(_,i)=>row(i)).join('');[...lv.querySelectorAll('.lvr')].forEach((r,i)=>{if(sv[i]){r.querySelector('.cl').value=sv[i][0];r.querySelector('.od').value=sv[i][1];}});};
+    lv.innerHTML=row(0);
+    d.querySelector('.ad').onclick=()=>{lv.insertAdjacentHTML('beforeend',row(lv.children.length));};
+    d.querySelector('.rm').onclick=()=>{if(lv.children.length>1)lv.lastElementChild.remove();};
+    d.querySelector('.hd').onchange=reset;
+  }
+  /* filter lanjutan */
+  function advFilter(){
+    const g=region();
+    const d=dlg('Filter Lanjutan',`<label><input type="radio" name="m" value="in" checked> Saring daftar di tempat</label><label><input type="radio" name="m" value="cp"> Salin ke lokasi lain</label><div class="r2"><span>Rentang daftar:</span><input type="text" class="l" value="${rngStr(g)}"><span>Rentang kriteria:</span><input type="text" class="c" placeholder="mis. F1:G3"><span>Salin ke:</span><input type="text" class="t" placeholder="mis. J1"></div><label><input type="checkbox" class="u"> Hanya rekaman unik</label><div style="font-size:11px;color:#666;max-width:330px">Baris pertama rentang kriteria berisi nama kolom sama seperti header daftar. Kriteria pada baris yang sama berarti DAN, pada baris berbeda berarti ATAU (mis. &gt;100, =apel, *kata*).</div>`,d=>{
+      const L=parseRng(d.querySelector('.l').value),C=d.querySelector('.c').value.trim()?parseRng(d.querySelector('.c').value):null;
+      if(!L||L.r2<=L.r1){toast('Rentang daftar tidak valid.');return false;}
+      if(d.querySelector('.c').value.trim()&&!C){toast('Rentang kriteria tidak valid.');return false;}
+      const heads=[];for(let c=L.c1;c<=L.c2;c++)heads.push(String(cellVal(cur,L.r1,c)??'').trim().toLowerCase());
+      const preds=[];
+      if(C&&C.r2>C.r1){for(let r=C.r1+1;r<=C.r2;r++){const and=[];for(let c=C.c1;c<=C.c2;c++){const h=String(cellVal(cur,C.r1,c)??'').trim().toLowerCase(),ci=heads.indexOf(h),cv=cellVal(cur,r,c);if(ci<0||cv===null||cv==='')continue;and.push([L.c1+ci,critFn(cv)]);}preds.push(and);}}
+      const ok=r=>!preds.length||preds.some(and=>and.every(([c,f])=>f(cellVal(cur,r,c))));
+      const uniq=d.querySelector('.u').checked,seen=new Set(),match=[];
+      for(let r=L.r1+1;r<=L.r2;r++){if(!ok(r))continue;if(uniq){const k=heads.map((_,i)=>String(cellVal(cur,r,L.c1+i))).join('\u0001');if(seen.has(k))continue;seen.add(k);}match.push(r);}
+      if(d.querySelector('input[name=m]:checked').value==='in'){
+        const hide=new Set();for(let r=L.r1+1;r<=L.r2;r++)if(!match.includes(r))hide.add(r);
+        tx(()=>{cur.adv=hide;applyFilter(true);});toast(match.length+' dari '+(L.r2-L.r1)+' rekaman ditemukan.');
+      }else{
+        const T=parseAddr(d.querySelector('.t').value);if(!T){toast('Lokasi tujuan tidak valid.');return false;}
+        tx(()=>{[L.r1,...match].forEach((r,i)=>{for(let c=L.c1;c<=L.c2;c++)putCell(cur,T.r+i,T.c+(c-L.c1),cloneCell(cellAt(cur,r,c)));});});
+        select(T.r,T.c,T.r+match.length,T.c+(L.c2-L.c1));
+      }});
+  }
+  function clearFilters(){tx(()=>{if(cur.filter)cur.filter.crit={};cur.adv=null;applyFilter(true);});}
+  /* teks ke kolom */
+  function splitText(t,o){
+    const D=[];if(o.tab)D.push('\t');if(o.semi)D.push(';');if(o.comma)D.push(',');if(o.space)D.push(' ');if(o.other)D.push(...o.other.split(''));
+    if(!D.length)return [t];
+    const out=[];let cur2='',q=false,last=false;
+    for(let i=0;i<t.length;i++){const ch=t[i];
+      if(ch==='"'){if(q&&t[i+1]==='"'){cur2+='"';i++;}else q=!q;continue;}
+      if(!q&&D.includes(ch)){if(o.cons&&last&&cur2==='')continue;out.push(cur2);cur2='';last=true;continue;}
+      cur2+=ch;last=false;}
+    out.push(cur2);return out;
+  }
+  function textToColumns(){
+    const g=expandMerge(limitRange(rg()));
+    if(g.c1!==g.c2){toast('Pilih satu kolom data untuk dipecah.');return;}
+    const samples=[];for(let r=g.r1;r<=Math.min(g.r2,g.r1+4);r++)samples.push(String(cellVal(cur,r,g.c1)??''));
+    const d=dlg('Teks ke Kolom',`<div style="font-weight:600">Pembatas</div><div style="display:flex;gap:12px;flex-wrap:wrap"><label><input type="checkbox" class="o-tab"> Tab</label><label><input type="checkbox" class="o-semi"> Titik koma</label><label><input type="checkbox" class="o-comma" checked> Koma</label><label><input type="checkbox" class="o-space"> Spasi</label><label>Lainnya: <input type="text" class="o-other" maxlength="3" style="width:40px"></label></div><label><input type="checkbox" class="o-cons"> Anggap pembatas berurutan sebagai satu</label><div>Pratinjau:</div><div class="pv" style="border:1px solid #bbb;background:#fff;max-height:130px;overflow:auto;font-size:12px"></div>`,d=>{
+      const o=opts();tx(()=>{for(let r=g.r1;r<=g.r2;r++){const t=String(cellVal(cur,r,g.c1)??'');if(t==='')continue;const parts=splitText(t,o);parts.forEach((p,j)=>{if(g.c1+j>=MAXC)return;const old=cellAt(cur,r,g.c1+j);putCell(cur,r,g.c1+j,mkInput(p,old));});}});});
+    const opts=()=>({tab:d.querySelector('.o-tab').checked,semi:d.querySelector('.o-semi').checked,comma:d.querySelector('.o-comma').checked,space:d.querySelector('.o-space').checked,other:d.querySelector('.o-other').value,cons:d.querySelector('.o-cons').checked});
+    const pv=()=>{const o=opts();d.querySelector('.pv').innerHTML='<table style="border-collapse:collapse">'+samples.map(t=>'<tr>'+splitText(t,o).map(x=>`<td style="border:1px solid #ddd;padding:1px 6px">${esc(x)}</td>`).join('')+'</tr>').join('')+'</table>';};
+    d.addEventListener('input',pv);d.addEventListener('change',pv);pv();
+  }
+  /* isi cepat */
+  function flashFill(){
+    const s=cur.sel,c=s.ac;
+    let sc=-1;for(const cand of [c-1,c+1])if(cand>=0&&cand<MAXC&&hasVal(cur,s.ar,cand)||(cand>=0&&cand<MAXC&&hasVal(cur,s.ar-1,cand))){sc=cand;break;}
+    if(sc<0){toast('Isi Cepat membutuhkan kolom data di sebelah kolom ini.');return;}
+    const txt=(r,cc)=>{const v=cellVal(cur,r,cc);return v===null||v===undefined?'':typeof v==='number'?fmtValue(v,(stOf(r,cc)||{}).fmt).t:String(v);};
+    let top=s.ar;while(top>0&&(hasVal(cur,top-1,sc)))top--;
+    const ex=[];let r=top;
+    for(;r<MAXR&&hasVal(cur,r,sc);r++){const cl=cellAt(cur,r,c);if(cl&&cl.v!==null&&cl.v!==undefined&&(cl.f===undefined||cl.f===null))ex.push(r);else if(ex.length)break;}
+    const exs=ex.filter(rr=>hasVal(cur,rr,sc));
+    if(!exs.length){toast('Ketik contoh hasil di sel pertama kolom ini, lalu jalankan Isi Cepat.');return;}
+    const sec=sc>0?sc-1:sc+1;
+    const words=x=>x.trim().split(/\s+/).filter(Boolean),cap=w=>w?w[0].toUpperCase()+w.slice(1).toLowerCase():w;
+    const T=[];
+    T.push(x=>x.toUpperCase(),x=>x.toLowerCase(),x=>words(x).map(cap).join(' '),x=>x.replace(/\s+/g,''),x=>(x.match(/\d+/g)||[]).join(''),x=>x.replace(/[^A-Za-z\u00C0-\uFFFF]/g,''));
+    for(const k of [0,1,2,3,-1,-2])T.push(x=>{const w=words(x);return k>=0?w[k]:w[w.length+k];});
+    T.push(x=>words(x).map(w=>w[0]).join(''),x=>words(x).map(w=>w[0]).join('').toUpperCase());
+    for(let n=1;n<=8;n++){T.push(x=>x.slice(0,n),x=>x.slice(-n));}
+    for(const sp of ['@',' ','-','/','.',',','_',':','(',')']){
+      T.push(x=>x.includes(sp)?x.split(sp)[0]:undefined,x=>x.includes(sp)?x.slice(x.indexOf(sp)+1):undefined,x=>x.includes(sp)?x.split(sp).pop():undefined,x=>{const p=x.split(sp);return p.length>2?p[1]:undefined;});
+    }
+    T.push(x=>{const w=words(x);return w.length>1?w[w.length-1]+' '+w.slice(0,-1).join(' '):undefined;},x=>{const w=words(x);return w.length>1?w[w.length-1]+', '+w.slice(0,-1).join(' '):undefined;},x=>{const w=words(x);return w.length>1?w.slice(1).join(' ')+' '+w[0]:undefined;});
+    const apply=(f,rr)=>{try{return f(txt(rr,sc),rr);}catch(e){return undefined;}};
+    let fn=null;
+    for(const f of T){if(exs.every(rr=>apply(f,rr)===txt(rr,c))){fn=f;break;}}
+    if(!fn&&sec>=0&&sec<MAXC&&hasVal(cur,exs[0],sec)){
+      for(const sep of ['',' ','-',', ','_','.','/','@',' - '])for(const ord of [0,1]){const f=(x,rr)=>{const a=txt(rr,sc),b=txt(rr,sec);return ord?b+sep+a:a+sep+b;};if(exs.every(rr=>f(null,rr)===txt(rr,c))){fn=f;break;}}
+    }
+    if(!fn){toast('Pola tidak dikenali. Ketik beberapa contoh lagi lalu coba kembali.');return;}
+    let n=0;
+    tx(()=>{for(let rr=top;rr<MAXR&&hasVal(cur,rr,sc);rr++){if(exs.includes(rr))continue;const cl=cellAt(cur,rr,c);if(cl&&cl.v!==null&&cl.v!==undefined)continue;const v=apply(fn,rr);if(v===undefined||v==='')continue;putCell(cur,rr,c,mkInput("'"+v,cl));n++;}});
+    toast(n+' sel diisi.');
+  }
+  /* hapus duplikat */
+  function removeDuplicates(){
+    const g=region();if(g.r1===g.r2&&g.c1===g.c2){toast('Pilih sel di dalam data.');return;}
+    const hdr=guessHeader(g);
+    const d=dlg('Hapus Duplikat',`<label><input type="checkbox" class="hd" ${hdr?'checked':''}> Data saya memiliki header</label><div style="font-weight:600">Kolom yang dibandingkan:</div><div class="cl2 fl"></div>`,d=>{
+      const h=d.querySelector('.hd').checked,cs=[...d.querySelectorAll('.cb:checked')].map(x=>+x.value);
+      if(!cs.length){toast('Pilih minimal satu kolom.');return false;}
+      const r1=g.r1+(h?1:0),seen=new Set(),keep=[];let rem=0;
+      for(let r=r1;r<=g.r2;r++){const k=cs.map(c=>String(cellVal(cur,r,c)??'').toLowerCase()).join('\u0001');if(seen.has(k)){rem++;continue;}seen.add(k);keep.push(r);}
+      if(!rem){toast('Tidak ada nilai duplikat.');return;}
+      tx(()=>{const lines=keep.map(r=>{const l=[];for(let c=g.c1;c<=g.c2;c++)l.push([cellAt(cur,r,c),r]);return l;});
+        lines.forEach((line,i)=>{const R=r1+i;line.forEach(([cl,from],j)=>{let nc=cl;if(cl&&cl.f!==undefined&&cl.f!==null&&R!==from)nc={...cl,f:shiftFormula(cl.f,R-from,0),ast:undefined};putCell(cur,R,g.c1+j,nc||null);});});
+        for(let R=r1+keep.length;R<=g.r2;R++)for(let c=g.c1;c<=g.c2;c++)putCell(cur,R,c,null);});
+      toast(`${rem} nilai duplikat ditemukan dan dihapus; ${keep.length} nilai unik tersisa.`);});
+    const fill=()=>{const h=d.querySelector('.hd').checked;d.querySelector('.cl2').innerHTML=Array.from({length:g.c2-g.c1+1},(_,i)=>`<label><input type="checkbox" class="cb" value="${g.c1+i}" checked> ${esc(h?(String(cellVal(cur,g.r1,g.c1+i)??'')||'Kolom '+colName(g.c1+i)):'Kolom '+colName(g.c1+i))}</label>`).join('');};
+    d.querySelector('.hd').onchange=fill;fill();
+  }
+  /* validasi data */
+  const dvAt=(r,c)=>{for(let i=cur.dv.length-1;i>=0;i--){const x=cur.dv[i];if(r>=x.r1&&r<=x.r2&&c>=x.c1&&c<=x.c2)return x;}return null;};
+  const DVOPS=[['between','Di antara'],['notBetween','Tidak di antara'],['equal','Sama dengan'],['notEqual','Tidak sama dengan'],['gt','Lebih besar dari'],['lt','Lebih kecil dari'],['ge','Lebih besar atau sama dengan'],['le','Lebih kecil atau sama dengan']];
+  const DVTYPES=[['any','Nilai apa pun'],['whole','Bilangan bulat'],['decimal','Desimal'],['list','Daftar'],['date','Tanggal'],['len','Panjang teks'],['custom','Kustom (rumus)']];
+  function dvItems(rule){
+    const l=rule.list||'';
+    if(l[0]==='='){try{const a=parseFormula(l.slice(1));let v=evalAst(a,{wb,sh:cur,cell:{r:rule.r1,c:rule.c1}});if(v instanceof Rng){const out=[];for(let r=v.r1;r<=v.r2;r++)for(let c=v.c1;c<=v.c2;c++){const x=rawVal(wb,v.sh,r,c);if(x!==null&&x!=='')out.push(typeof x==='number'?fmtValue(x,'General').t:String(x));}return out;}return [];}catch(e){return [];}}
+    return l.split(/[;,]/).map(x=>x.trim()).filter(x=>x!=='');
+  }
+  function dvOperand(t,rule,r,c){
+    if(t===''||t==null)return null;if(typeof t==='number')return t;
+    const s=String(t);
+    if(s[0]==='='){try{let v=evalAst(parseFormula(shiftFormula(s.slice(1),r-rule.r1,c-rule.c1)),{wb,sh:cur,cell:{r,c}});if(v instanceof Rng)v=rawVal(wb,v.sh,v.r1,v.c1);return typeof v==='number'?v:null;}catch(e){return null;}}
+    const p=parseInput(s);return typeof p.v==='number'?p.v:null;
+  }
+  function dvCheck(r,c,text){
+    const rule=dvAt(r,c);if(!rule||rule.type==='any')return null;
+    if(text===''||text==null)return rule.blank===false?rule:null;
+    if(text[0]==='='&&rule.type!=='custom')return null;
+    const p=parseInput(text),v=p.v,t=String(text);
+    const cmp=x=>{const a=dvOperand(rule.a,rule,r,c),b=dvOperand(rule.b,rule,r,c);if(a===null)return true;
+      switch(rule.op){case 'between':return b===null?x>=a:x>=Math.min(a,b)&&x<=Math.max(a,b);case 'notBetween':return b===null?x<a:x<Math.min(a,b)||x>Math.max(a,b);case 'equal':return x===a;case 'notEqual':return x!==a;case 'gt':return x>a;case 'lt':return x<a;case 'ge':return x>=a;case 'le':return x<=a;}return true;};
+    let ok=true;
+    switch(rule.type){
+      case 'list':ok=dvItems(rule).some(i=>i.toLowerCase()===t.trim().toLowerCase());break;
+      case 'whole':ok=typeof v==='number'&&Number.isInteger(v)&&cmp(v);break;
+      case 'decimal':case 'date':ok=typeof v==='number'&&cmp(v);break;
+      case 'len':ok=cmp(t.length);break;
+      case 'custom':{const old=cur.cells.get(key(r,c));cur.cells.set(key(r,c),{v:p.v,st:old&&old.st});
+        try{let x=evalAst(parseFormula(shiftFormula(String(rule.a||'').replace(/^=/,''),r-rule.r1,c-rule.c1)),{wb,sh:cur,cell:{r,c}});if(x instanceof Rng)x=rawVal(wb,x.sh,x.r1,x.c1);ok=!isErr(x)&&!!(typeof x==='number'?x:x===true);}catch(e){ok=false;}
+        if(old)cur.cells.set(key(r,c),old);else cur.cells.delete(key(r,c));break;}
+    }
+    return ok?null:rule;
+  }
+  function dvReject(rule,dr,dc){
+    if(rule.showErr===false)return false;
+    const title=rule.errTitle||'Microsoft Excel',msg=rule.errMsg||'Nilai ini tidak sesuai dengan batasan validasi data untuk sel ini.';
+    if(rule.style==='information'){toast(msg);return false;}
+    if(rule.style==='warning'){
+      const d=dlg(esc(title),`<div style="max-width:320px">${esc(msg)}<br><br>Lanjutkan?</div>`,()=>{commitEdit(dr,dc,true);},'Ya');
+      return true;}
+    const d=dlg(esc(title),`<div style="max-width:320px">${esc(msg)}</div>`,()=>{if(ed)(ed.bar?fxi:edEl).focus();},'Coba Lagi',true);
+    const cb=document.createElement('button');cb.textContent='Batal';cb.onclick=()=>{d.remove();cancelEdit();};d.querySelector('.dbt').prepend(cb);
+    return true;
+  }
+  function dvDialog(){
+    const g=expandMerge(limitRange(rg())),ex=dvAt(g.r1,g.c1)||{type:'any',op:'between',a:'',b:'',list:'',blank:true,showIn:true,inTitle:'',inMsg:'',showErr:true,style:'stop',errTitle:'',errMsg:''};
+    const d=dlg('Validasi Data',`<div class="dtabs"><button data-t="s" class="on">Pengaturan</button><button data-t="i">Pesan Input</button><button data-t="e">Peringatan Kesalahan</button></div>
+     <div class="dp s"><div class="r2"><span>Izinkan:</span><select class="ty">${DVTYPES.map(t=>`<option value="${t[0]}">${t[1]}</option>`).join('')}</select><span class="lo">Data:</span><select class="op">${DVOPS.map(t=>`<option value="${t[0]}">${t[1]}</option>`).join('')}</select><span class="la">Minimum:</span><input type="text" class="a"><span class="lb">Maksimum:</span><input type="text" class="b"><span class="ll">Sumber:</span><input type="text" class="l" placeholder="a;b;c atau =$A$1:$A$5"></div><label><input type="checkbox" class="bl"> Abaikan kosong</label></div>
+     <div class="dp i" hidden><label><input type="checkbox" class="si"> Tampilkan pesan input saat sel dipilih</label><div class="r2"><span>Judul:</span><input type="text" class="it"><span>Pesan:</span><textarea class="im" rows="3"></textarea></div></div>
+     <div class="dp e" hidden><label><input type="checkbox" class="se"> Tampilkan peringatan kesalahan setelah data tidak valid dimasukkan</label><div class="r2"><span>Gaya:</span><select class="st"><option value="stop">Stop</option><option value="warning">Peringatan</option><option value="information">Informasi</option></select><span>Judul:</span><input type="text" class="et"><span>Pesan:</span><textarea class="em" rows="3"></textarea></div></div>
+     <div><button class="bt clr" style="margin-top:4px">Hapus Semua</button></div>`,d=>{
+      const ty=d.querySelector('.ty').value;
+      if(ty==='list'&&!d.querySelector('.l').value.trim()){toast('Isi sumber daftar.');return false;}
+      if(!['any','list','custom'].includes(ty)&&d.querySelector('.a').value.trim()===''){toast('Isi nilai batasan.');return false;}
+      const rule={r1:g.r1,c1:g.c1,r2:g.r2,c2:g.c2,type:ty,op:d.querySelector('.op').value,a:d.querySelector('.a').value.trim(),b:d.querySelector('.b').value.trim(),list:d.querySelector('.l').value.trim(),blank:d.querySelector('.bl').checked,showIn:d.querySelector('.si').checked,inTitle:d.querySelector('.it').value,inMsg:d.querySelector('.im').value,showErr:d.querySelector('.se').checked,style:d.querySelector('.st').value,errTitle:d.querySelector('.et').value,errMsg:d.querySelector('.em').value};
+      tx(()=>{cur.dv=cur.dv.filter(x=>x.r2<g.r1||x.r1>g.r2||x.c2<g.c1||x.c1>g.c2);if(ty!=='any')cur.dv.push(rule);});});
+    const q=s=>d.querySelector(s);
+    q('.ty').value=ex.type;q('.op').value=ex.op;q('.a').value=ex.a;q('.b').value=ex.b;q('.l').value=ex.list;q('.bl').checked=ex.blank!==false;q('.si').checked=ex.showIn!==false;q('.it').value=ex.inTitle||'';q('.im').value=ex.inMsg||'';q('.se').checked=ex.showErr!==false;q('.st').value=ex.style||'stop';q('.et').value=ex.errTitle||'';q('.em').value=ex.errMsg||'';
+    const upd=()=>{const t=q('.ty').value,two=['between','notBetween'].includes(q('.op').value);
+      const show=(sel,on)=>{d.querySelectorAll(sel).forEach(e=>e.hidden=!on);};
+      const cmpT=['whole','decimal','date','len'].includes(t);
+      show('.lo,.op',cmpT);show('.la,.a',cmpT||t==='custom');show('.lb,.b',cmpT&&two);show('.ll,.l',t==='list');
+      d.querySelector('.la').textContent=t==='custom'?'Rumus:':two?'Minimum:':'Nilai:';};
+    d.querySelector('.dtabs').onclick=e=>{const b=e.target.closest('button');if(!b)return;d.querySelectorAll('.dtabs button').forEach(x=>x.classList.toggle('on',x===b));d.querySelectorAll('.dp').forEach(p=>p.hidden=!p.classList.contains(b.dataset.t));};
+    d.addEventListener('change',upd);upd();
+    q('.clr').onclick=()=>{tx(()=>{cur.dv=cur.dv.filter(x=>x.r2<g.r1||x.r1>g.r2||x.c2<g.c1||x.c1>g.c2);});d.remove();};
+  }
+  function dvDropdown(btn){
+    const s=cur.sel,rule=dvAt(s.ar,s.ac);if(!rule)return;
+    const items=dvItems(rule),r=btn.getBoundingClientRect();
+    openMenuAt(r.left-120,r.bottom,items.length?items.map(it=>({l:it,i:'',a:()=>{const old=cellAt(cur,s.ar,s.ac);tx(()=>putCell(cur,s.ar,s.ac,mkInput(it,old)));}})):[{l:'(daftar kosong)',dis:true,i:''}],btn);
+  }
+  function dvCircle(on){
+    if(on&&!cur.dv.length){toast('Belum ada aturan validasi data pada lembar ini.');return;}
+    cur.circ=on;schedule();
+  }
+  /* konsolidasi */
+  function consolidate(){
+    const refs=[];
+    const d=dlg('Konsolidasi',`<div class="r2"><span>Fungsi:</span><select class="fn"><option value="SUM">Jumlah</option><option value="COUNT">Hitung</option><option value="AVERAGE">Rata-rata</option><option value="MAX">Maks</option><option value="MIN">Min</option><option value="PRODUCT">Produk</option></select><span>Referensi:</span><span><input type="text" class="rf" placeholder="mis. Sheet2!A1:C5" style="width:190px"> <button class="bt ad">Tambah</button></span></div><div class="fl rl" style="min-height:70px"></div><div style="font-weight:600">Gunakan label di:</div><label><input type="checkbox" class="lt"> Baris atas</label><label><input type="checkbox" class="ll"> Kolom kiri</label><div style="font-size:11px;color:#666">Hasil ditulis mulai dari sel aktif (${addr(cur.sel.ar,cur.sel.ac)}).</div>`,d=>{
+      if(!refs.length){toast('Tambahkan minimal satu referensi.');return false;}
+      const fn=d.querySelector('.fn').value,top=d.querySelector('.lt').checked,left=d.querySelector('.ll').checked;
+      const agg={SUM:v=>v.reduce((a,b)=>a+b,0),COUNT:v=>v.length,AVERAGE:v=>v.reduce((a,b)=>a+b,0)/v.length,MAX:v=>Math.max(...v),MIN:v=>Math.min(...v),PRODUCT:v=>v.reduce((a,b)=>a*b,1)}[fn];
+      const rowKeys=[],colKeys=[],cells=new Map();
+      const addK=(arr,k)=>{if(!arr.includes(k))arr.push(k);};
+      for(const rf of refs){
+        const sh=rf.sh,R=rf;
+        for(let r=R.r1;r<=R.r2;r++)for(let c=R.c1;c<=R.c2;c++){
+          if(top&&r===R.r1&&left&&c===R.c1)continue;
+          if(top&&r===R.r1){addK(colKeys,String(rawVal(wb,sh,r,c)??''));continue;}
+          if(left&&c===R.c1){addK(rowKeys,String(rawVal(wb,sh,r,c)??''));continue;}
+          const v=rawVal(wb,sh,r,c);if(typeof v!=='number')continue;
+          const rk=left?String(rawVal(wb,sh,r,R.c1)??''):'#'+(r-R.r1-(top?1:0));
+          const ck=top?String(rawVal(wb,sh,R.r1,c)??''):'#'+(c-R.c1-(left?1:0));
+          if(!left)addK(rowKeys,rk);if(!top)addK(colKeys,ck);
+          const kk=rk+'\u0001'+ck;if(!cells.has(kk))cells.set(kk,[]);cells.get(kk).push(v);}
+      }
+      const s=cur.sel;
+      tx(()=>{
+        const wr=(r,c,v)=>{const old=cellAt(cur,r,c);putCell(cur,r,c,{v,st:old&&old.st});};
+        const r0=s.ar+(top?1:0),c0=s.ac+(left?1:0);
+        if(top)colKeys.forEach((k,j)=>wr(s.ar,c0+j,k));
+        if(left)rowKeys.forEach((k,i)=>wr(r0+i,s.ac,k));
+        rowKeys.forEach((rk,i)=>colKeys.forEach((ck,j)=>{const v=cells.get(rk+'\u0001'+ck);if(v&&v.length)wr(r0+i,c0+j,agg(v));}));
+      });});
+    const list=d.querySelector('.rl'),draw=()=>{list.innerHTML=refs.map((r,i)=>`<div data-i="${i}" style="display:flex;justify-content:space-between"><span>${esc(r.t)}</span><button class="bt" data-i="${i}">✕</button></div>`).join('')||'<i style="color:#888">Belum ada referensi</i>';};draw();
+    d.querySelector('.ad').onclick=()=>{
+      const t=d.querySelector('.rf').value.trim();let a;try{a=parseFormula(t);if(a.k!=='ref')throw 0;}catch(e){toast('Referensi tidak valid.');return;}
+      const sh=a.sheet?wb.sheets.find(x=>x.name.toLowerCase()===a.sheet.toLowerCase()):cur;if(!sh){toast('Lembar tidak ditemukan.');return;}
+      refs.push({t,sh,r1:a.r1,c1:a.c1,r2:a.r2,c2:a.c2});d.querySelector('.rf').value='';draw();};
+    list.onclick=e=>{const i=e.target.dataset.i;if(i!==undefined&&e.target.tagName==='BUTTON'){refs.splice(+i,1);draw();}};
+    const g=expandMerge(rg());if(!(g.r1===g.r2&&g.c1===g.c2))d.querySelector('.rf').value=rngStr(g);
+  }
+  /* analisis bagaimana-jika: pencarian sasaran */
+  function goalSeek(){
+    const s=cur.sel;
+    dlg('Pencarian Sasaran',`<div class="r2"><span>Setel sel:</span><input type="text" class="a" value="${addr(s.ar,s.ac)}"><span>Ke nilai:</span><input type="text" class="v"><span>Dengan mengubah sel:</span><input type="text" class="c"></div>`,d=>{
+      const A=parseAddr(d.querySelector('.a').value),C=parseAddr(d.querySelector('.c').value),T=num(d.querySelector('.v').value.replace(',','.'));
+      if(!A||!C||isErr(T)){toast('Isi sel dan nilai sasaran dengan benar.');return false;}
+      const fcl=cellAt(cur,A.r,A.c);if(!fcl||fcl.f===undefined||fcl.f===null){toast('Sel yang disetel harus berisi rumus.');return false;}
+      const orig=cellAt(cur,C.r,C.c),k=key(C.r,C.c);
+      const f=x=>{cur.cells.set(k,{v:x,st:orig&&orig.st});wb.ver++;recalc(wb);const y=cellVal(cur,A.r,A.c);return typeof y==='number'?y-T:NaN;};
+      let x0=orig&&typeof orig.v==='number'?orig.v:0,x1=x0+(Math.abs(x0)>1?Math.abs(x0)*.1:1),f0=f(x0),f1=f(x1),sol=null;
+      for(let i=0;i<80&&isFinite(f0)&&isFinite(f1);i++){
+        if(Math.abs(f1)<1e-9){sol=x1;break;}
+        if(f1===f0)break;
+        const x2=x1-f1*(x1-x0)/(f1-f0);x0=x1;f0=f1;x1=x2;f1=f(x1);}
+      if(sol===null&&isFinite(f1)&&Math.abs(f1)<1e-6)sol=x1;
+      if(orig)cur.cells.set(k,orig);else cur.cells.delete(k);wb.ver++;recalc(wb);sync();
+      if(sol===null){dlg('Status Pencarian Sasaran','<div>Pencarian sasaran mungkin tidak menemukan solusi.</div>',null,'OK',true);return;}
+      const solR=+sol.toPrecision(10);
+      dlg('Status Pencarian Sasaran',`<div>Pencarian sasaran dengan sel ${addr(A.r,A.c)} menemukan solusi.<br>Nilai sasaran: ${esc(String(T).replace('.',','))}<br>Nilai saat ini: ${esc(String(solR).replace('.',','))} (sel ${addr(C.r,C.c)})</div>`,()=>{tx(()=>putCell(cur,C.r,C.c,{v:solR,st:orig&&orig.st}));},'OK');
+    },'OK');
+  }
+  /* outline: grup */
+  const ogDepth=(list,g)=>list.filter(h=>h.a<=g.a&&h.b>=g.b).length;
+  function applyOutline(){
+    for(const [ax,list,k] of [[cur.rh,cur.og.rows,'hr'],[cur.cw,cur.og.cols,'hc']]){
+      for(const i of cur.og[k])ax.hid.delete(i);
+      const hs=new Set();for(const g of list)if(g.cl)for(let i=g.a;i<=Math.min(g.b,g.a+200000);i++)hs.add(i);
+      hs.forEach(i=>ax.hid.add(i));cur.og[k]=hs;ax.dirty=true;
+    }
+  }
+  function groupSel(kind){
+    const g=expandMerge(rg());
+    const run=k=>{
+      const a=k==='r'?g.r1:g.c1,b=k==='r'?g.r2:g.c2,list=k==='r'?cur.og.rows:cur.og.cols;
+      if(list.some(x=>x.a===a&&x.b===b)){toast('Rentang ini sudah menjadi grup.');return;}
+      if(ogDepth(list,{a,b})>=8){toast('Tingkat outline maksimum adalah 8.');return;}
+      tx(()=>{list.push({a,b,cl:false});});
+    };
+    if(kind){run(kind);return;}
+    const wholeR=g.c1===0&&g.c2===MAXC-1,wholeC=g.r1===0&&g.r2===MAXR-1;
+    if(wholeR&&!wholeC){run('r');return;}if(wholeC&&!wholeR){run('c');return;}
+    dlg('Grup',`<label><input type="radio" name="k" value="r" checked> Baris</label><label><input type="radio" name="k" value="c"> Kolom</label>`,d=>{run(d.querySelector('input:checked').value);});
+  }
+  function ungroupSel(kind){
+    const g=expandMerge(rg());
+    const run=k=>{
+      const a=k==='r'?g.r1:g.c1,b=k==='r'?g.r2:g.c2,list=k==='r'?cur.og.rows:cur.og.cols;
+      let hit=list.filter(x=>x.a>=a&&x.b<=b);
+      if(!hit.length){const c2=list.filter(x=>x.a<=a&&x.b>=b);if(c2.length){const m=Math.max(...c2.map(x=>ogDepth(list,x)));hit=c2.filter(x=>ogDepth(list,x)===m);}}
+      if(!hit.length){toast('Tidak ada grup pada pilihan ini.');return;}
+      const mx=Math.max(...hit.map(x=>ogDepth(list,x)));
+      tx(()=>{const rm=hit.filter(x=>ogDepth(list,x)===mx);const keep=list.filter(x=>!rm.includes(x));if(k==='r')cur.og.rows=keep;else cur.og.cols=keep;applyOutline();});
+    };
+    if(kind){run(kind);return;}
+    const wholeR=g.c1===0&&g.c2===MAXC-1,wholeC=g.r1===0&&g.r2===MAXR-1;
+    if(wholeR&&!wholeC){run('r');return;}if(wholeC&&!wholeR){run('c');return;}
+    dlg('Pisahkan Grup',`<label><input type="radio" name="k" value="r" checked> Baris</label><label><input type="radio" name="k" value="c"> Kolom</label>`,d=>{run(d.querySelector('input:checked').value);});
+  }
+  function clearOutline(){tx(()=>{cur.og.rows=[];cur.og.cols=[];applyOutline();});}
+  function detail(show){
+    const g=expandMerge(rg());let done=false;
+    for(const [list,p] of [[cur.og.rows,g.r1],[cur.og.cols,g.c1]]){
+      const cand=list.filter(x=>p>=x.a&&p<=x.b+1&&(show?x.cl:!x.cl));
+      if(cand.length){const m=Math.max(...cand.map(x=>ogDepth(list,x)));const tg=cand.find(x=>ogDepth(list,x)===m);tx(()=>{tg.cl=!show;applyOutline();});done=true;break;}
+    }
+    if(!done)toast(show?'Tidak ada grup yang diciutkan pada pilihan ini.':'Pilih sel di dalam grup atau baris ringkasannya.');
+  }
+  function ogClick(v){
+    const [k,i]=v.split(':');
+    if(k==='L'){const n=+i;tx(()=>{for(const x of cur.og.rows)x.cl=ogDepth(cur.og.rows,x)>=n;for(const x of cur.og.cols)x.cl=ogDepth(cur.og.cols,x)>=n;applyOutline();},true);sync();return;}
+    const list=k==='r'?cur.og.rows:cur.og.cols,x=list[+i];if(!x)return;
+    tx(()=>{x.cl=!x.cl;applyOutline();},true);sync();
+  }
+  /* subtotal */
+  function subtotalRows(g){const rows=[];for(let r=g.r1;r<=g.r2;r++){for(let c=g.c1;c<=g.c2;c++){const cl=cellAt(cur,r,c);if(cl&&cl.f&&/^SUBTOTAL\(/i.test(cl.f)){rows.push(r);break;}}}return rows;}
+  function removeSubtotalsRaw(g){
+    const rows=subtotalRows(g);
+    for(let i=rows.length-1;i>=0;i--){structRaw('r',rows[i],1,true);g.r2--;}
+    cur.og.rows=cur.og.rows.filter(x=>!(x.a>=g.r1&&x.b<=g.r2+1));applyOutline();
+  }
+  function subtotalDialog(){
+    const g=region();if(g.r1===g.r2){toast('Pilih sel di dalam data yang memiliki header.');return;}
+    const hn=c=>String(cellVal(cur,g.r1,c)??'')||('Kolom '+colName(c));
+    const d=dlg('Subtotal',`<div class="r2"><span>Pada setiap perubahan di:</span><select class="kc">${Array.from({length:g.c2-g.c1+1},(_,i)=>`<option value="${g.c1+i}">${esc(hn(g.c1+i))}</option>`).join('')}</select><span>Gunakan fungsi:</span><select class="fn"><option value="SUM">Jumlah</option><option value="COUNT">Hitung</option><option value="AVERAGE">Rata-rata</option><option value="MAX">Maks</option><option value="MIN">Min</option><option value="PRODUCT">Produk</option></select></div><div style="font-weight:600">Tambahkan subtotal ke:</div><div class="fl cs"></div><label><input type="checkbox" class="rp" checked> Ganti subtotal yang ada</label><div><button class="bt ra">Hapus Semua</button></div><div style="font-size:11px;color:#666;max-width:320px">Data harus sudah diurutkan menurut kolom yang dipilih.</div>`,d=>{
+      const kc=+d.querySelector('.kc').value,fn=d.querySelector('.fn').value,cols=[...d.querySelectorAll('.cb:checked')].map(x=>+x.value);
+      if(!cols.length){toast('Pilih kolom yang akan disubtotal.');return false;}
+      const FNN={SUM:9,COUNT:2,AVERAGE:1,MAX:4,MIN:5,PRODUCT:6},LBL={SUM:'Jumlah',COUNT:'Hitung',AVERAGE:'Rata-rata',MAX:'Maks',MIN:'Min',PRODUCT:'Produk'};
+      tx(()=>{
+        const G={...g};
+        if(d.querySelector('.rp').checked)removeSubtotalsRaw(G);
+        const groups=[];let a=G.r1+1;
+        for(let r=G.r1+1;r<=G.r2;r++){const k=String(cellVal(cur,r,kc)??'');const nk=r<G.r2?String(cellVal(cur,r+1,kc)??''):null;if(r===G.r2||nk!==k){groups.push({a,b:r,k});a=r+1;}}
+        let off=0;const put=(r,c,o)=>{const old=cellAt(cur,r,c);putCell(cur,r,c,{...o,st:(old&&old.st)||{b:1}});};
+        for(const gr of groups){
+          const pos=gr.b+1+off;structRaw('r',pos,1,false);
+          put(pos,kc,{v:`${gr.k} ${LBL[fn]}`});
+          for(const c of cols)put(pos,c,{f:`SUBTOTAL(${FNN[fn]},${addr(gr.a+off,c)}:${addr(gr.b+off,c)})`});
+          cur.og.rows.push({a:gr.a+off,b:gr.b+off,cl:false});off++;
+        }
+        const gr=G.r2+1+off;structRaw('r',gr,1,false);
+        put(gr,g.c1,{v:`Total ${LBL[fn]}`});
+        for(const c of cols)put(gr,c,{f:`SUBTOTAL(${FNN[fn]},${addr(G.r1+1,c)}:${addr(gr-1,c)})`});
+        cur.og.rows.push({a:G.r1+1,b:gr-1,cl:false});
+        applyOutline();
+      });});
+    const fill=()=>{d.querySelector('.cs').innerHTML=Array.from({length:g.c2-g.c1+1},(_,i)=>`<label><input type="checkbox" class="cb" value="${g.c1+i}" ${typeof cellVal(cur,g.r1+1,g.c1+i)==='number'?'checked':''}> ${esc(hn(g.c1+i))}</label>`).join('');};fill();
+    d.querySelector('.ra').onclick=()=>{tx(()=>{removeSubtotalsRaw({...g});});d.remove();};
+  }
+  Object.assign(acts,{
+    fromtext(){txtin.click();},fromweb:fromWebDialog,conns:connsDialog,
+    refreshall:refreshAll,
+    sortaz(){quickSort(true);},sortza(){quickSort(false);},sortdlg:sortDialog,
+    filter:toggleFilter,fclear:clearFilters,freapply(){tx(()=>applyFilter(true));},fadv:advFilter,
+    t2c:textToColumns,flash:flashFill,rmdup:removeDuplicates,consol:consolidate,
+    dvdlg:dvDialog,goal:goalSeek,
+    grp(){groupSel();},ungrp(){ungroupSel();},subtotal:subtotalDialog,showdet(){detail(true);},hidedet(){detail(false);}
+  });
+  Object.assign(menus,{
+    refresh:()=>[I('Segarkan Semua',refreshAll,'⟳'),I('Segarkan Koneksi',connsDialog,'⛓')],
+    dval:()=>[I('Validasi Data…',dvDialog,'✔'),I('Lingkari Data Tidak Valid',()=>dvCircle(true),'◯'),I('Hapus Lingkaran Validasi',()=>dvCircle(false),'✖',{dis:!cur.circ})],
+    whatif:()=>[{l:'Manajer Skenario…',i:'',dis:true},I('Pencarian Sasaran…',goalSeek,'🎯'),{l:'Tabel Data…',i:'',dis:true}],
+    grpm:()=>[I('Grup…',()=>groupSel(),'▣'),I('Grup Baris',()=>groupSel('r'),'☰'),I('Grup Kolom',()=>groupSel('c'),'▥')],
+    ungrpm:()=>[I('Pisahkan Grup…',()=>ungroupSel(),'▢'),I('Hapus Outline',clearOutline,'✖')]
+  });
+
   /* ===== berkas ===== */
   const hex6=c=>c?c.replace('#','').toUpperCase():null;
   const argb=c=>'FF'+hex6(c);
@@ -3419,6 +3875,25 @@ function mount(root,opts={}){
       }}catch(e){}
       for(const m of (ws.model.merges||[])){const p=m.split(':');const a=parseAddr(p[0]),b=parseAddr(p[1]||p[0]);if(a&&b)s.merges.push({r1:a.r,c1:a.c,r2:b.r,c2:b.c});}
       const af=ws.autoFilter;if(af){let a,b;if(typeof af==='string'){const p=af.split(':');a=parseAddr(p[0]);b=parseAddr(p[1]||p[0]);}else if(af.from&&af.to){a={r:af.from.row-1,c:af.from.column-1};b={r:af.to.row-1,c:af.to.column-1};}if(a&&b)s.filter={r1:a.r,c1:a.c,r2:b.r,c2:b.c,crit:{}};}
+      try{
+        const rl=new Map();ws.eachRow({includeEmpty:false},(row,rn)=>{if(row.outlineLevel)rl.set(rn-1,row.outlineLevel);});
+        const build=(lv,max,hidden)=>{const out=[];for(let L=1;L<=8;L++){let a=null;for(let i=0;i<=max+1;i++){const on=(lv.get(i)||0)>=L;if(on&&a===null)a=i;if(!on&&a!==null){const b=i-1;const hid=[...Array(b-a+1).keys()].every(k=>hidden(a+k));out.push({a,b,cl:hid});a=null;}}}return out;};
+        const mr=Math.max(0,...rl.keys());if(rl.size)s.og.rows=build(rl,mr,i=>s.rh.hid.has(i));
+        const cl2=new Map();for(let c=1;c<=cc;c++){const col=ws.getColumn(c);if(col.outlineLevel)cl2.set(c-1,col.outlineLevel);}
+        if(cl2.size)s.og.cols=build(cl2,Math.max(...cl2.keys()),i=>s.cw.hid.has(i));
+        for(const g of s.og.rows)if(g.cl)for(let i=g.a;i<=g.b;i++)s.og.hr.add(i);
+        for(const g of s.og.cols)if(g.cl)for(let i=g.a;i<=g.b;i++)s.og.hc.add(i);
+      }catch(e){}
+      try{const dvm=ws.dataValidations&&ws.dataValidations.model||{};const arr=[];
+        for(const adr in dvm){const v=dvm[adr],pq=parseRng(adr.split(':')[0]),p=pq&&{r:pq.r1,c:pq.c1};if(!p||!v||!v.type)continue;
+          const t={whole:'whole',decimal:'decimal',list:'list',date:'date',textLength:'len',custom:'custom'}[v.type];if(!t)continue;
+          const op={between:'between',notBetween:'notBetween',equal:'equal',notEqual:'notEqual',greaterThan:'gt',lessThan:'lt',greaterThanOrEqual:'ge',lessThanOrEqual:'le'}[v.operator]||'between';
+          const f=v.formulae||[];const rule={type:t,op,a:'',b:'',list:'',blank:v.allowBlank!==false,showIn:!!v.showInputMessage,inTitle:v.promptTitle||'',inMsg:v.prompt||'',showErr:v.showErrorMessage!==false,style:v.errorStyle||'stop',errTitle:v.errorTitle||'',errMsg:v.error||''};
+          if(t==='list'){const x=String(f[0]??'');rule.list=/^".*"$/.test(x)?x.slice(1,-1).replace(/,/g,';'):'='+x;}
+          else if(t==='custom')rule.a=String(f[0]??'');else{rule.a=f[0]===undefined?'':String(f[0]).replace('.',',');rule.b=f[1]===undefined?'':String(f[1]).replace('.',',');}
+          const last=arr[arr.length-1];const k=JSON.stringify(rule);
+          if(last&&last.k===k&&last.r.c1===p.c&&last.r.c2===p.c&&last.r.r2===p.r-1)last.r.r2=p.r;else arr.push({k,r:{...rule,r1:p.r,r2:p.r,c1:p.c,c2:p.c}});}
+        s.dv=arr.map(x=>x.r);}catch(e){}
       const tc=ws.properties&&ws.properties.tabColor;if(tc)s.tab=colorOf(tc);
       try{for(const cf of (ws.conditionalFormattings||[])){const p=cf.ref.split(':');const a=parseAddr(p[0]),b=parseAddr(p[1]||p[0]);if(!a||!b)continue;
         for(const rl of cf.rules||[]){const fm={};const sty=rl.style||{};if(sty.fill){const c=colorOf(sty.fill.bgColor)||colorOf(sty.fill.fgColor);if(c)fm.fill=c;}if(sty.font){const c=colorOf(sty.font.color);if(c)fm.color=c;if(sty.font.bold)fm.b=1;}
@@ -3454,6 +3929,7 @@ function mount(root,opts={}){
         rows.forEach((row,r)=>row.forEach((t,c)=>{if(t==='')return;const o=mkInput(t.trim()===t?t:t,null);if(o)s.cells.set(key(r,c),o);}));sheets=[s];}
       if(!sheets.length)sheets=[newSheet('Sheet1')];
       if(ext!=='xlsx'&&ext!=='xlsm')wb.names=[];
+      wb.conns=ext==='xlsx'||ext==='xlsm'?[]:[];
       wb.sheets=sheets;wb.active=0;cur=sheets[0];undoS=[];redoS=[];clip=null;dirty=false;
       sheets.forEach(s=>{const rs=[];for(const [k,cl] of s.cells)if(cl.st&&cl.st.wrap)rs.push(Math.floor(k/MAXC));if(rs.length){const save=cur;cur=s;fitRows([...new Set(rs)].filter(r=>!(s.rh.ov.has(r))));cur=save;}if(s.filter){const save=cur;cur=s;applyFilter(true);cur=save;}});
       recalcAll();setName(file.name.replace(/\.(csv|tsv|txt|xlsm)$/i,'.xlsx'));updUndo();drawTabs();
@@ -3461,7 +3937,7 @@ function mount(root,opts={}){
     }catch(e){console.error(e);toast('Tidak bisa membuka berkas: '+e.message);}
   }
   function confirmNew(){
-    const run=()=>{wb.names=[];wb.watch=[];wb.manual=false;wb.sheets=[newSheet('Sheet1')];wb.active=0;cur=wb.sheets[0];undoS=[];redoS=[];clip=null;dirty=false;setName('Buku1.xlsx');recalcAll();updUndo();drawTabs();vp.scrollLeft=0;vp.scrollTop=0;select(0,0);};
+    const run=()=>{wb.conns=[];wb.names=[];wb.watch=[];wb.manual=false;wb.sheets=[newSheet('Sheet1')];wb.active=0;cur=wb.sheets[0];undoS=[];redoS=[];clip=null;dirty=false;setName('Buku1.xlsx');recalcAll();updUndo();drawTabs();vp.scrollLeft=0;vp.scrollTop=0;select(0,0);};
     if(dirty)confirmDlg('Perubahan belum disimpan akan hilang. Lanjutkan membuat buku kerja baru?',run);else run();
   }
   const dl=(blob,fn)=>{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fn;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast('Tersimpan: '+fn);};
@@ -3501,6 +3977,17 @@ function mount(root,opts={}){
             ws.addImage(id,{tl:{col:cc+(o.x-s.cw.pos(cc))/Math.max(1,s.cw.size(cc)),row:rr+(o.y-s.rh.pos(rr))/Math.max(1,s.rh.size(rr))},ext:{width:o.w,height:o.h}});}catch(e){unsup++;}
         }
         unsup+=s.spark.length;
+        for(const d of s.dv){
+          const dvR={type:{whole:'whole',decimal:'decimal',list:'list',date:'date',len:'textLength',custom:'custom'}[d.type],allowBlank:d.blank!==false,showErrorMessage:d.showErr!==false,errorStyle:d.style||'stop',errorTitle:d.errTitle||'',error:d.errMsg||'',showInputMessage:d.showIn!==false&&!!(d.inMsg||d.inTitle),promptTitle:d.inTitle||'',prompt:d.inMsg||''};
+          if(!dvR.type)continue;
+          if(d.type==='list'){dvR.formulae=[d.list[0]==='='?d.list.slice(1):'"'+d.list.replace(/;/g,',')+'"'];}
+          else if(d.type==='custom')dvR.formulae=[String(d.a).replace(/^=/,'')];
+          else{dvR.operator=({between:'between',notBetween:'notBetween',equal:'equal',notEqual:'notEqual',gt:'greaterThan',lt:'lessThan',ge:'greaterThanOrEqual',le:'lessThanOrEqual'})[d.op]||'between';
+            const fv=v=>{const n=parseFloat(String(v).replace(',','.'));return isNaN(n)?String(v).replace(/^=/,''):n;};dvR.formulae=[fv(d.a)];if(dvR.operator==='between'||dvR.operator==='notBetween')dvR.formulae.push(fv(d.b));}
+          let n=0;for(let r=d.r1;r<=d.r2&&n<20000;r++)for(let c=d.c1;c<=d.c2&&n<20000;c++,n++)try{ws.getCell(r+1,c+1).dataValidation={...dvR};}catch(e){}
+        }
+        for(const g of (s.og?s.og.rows:[])){for(let r=g.a;r<=Math.min(g.b,g.a+100000);r++){const row=ws.getRow(r+1);row.outlineLevel=(row.outlineLevel||0)+1;}}
+        for(const g of (s.og?s.og.cols:[])){for(let c=g.a;c<=Math.min(g.b,g.a+2000);c++){const col=ws.getColumn(c+1);col.outlineLevel=(col.outlineLevel||0)+1;}}
         for(const m of s.merges)try{ws.mergeCells(m.r1+1,m.c1+1,m.r2+1,m.c2+1);}catch(e){}
         if(s.filter)ws.autoFilter={from:{row:s.filter.r1+1,column:s.filter.c1+1},to:{row:s.filter.r2+1,column:s.filter.c2+1}};
         for(const rl of s.cf){
@@ -3564,6 +4051,7 @@ function mount(root,opts={}){
   /* ===== event ===== */
   root.addEventListener('mousedown',e=>{if(e.target.closest('.b,.tab,.stbar button,.gal button,.gmore button,.fb,.shbar button,.shadd')){e.preventDefault();}});
   root.addEventListener('click',e=>{
+    const ogb=e.target.closest('[data-og]');if(ogb){ogClick(ogb.dataset.og);return;}
     const t=e.target.closest('[data-a],[data-tab]');
     if(!t){const sh=e.target.closest('[data-sh]');if(sh&&!e.target.closest('input'))switchSheet(+sh.dataset.sh);return;}
     if(t.dataset.tab){
