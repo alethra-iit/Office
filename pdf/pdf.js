@@ -11,10 +11,15 @@ const CDN={
   pptx:'https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js',
   pdfenc:'https://cdn.jsdelivr.net/npm/pdf-lib-plus-encrypt@1.1.0/dist/pdf-lib-plus-encrypt.min.js'
 };
+const LOCAL={jszip:'lib/jszip.min.js',pptx:'lib/pptxgen.bundle.js'};
 const libs={};
 function lib(n,test){
   if(test()) return Promise.resolve();
-  return libs[n]||(libs[n]=new Promise((ok,err)=>{const s=document.createElement('script');s.src=CDN[n];s.onload=ok;s.onerror=()=>{delete libs[n];err(new Error('Gagal memuat '+n));};document.head.appendChild(s);}));
+  return libs[n]||(libs[n]=new Promise((ok,err)=>{
+    const urls=[].concat(LOCAL[n]||[],CDN[n]);let i=0;
+    const next=()=>{if(i>=urls.length){delete libs[n];return err(new Error('Gagal memuat '+n+' (cek koneksi internet / pemblokir iklan)'));}
+      const s=document.createElement('script');s.src=urls[i++];s.onload=ok;s.onerror=()=>{s.remove();next();};document.head.appendChild(s);};
+    next();}));
 }
 /* pdf-lib biasa tidak bisa mengenkripsi; fork "plus-encrypt" dimuat terpisah tanpa menimpa window.PDFLib */
 let PLE=null;
