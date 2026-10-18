@@ -913,6 +913,10 @@ const CSS=`
 .xl .ogb{position:absolute;width:12px;height:12px;border:1px solid #7f7f7f;background:#fff;font-size:11px;line-height:8px;padding:0;cursor:pointer;display:grid;place-items:center;color:#333}
 .xl .ogb:hover{background:#d3e8d9}
 .xl .dvtip{background:#ffffe1;border:1px solid #888;padding:4px 7px;font-size:11px;max-width:220px;pointer-events:none;z-index:6;color:#222;box-shadow:1px 1px 3px rgba(0,0,0,.25)}
+.xl .cmt{position:absolute;width:0;height:0;border-top:6px solid #e53935;border-left:6px solid transparent;pointer-events:none;z-index:2}
+.xl .cbox{position:absolute;background:#ffffe1;border:1px solid #666;padding:4px 6px;font-size:11px;color:#222;z-index:4;pointer-events:none;box-shadow:2px 2px 4px rgba(0,0,0,.25);white-space:pre-wrap;word-break:break-word}
+.xl .trk{position:absolute;border:2px solid #4a86e8;pointer-events:none;z-index:2}
+.xl .trk::before{content:"";position:absolute;left:0;top:0;border-top:6px solid #4a86e8;border-right:6px solid transparent}
 .xl.rc .ribbon{display:none}
 @media (pointer:coarse){
  .xl .qat{height:36px}.xl .qat button{width:34px;height:32px;font-size:16px}
@@ -1154,6 +1158,13 @@ RIB.data=
  G('Urutkan & Filter',`<div class="rows">${B('<small style="line-height:1;font-size:10px">A↓<br>Z</small>','Urutkan A ke Z','sortaz')}${B('<small style="line-height:1;font-size:10px">Z↓<br>A</small>','Urutkan Z ke A','sortza')}</div>`+B('⇅','Urutkan','sortdlg','big','Urutkan')+B('⧩','Filter','filter','big','Filter')+`<div class="rows t3">${B('✖','Bersihkan','fclear','rw','Bersihkan')}${B('⟳','Terapkan Ulang','freapply','rw','Terapkan Ulang')}${B('⧩','Lanjutan','fadv','rw','Lanjutan')}</div>`)+
  G('Alat Data',B('▥','Teks ke Kolom','t2c','big','Teks ke<br>Kolom')+B('⚡','Isi Cepat (Ctrl+E)','flash','big','Isi<br>Cepat')+B('⊟','Hapus Duplikat','rmdup','big','Hapus<br>Duplikat')+B('✔','Validasi Data','m:dval','big','Validasi<br>Data',1)+B('⇥','Konsolidasi','consol','big','Konsolidasi')+B('?','Analisis Bagaimana-Jika','m:whatif','big','Analisis<br>Bagaimana-Jika',1)+BD('⇄','Hubungan','Hubungan'))+
  G('Kerangka',B('▣','Grup','m:grpm','big','Grup',1)+B('▢','Pisahkan Grup','m:ungrpm','big','Pisahkan<br>Grup',1)+B('Σ','Subtotal','subtotal','big','Subtotal')+`<div class="rows t3">${B('＋','Tampilkan Detail','showdet','rw','Tampilkan Detail')}${B('－','Sembunyikan Detail','hidedet','rw','Sembunyikan Detail')}</div>`);
+RIB.review=
+ G('Pemeriksaan',BD('ABC','Ejaan')+BD('🔎','Riset')+BD('📖','Tesaurus'))+
+ G('Bahasa',BD('🌐','Terjemahkan'))+
+ G('Komentar',B('🗨','Komentar Baru','cmnew','big','Komentar<br>Baru')+B('✖','Hapus Komentar','cmdel','big','Hapus')+B('◀','Komentar Sebelumnya','cmprev','big','Sebelumnya')+B('▶','Komentar Berikutnya','cmnext','big','Berikutnya')+
+   `<div class="rows t3">${B('🗨','Tampilkan/Sembunyikan Komentar','cmshow','rw','Tampilkan/Sembunyikan Komentar')}${B('🗨','Tampilkan Semua Komentar','cmall','rw','Tampilkan Semua Komentar')}<button class="b rw" disabled title="Tampilkan Tinta (belum tersedia)"><em>✎</em><span>Tampilkan Tinta</span></button></div>`)+
+ G('Perubahan',B('🔒','Lindungi Lembar','protsheet','big','Lindungi<br>Lembar')+B('🔒','Lindungi Buku Kerja','protwb','big','Lindungi<br>Buku Kerja')+BD('⇄','Bagikan Buku Kerja','Bagikan<br>Buku Kerja')+
+   `<div class="rows t3"><button class="b rw" disabled title="Lindungi dan Bagikan Buku Kerja (belum tersedia)"><em>🔒</em><span>Lindungi dan Bagikan Buku Kerja</span></button>${B('▦','Izinkan Pengguna Mengedit Rentang','allowr','rw','Izinkan Pengguna Mengedit Rentang')}${B('✎','Lacak Perubahan','m:track','rw','Lacak Perubahan',1)}</div>`);
 const SOON='<div class="soon">Menu ini akan dibuat pada tahap berikutnya.</div>';
 
 const PAPER={A4:[210,297],A3:[297,420],A5:[148,210],Letter:[215.9,279.4],Legal:[215.9,355.6]};
@@ -1203,11 +1214,11 @@ function mount(root,opts={}){
   const cornerEl=$('.corner'),nb=$('.nb'),fxi=$('.fx'),fd=$('.find');
 
   /* ===== model ===== */
-  const wb={sheets:[],active:0,ver:0,circ:false,font:'Calibri',theme:0,names:[],conns:[],manual:false,stale:false,recent:['SUM','AVERAGE','IF','COUNT','MAX','MIN','VLOOKUP','TODAY','ROUND','CONCATENATE'],watch:[]};
+  const wb={sheets:[],active:0,ver:0,circ:false,font:'Calibri',theme:0,names:[],conns:[],track:false,changes:[],trackPause:false,protStruct:null,manual:false,stale:false,recent:['SUM','AVERAGE','IF','COUNT','MAX','MIN','VLOOKUP','TODAY','ROUND','CONCATENATE'],watch:[]};
   let cur=null,Z=1,name='Buku1.xlsx',showGrid=true,showHead=true;
-  let ed=null,clip=null,pointing=null,painting=null,tabStart=null,selObj=null,selSet=new Set(),selpEl=null,watchEl=null,watchSel=-1,gutR=0,gutC=0;
+  let ed=null,clip=null,pointing=null,painting=null,tabStart=null,selObj=null,selSet=new Set(),selpEl=null,watchEl=null,watchSel=-1,gutR=0,gutC=0,txStruct=false;
   let undoS=[],redoS=[],dirty=false;
-  const newSheet=n=>({name:n,cells:new Map(),cw:new Axis(DW,MAXC),rh:new Axis(DH,MAXR),merges:[],cf:[],filter:null,tab:null,objs:[],spark:[],og:{rows:[],cols:[],hr:new Set(),hc:new Set()},dv:[],adv:null,circ:false,grid:true,head:true,bg:null,page:newPage(),
+  const newSheet=n=>({name:n,cells:new Map(),cw:new Axis(DW,MAXC),rh:new Axis(DH,MAXR),merges:[],cf:[],filter:null,tab:null,objs:[],spark:[],cm:[],prot:null,allow:[],showAllCm:false,og:{rows:[],cols:[],hr:new Set(),hc:new Set()},dv:[],adv:null,circ:false,grid:true,head:true,bg:null,page:newPage(),
     sel:{ar:0,ac:0,fr:0,fc:0},sx:0,sy:0});
   const uniqueName=(base,except)=>{let n=base,i=1;while(wb.sheets.some(s=>s!==except&&s.name.toLowerCase()===n.toLowerCase()))n=base.replace(/\d+$/,'')+(++i);return n;};
   const DF=()=>wb.font||'Calibri';
@@ -1234,7 +1245,7 @@ function mount(root,opts={}){
   const rawText=cell=>!cell?'':cell.f!==undefined&&cell.f!==null?'='+cell.f:cell.v===null||cell.v===undefined?'':typeof cell.v==='boolean'?(cell.v?'TRUE':'FALSE'):typeof cell.v==='number'?(isDateCode(cell.st&&cell.st.fmt||'')?fmtValue(cell.v,cell.st.fmt).t:String(cell.v).replace('.',',')):String(cell.v);
   const recalcAll=()=>{wb.ver++;if(wb.manual){wb.stale=true;updCalcLabel();return;}recalc(wb);};
   const updCalcLabel=()=>{const e=$('.calcs');if(e)e.textContent=wb.manual&&wb.stale?'Hitung':'';};
-  function shotSheet(s){return {name:s.name,cells:new Map(s.cells),cw:s.cw.clone(),rh:s.rh.clone(),merges:s.merges.map(m=>({...m})),cf:[...s.cf],filter:s.filter?{...s.filter,crit:{...s.filter.crit}}:null,tab:s.tab,og:s.og?{rows:s.og.rows.map(g=>({...g})),cols:s.og.cols.map(g=>({...g})),hr:new Set(s.og.hr),hc:new Set(s.og.hc)}:{rows:[],cols:[],hr:new Set(),hc:new Set()},dv:(s.dv||[]).map(d=>({...d})),adv:s.adv?new Set(s.adv):null,circ:s.circ,grid:s.grid,showF:s.showF,head:s.head,bg:s.bg,page:JSON.parse(JSON.stringify(s.page||newPage())),objs:(s.objs||[]).map(o=>({...o,src:o.src&&typeof o.src==='object'?{...o.src}:o.src})),spark:(s.spark||[]).map(o=>({...o,src:{...o.src}})),sel:{...s.sel}};}
+  function shotSheet(s){return {name:s.name,cells:new Map(s.cells),cw:s.cw.clone(),rh:s.rh.clone(),merges:s.merges.map(m=>({...m})),cf:[...s.cf],filter:s.filter?{...s.filter,crit:{...s.filter.crit}}:null,tab:s.tab,cm:(s.cm||[]).map(x=>({...x})),prot:s.prot?JSON.parse(JSON.stringify(s.prot)):null,allow:(s.allow||[]).map(x=>({...x})),showAllCm:s.showAllCm,og:s.og?{rows:s.og.rows.map(g=>({...g})),cols:s.og.cols.map(g=>({...g})),hr:new Set(s.og.hr),hc:new Set(s.og.hc)}:{rows:[],cols:[],hr:new Set(),hc:new Set()},dv:(s.dv||[]).map(d=>({...d})),adv:s.adv?new Set(s.adv):null,circ:s.circ,grid:s.grid,showF:s.showF,head:s.head,bg:s.bg,page:JSON.parse(JSON.stringify(s.page||newPage())),objs:(s.objs||[]).map(o=>({...o,src:o.src&&typeof o.src==='object'?{...o.src}:o.src})),spark:(s.spark||[]).map(o=>({...o,src:{...o.src}})),sel:{...s.sel}};}
   const snapshot=()=>({sheets:wb.sheets.map(shotSheet),active:wb.active,names:wb.names.map(n=>({...n,ast:undefined,depth:0}))});
   function restore(sn){
     wb.sheets=sn.sheets.map(shotSheet);if(sn.names)wb.names=sn.names.map(n=>({...n,ast:undefined}));wb.active=Math.min(sn.active,wb.sheets.length-1);
@@ -1244,6 +1255,7 @@ function mount(root,opts={}){
   function tx(fn,quiet){ /* transaksi: simpan keadaan sebelum perubahan untuk undo */
     const s=snapshot();
     try{fn();}catch(e){console.error(e);toast('Terjadi kesalahan: '+e.message);return false;}
+    if(!txGuard(s))return false;
     undoS.push(s);if(undoS.length>60)undoS.shift();redoS=[];dirty=true;
     recalcAll();if(!quiet)sync();updUndo();return true;
   }
@@ -1460,6 +1472,17 @@ function mount(root,opts={}){
     }
     for(const m of mm){if(m.r2<rs||m.r1>r1||m.c2<cs||m.c1>c1)continue;cellOut(m.r1,m.c1,m.r2,m.c2);}
     html+=bgH+txH;
+    for(const cm of cur.cm){
+      if(cm.r<r0||cm.r>r1||cm.c<c0||cm.c>c1)continue;const w=cwid(cm.c),h=rhei(cm.r);if(w<=0||h<=0)continue;
+      const x=cx(cm.c)-sl,y=ry(cm.r)-st0;
+      html+=`<div class="cmt" style="left:${x+w-6}px;top:${y}px"></div>`;
+      if(cm.show||cur.showAllCm){const bw=Math.round(cm.w*Z),bx=x+w+16,by=y-4;
+        html+=`<svg style="position:absolute;left:0;top:0;pointer-events:none;z-index:4" width="${W}" height="${H}"><line x1="${x+w-2}" y1="${y+2}" x2="${bx}" y2="${by+10}" stroke="#d33" stroke-width="1"/></svg><div class="cbox" style="left:${bx}px;top:${by}px;width:${bw}px;min-height:${Math.round(cm.h*Z)}px"><b>${esc(cm.author)}:</b><br>${esc(cm.text)}</div>`;}
+    }
+    if(wb.changes.length)for(const ch of wb.changes){
+      if(ch.sh!==cur.name||ch.r<r0||ch.r>r1||ch.c<c0||ch.c>c1)continue;const w=cwid(ch.c),h=rhei(ch.r);if(w<=0||h<=0)continue;
+      html+=`<div class="trk" style="left:${cx(ch.c)-sl}px;top:${ry(ch.r)-st0}px;width:${w-1}px;height:${h-1}px"></div>`;
+    }
     for(const sp of cur.spark){
       if(sp.r<r0||sp.r>r1||sp.c<c0||sp.c>c1)continue;
       const w=cwid(sp.c),h=rhei(sp.r);if(w<=0||h<=0)continue;
@@ -1562,6 +1585,10 @@ function mount(root,opts={}){
     setSel2('font',st.font||DF());setSel2('size',st.sz||11);
     const k=fmtKey(st.fmt||'General');setSel2('nfmt',k||'custom');
     refreshLayout();
+    {const hereCm=cmAt(s.ar,s.ac),sd=(a,v)=>{const b=root.querySelector(`[data-a="${a}"]`);if(b)b.disabled=!!v;};
+      sd('cmdel',!hereCm);sd('cmshow',!hereCm);sd('cmprev',!cur.cm.length);sd('cmnext',!cur.cm.length);T('cmshow',hereCm&&hereCm.show);T('cmall',cur.showAllCm);
+      const ps=root.querySelector('[data-a=protsheet] span');if(ps)ps.innerHTML=cur.prot?'Cabut Proteksi<br>Lembar':'Lindungi<br>Lembar';
+      const pw=root.querySelector('[data-a=protwb] span');if(pw)pw.innerHTML=wb.protStruct?'Cabut Proteksi<br>Buku Kerja':'Lindungi<br>Buku Kerja';}
     const sf=root.querySelector('[data-a=showf]');if(sf)sf.classList.toggle('on',!!cur.showF);
     if(watchEl)renderWatch();
     if(!document.activeElement||document.activeElement!==nb){const nn=nameOfSel();if(nn)nb.value=nn;}
@@ -1588,7 +1615,7 @@ function mount(root,opts={}){
       else if(g.r1===0&&g.r2===MAXR-1&&g.c1===g.c2)nb.value=`${colName(g.c1)}K`;
       if(g.c1===0&&g.c2===MAXC-1&&g.r1===g.r2)nb.value=addr(s.ar,s.ac);
     }
-    if(!ed){const m=mergeAt(s.ar,s.ac);fxi.value=rawText(cellAt(cur,m?m.r1:s.ar,m?m.c1:s.ac));}
+    if(!ed){const m=mergeAt(s.ar,s.ac);const fc=cellAt(cur,m?m.r1:s.ar,m?m.c1:s.ac);fxi.value=cur.prot&&fc&&fc.st&&fc.st.hide&&fc.f!=null?'':rawText(fc);}
     refreshRibbon();updStatus();schedule();
   }
   /* ===== editor sel ===== */
@@ -1597,6 +1624,7 @@ function mount(root,opts={}){
   function startEdit(r,c,init,fromBar){
     if(ed)return;
     const m=mergeAt(r,c);if(m){r=m.r1;c=m.c1;}
+    if(cur.prot&&isLocked(cur,r,c)){toast(protMsg);return;}
     const cell=cellAt(cur,r,c);
     reveal(r,c);
     ed={r,c,text:init!==undefined?init:rawText(cell),mode:init!==undefined?'enter':'edit',bar:!!fromBar};
@@ -1864,6 +1892,7 @@ function mount(root,opts={}){
       e.preventDefault();if(ed&&!commitEdit())return;vp.focus({preventScroll:true});
       const o=cur.objs.find(q=>q.id===ob.dataset.o);
       if(o){
+        if(cur.prot&&!cur.prot.o.objects){selSet=new Set([o.id]);selObj=o.id;sync();return;}
         if(e.shiftKey){if(selSet.has(o.id)){selSet.delete(o.id);selObj=[...selSet].pop()||null;sync();return;}selSet.add(o.id);selObj=o.id;}
         else if(!selSet.has(o.id)){selSet=new Set([o.id]);selObj=o.id;}else selObj=o.id;
         drag={kind:'obj',o,mode:e.target.dataset.orz?'rz':'mv',x0:e.clientX,y0:e.clientY,ox:o.x,oy:o.y,ow:o.w,oh:o.h,group:cur.objs.filter(q=>selSet.has(q.id)).map(q=>({o:q,ox:q.x,oy:q.y})),snap:snapshot(),moved:false};
@@ -2021,7 +2050,7 @@ function mount(root,opts={}){
       if(ed&&!commitEdit())return;
       e.preventDefault();closePop();vp.focus({preventScroll:true});
       const h=hdrHit(e,kind);
-      if(h.edge!==null){rsz={kind,i:h.edge,start:kind==='c'?e.clientX:e.clientY,orig:(kind==='c'?cur.cw:cur.rh).size(h.edge),snap:snapshot(),moved:false};el.setPointerCapture(e.pointerId);return;}
+      if(h.edge!==null){if(protBlock(kind==='c'?'formatCols':'formatRows'))return;rsz={kind,i:h.edge,start:kind==='c'?e.clientX:e.clientY,orig:(kind==='c'?cur.cw:cur.rh).size(h.edge),snap:snapshot(),moved:false};el.setPointerCapture(e.pointerId);return;}
       const s=cur.sel;
       if(kind==='c'){drag={kind:'col',c0:e.shiftKey?s.ac:h.i};if(e.shiftKey){s.fc=h.i;s.fr=MAXR-1;}else{s.ar=0;s.ac=h.i;s.fr=MAXR-1;s.fc=h.i;}}
       else{drag={kind:'row',r0:e.shiftKey?s.ar:h.i};if(e.shiftKey){s.fr=h.i;s.fc=MAXC-1;}else{s.ac=0;s.ar=h.i;s.fc=MAXC-1;s.fr=h.i;}}
@@ -2188,7 +2217,7 @@ function mount(root,opts={}){
   /* ===== penerapan gaya ===== */
   const cleanSt=st=>{
     const o={};
-    for(const k in st){const v=st[k];if(v===undefined||v===null||v===false)continue;
+    for(const k in st){const v=st[k];if(v===undefined||v===null||(v===false&&k!=='lock'))continue;
       if(k==='bd'){const b={};for(const s of SIDES)if(v[s])b[s]=v[s];if(Object.keys(b).length)o.bd=b;continue;}
       if(k==='fmt'&&v==='General')continue;if(k==='ha'&&v==='general')continue;if(k==='va'&&v==='bottom'&&false)continue;if(k==='ind'&&!v)continue;if(k==='rot'&&!v)continue;
       o[k]=v;}
@@ -2240,6 +2269,7 @@ function mount(root,opts={}){
 
   /* ===== gabung sel ===== */
   function mergeSel(kind){
+    if(protBlock('formatCells'))return;
     const g=expandMerge(rg());
     const same=cur.merges.find(m=>m.r1===g.r1&&m.r2===g.r2&&m.c1===g.c1&&m.c2===g.c2);
     if(kind==='un'||(same&&kind==='center')){
@@ -2303,7 +2333,10 @@ function mount(root,opts={}){
     if(ax.manual)ax.manual=new Set([...ax.manual].map(f).filter(j=>j>=0));
     ax.dirty=true;
   }
-  function structOp(kind,at,n,del){tx(()=>structRaw(kind,at,n,del));}
+  function structOp(kind,at,n,del){
+    if(cur.prot){const f=(del?'del':'ins')+(kind==='r'?'Rows':'Cols');if(protBlock(f))return;}
+    txStruct=true;try{tx(()=>structRaw(kind,at,n,del));}finally{txStruct=false;}
+  }
   function structRaw(kind,at,n,del){
     {
       adjRefsAll(kind,at,n,del,cur);
@@ -2333,11 +2366,13 @@ function mount(root,opts={}){
       if(!del){if(kind==='r'){s.ar=at;s.fr=at+n-1;s.ac=0;s.fc=MAXC-1;}else{s.ac=at;s.fc=at+n-1;s.ar=0;s.fr=MAXR-1;}}
       else{if(kind==='r'){s.fr=s.ar=Math.min(at,MAXR-1);}else{s.fc=s.ac=Math.min(at,MAXC-1);}}
       cur.dv=cur.dv.map(d=>adj(d,lo,hi)).filter(Boolean);
+      cur.cm=cur.cm.map(x=>kind==='r'?adj(x,'r','r'):adj(x,'c','c')).filter(Boolean);
       {const ol=kind==='r'?cur.og.rows:cur.og.cols;const nl=ol.map(g=>adj(g,'a','b')).filter(Boolean);if(kind==='r')cur.og.rows=nl;else cur.og.cols=nl;applyOutline();}
       if(cur.filter)applyFilter(true);
     }
   }
   function shiftCells(dir,ins){ /* geser sebagian sel (tanpa menyesuaikan rumus lain) */
+    if(protBlock(null))return;
     const g=expandMerge(rg());const h=g.r2-g.r1+1,w=g.c2-g.c1+1;
     tx(()=>{
       const nm=new Map(cur.cells);
@@ -2351,6 +2386,7 @@ function mount(root,opts={}){
     });
   }
   function setHidden(kind,on){
+    if(protBlock(kind==='r'?'formatRows':'formatCols'))return;
     const g=rg();tx(()=>{
       const ax=kind==='r'?cur.rh:cur.cw,a=kind==='r'?g.r1:g.c1,b=kind==='r'?g.r2:g.c2;
       if(on){for(let i=a;i<=b&&i-a<5000;i++)ax.hid.add(i);}
@@ -2375,6 +2411,7 @@ function mount(root,opts={}){
   function sortRange(g,cols,asc,header){
     const keys=Array.isArray(cols)?cols:[{col:cols,asc}];
     const r1=g.r1+(header?1:0);if(r1>=g.r2)return;
+    if(protBlock('sort'))return;
     tx(()=>{
       const rows=[];
       for(let r=r1;r<=g.r2;r++){const line=[];for(let c=g.c1;c<=g.c2;c++)line.push(cellAt(cur,r,c));rows.push({r,line,k:keys.map(q=>cellVal(cur,r,q.col))});}
@@ -2399,6 +2436,7 @@ function mount(root,opts={}){
     return allText;
   }
   function toggleFilter(){
+    if(protBlock('filter'))return;
     if(cur.filter){tx(()=>{cur.filter=null;cur.adv=null;cur.rh.fil=new Set();cur.rh.dirty=true;});return;}
     const g=region();if(g.r1===g.r2&&g.c1===g.c2){toast('Pilih sel di dalam data untuk menerapkan filter.');return;}
     tx(()=>{cur.filter={r1:g.r1,c1:g.c1,r2:g.r2,c2:g.c2,crit:{}};});
@@ -2501,7 +2539,7 @@ function mount(root,opts={}){
   /* ===== lembar ===== */
   function drawTabs(){
     const box=$('.shs');
-    box.innerHTML=wb.sheets.map((s,i)=>`<div class="sht${i===wb.active?' on':''}" data-sh="${i}"${s.tab?` style="border-bottom:3px solid ${s.tab}"`:''}>${esc(s.name)}</div>`).join('');
+    box.innerHTML=wb.sheets.map((s,i)=>`<div class="sht${i===wb.active?' on':''}" data-sh="${i}"${s.tab?` style="border-bottom:3px solid ${s.tab}"`:''}>${s.prot?'🔒 ':''}${esc(s.name)}</div>`).join('');
     const on=box.querySelector('.on');if(on)on.scrollIntoView({block:'nearest',inline:'nearest'});
   }
   function switchSheet(i){
@@ -2512,10 +2550,12 @@ function mount(root,opts={}){
     vp.scrollLeft=cur.sx;vp.scrollTop=cur.sy;schedule();
   }
   function addSheet(){
+    if(sbBlock())return;
     tx(()=>{const s=newSheet(uniqueName('Sheet'+(wb.sheets.length+1)));wb.sheets.splice(wb.active+1,0,s);wb.active++;cur=s;},true);
     drawTabs();sync();
   }
   function renameSheet(i){
+    if(sbBlock())return;
     const el=$(`.sht[data-sh="${i}"]`);if(!el)return;const s=wb.sheets[i];
     el.innerHTML=`<input value="${esc(s.name)}" maxlength="31">`;const inp=el.querySelector('input');inp.focus();inp.select();
     let done=false;
@@ -2528,11 +2568,13 @@ function mount(root,opts={}){
     inp.onblur=()=>fin(true);
   }
   function deleteSheet(i){
+    if(sbBlock())return;
     if(wb.sheets.length<2){toast('Buku kerja harus memiliki minimal satu lembar.');return;}
     const run=()=>{tx(()=>{wb.sheets.splice(i,1);wb.active=Math.min(wb.active,wb.sheets.length-1);if(i<wb.active||i===wb.active)wb.active=Math.max(0,Math.min(i,wb.sheets.length-1));cur=wb.sheets[wb.active];},true);drawTabs();sync();};
     const s=wb.sheets[i];if(s.cells.size)confirmDlg(`Hapus lembar "${s.name}" secara permanen? Tindakan ini bisa dibatalkan dengan Urungkan.`,run);else run();
   }
   function moveSheet(i,d){
+    if(sbBlock())return;
     const j=i+d;if(j<0||j>=wb.sheets.length)return;
     tx(()=>{const s=wb.sheets.splice(i,1)[0];wb.sheets.splice(j,0,s);wb.active=j;cur=s;},true);drawTabs();sync();
   }
@@ -2639,11 +2681,11 @@ function mount(root,opts={}){
     fnext:findNext,frep:replaceOne,frall:replaceAll,fclose(){fd.hidden=true;},
     insdlg(){insertDialog();},deldlg(){deleteDialog();},
     fmtcells(tab){if(tab==='page'){pageSetupDialog();return;}formatCells(tab);},
-    rowh(){const r=rg().r1;askNumber('Tinggi Baris','Tinggi baris (pt):',+(cur.rh.size(r)*.75).toFixed(2),v=>tx(()=>{const g=rg();for(let i=g.r1;i<=Math.min(g.r2,g.r1+5000);i++){cur.rh.ov.set(i,Math.round(v/.75));cur.rh.hid.delete(i);(cur.rh.manual=cur.rh.manual||new Set()).add(i);}cur.rh.dirty=true;}));},
-    colw(){const c=rg().c1;askNumber('Lebar Kolom','Lebar kolom:',+((cur.cw.size(c)-5)/7).toFixed(2),v=>tx(()=>{const g=rg();for(let i=g.c1;i<=Math.min(g.c2,g.c1+2000);i++){cur.cw.ov.set(i,Math.round(v*7+5));cur.cw.hid.delete(i);}cur.cw.dirty=true;}));},
-    defw(){askNumber('Lebar Default','Lebar kolom standar:',+((cur.cw.def-5)/7).toFixed(2),v=>tx(()=>{cur.cw.def=Math.round(v*7+5);cur.cw.dirty=true;}));},
-    fitr(){const g=rg();const rs=[];for(let r=g.r1;r<=Math.min(g.r2,g.r1+5000);r++)rs.push(r);autoFitRowsH(rs);},
-    fitc(){const g=rg();const cs=[];for(let c=g.c1;c<=Math.min(g.c2,g.c1+500);c++)cs.push(c);autoFitCols(cs);},
+    rowh(){if(protBlock('formatRows'))return;const r=rg().r1;askNumber('Tinggi Baris','Tinggi baris (pt):',+(cur.rh.size(r)*.75).toFixed(2),v=>tx(()=>{const g=rg();for(let i=g.r1;i<=Math.min(g.r2,g.r1+5000);i++){cur.rh.ov.set(i,Math.round(v/.75));cur.rh.hid.delete(i);(cur.rh.manual=cur.rh.manual||new Set()).add(i);}cur.rh.dirty=true;}));},
+    colw(){if(protBlock('formatCols'))return;const c=rg().c1;askNumber('Lebar Kolom','Lebar kolom:',+((cur.cw.size(c)-5)/7).toFixed(2),v=>tx(()=>{const g=rg();for(let i=g.c1;i<=Math.min(g.c2,g.c1+2000);i++){cur.cw.ov.set(i,Math.round(v*7+5));cur.cw.hid.delete(i);}cur.cw.dirty=true;}));},
+    defw(){if(protBlock('formatCols'))return;askNumber('Lebar Default','Lebar kolom standar:',+((cur.cw.def-5)/7).toFixed(2),v=>tx(()=>{cur.cw.def=Math.round(v*7+5);cur.cw.dirty=true;}));},
+    fitr(){if(protBlock('formatRows'))return;const g=rg();const rs=[];for(let r=g.r1;r<=Math.min(g.r2,g.r1+5000);r++)rs.push(r);autoFitRowsH(rs);},
+    fitc(){if(protBlock('formatCols'))return;const g=rg();const cs=[];for(let c=g.c1;c<=Math.min(g.c2,g.c1+500);c++)cs.push(c);autoFitCols(cs);},
     hider(){setHidden('r',true);},unhider(){setHidden('r',false);},hidec(){setHidden('c',true);},unhidec(){setHidden('c',false);},
     rensheet(){renameSheet(wb.active);},
     delsheet(){deleteSheet(wb.active);},
@@ -2732,9 +2774,9 @@ function mount(root,opts={}){
   function formatCells(tab){
     const s=cur.sel,st0=stOf(s.ar,s.ac),v0=cellVal(cur,s.ar,s.ac);
     const S={fmt:st0.fmt||'General',ha:st0.ha||'general',va:st0.va||'bottom',ind:st0.ind||0,wrap:!!st0.wrap,merge:!!mergeAt(s.ar,s.ac),rot:st0.rot||0,
-      font:st0.font||DF(),sz:st0.sz||11,b:!!st0.b,i:!!st0.i,u:st0.u||0,s:!!st0.s,color:st0.color||'#000000',fill:st0.fill||null,bd:{}};
+      lock:st0.lock!==false,hide:!!st0.hide,font:st0.font||DF(),sz:st0.sz||11,b:!!st0.b,i:!!st0.i,u:st0.u||0,s:!!st0.s,color:st0.color||'#000000',fill:st0.fill||null,bd:{}};
     const bdSet={t:null,b:null,l:null,r:null,h:undefined,v:undefined};let bdStyleSel='thin',bdColorSel='#000000';
-    const TABN=[['number','Angka'],['align','Perataan'],['font','Font'],['border','Garis Tepi'],['fill','Isi']];
+    const TABN=[['number','Angka'],['align','Perataan'],['font','Font'],['border','Garis Tepi'],['fill','Isi'],['prot','Proteksi']];
     const CATS=[['General','Umum'],['Number','Angka'],['Currency','Mata uang'],['Accounting','Akuntansi'],['Date','Tanggal'],['Time','Waktu'],['Percent','Persentase'],['Fraction','Pecahan'],['Sci','Ilmiah'],['Text','Teks'],['Custom','Kustom']];
     const DATES=['dd/mm/yyyy','d mmmm yyyy','dddd, d mmmm yyyy','d-mmm-yy','mmm-yy','mmmm yyyy','yyyy-mm-dd'];
     const TIMES=['hh:mm','hh:mm:ss','hh:mm AM/PM','dd/mm/yyyy hh:mm'];
@@ -2746,7 +2788,7 @@ function mount(root,opts={}){
     catSt.thou=/#,##0/.test(S.fmt);
     const d=dlg('Format Sel',`<div class="dtabs">${TABN.map(t=>`<button data-t="${t[0]}">${t[1]}</button>`).join('')}</div><div class="dp"></div>`,()=>{
       const patch={fmt:S.fmt==='General'?null:S.fmt,ha:S.ha==='general'?null:S.ha,va:S.va==='bottom'?null:S.va,ind:S.ind||null,wrap:S.wrap||null,rot:S.rot||null,
-        font:S.font===DF()?null:S.font,sz:S.sz===11?null:S.sz,b:S.b||null,i:S.i||null,u:S.u||null,s:S.s||null,color:S.color==='#000000'?null:S.color,fill:S.fill};
+        font:S.font===DF()?null:S.font,sz:S.sz===11?null:S.sz,b:S.b||null,i:S.i||null,u:S.u||null,s:S.s||null,color:S.color==='#000000'?null:S.color,fill:S.fill,lock:S.lock?null:false,hide:S.hide||null};
       const hasB=Object.values(bdSet).some(x=>x!==undefined&&x!==null)||bdTouched;
       styleSel(st=>({...st,...patch}),true);
       if(hasB||bdTouched)applyBorderSpec(Object.fromEntries(Object.entries(bdSet).filter(([,v])=>v!==undefined)));
@@ -2825,6 +2867,9 @@ function mount(root,opts={}){
         P.querySelector('.bc').oninput=e=>{bdColorSel=e.target.value;bx.forEach(b=>{if(b.checked)bdSet[b.dataset.s]=[bdStyleSel,bdColorSel];});};
         P.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{bdTouched=true;const p=b.dataset.p;
           bx.forEach(x=>{const k=x.dataset.s;const on=p==='all'||(p==='outer'&&'tblr'.includes(k));x.checked=on;bdSet[k]=on?[bdStyleSel,bdColorSel]:null;});});
+      }else if(t==='prot'){
+        P.innerHTML=`<label><input type="checkbox" class="lk" ${S.lock?'checked':''}> Terkunci</label><label><input type="checkbox" class="hd" ${S.hide?'checked':''}> Tersembunyi (rumus tidak tampil di bilah rumus)</label><div style="font-size:11px;color:#666;max-width:320px">Penguncian atau penyembunyian sel baru berlaku setelah lembar dilindungi (Tinjau → Lindungi Lembar).</div>`;
+        P.querySelector('.lk').onchange=e=>S.lock=e.target.checked;P.querySelector('.hd').onchange=e=>S.hide=e.target.checked;
       }else{
         P.innerHTML=`<div>Warna latar:</div><div class="pal">${PAL.map(r=>`<div class="pr">${r.map(c=>`<button style="background:${c}" data-c="${c}"></button>`).join('')}</div>`).join('')}<div class="pr" style="margin-top:6px">${PALSTD.map(c=>`<button style="background:${c}" data-c="${c}"></button>`).join('')}</div></div><div style="display:flex;gap:10px;align-items:center"><button class="bt" data-n="1">Tanpa Warna</button><label>Lainnya: <input type="color" class="fc" value="${S.fill||'#ffffff'}"></label></div><div class="prev fp" style="background:${S.fill||'#fff'}">Contoh</div>`;
         const pv=()=>P.querySelector('.fp').style.background=S.fill||'#fff';
@@ -2876,7 +2921,7 @@ function mount(root,opts={}){
     clear:()=>[I('Hapus Semua',()=>clearWhat('all'),'⌧'),I('Hapus Format',()=>clearWhat('formats'),'🖌'),I('Hapus Isi',()=>clearWhat('contents'),'✂'),I('Hapus Hyperlink',()=>styleSel(st=>{const n={...st};if(n.link){delete n.link;delete n.color;delete n.u;}return n;}),'🔗')],
     sort:()=>[I('Urutkan A ke Z',()=>quickSort(true),'↓'),I('Urutkan Z ke A',()=>quickSort(false),'↑'),I('Urutan Kustom…',sortDialog,'⇅'),{sep:1},I('Filter',toggleFilter,'⧩',{ck:!!cur.filter}),I('Bersihkan Filter',()=>{if(cur.filter)tx(()=>{cur.filter.crit={};applyFilter(true);});},'✖',{dis:!cur.filter})],
     find:()=>[I('Cari…',showFind,'🔍'),I('Ganti…',showFind,'ab'),I('Pergi ke…',acts.goto,'→'),{sep:1},I('Pilih Semua',()=>select(0,0,MAXR-1,MAXC-1,true),'⬚')],
-    ctx:()=>[I('Potong',()=>copyAct(true),'✂'),I('Salin',()=>copyAct(false),'⎘'),I('Tempel',()=>acts.paste(),'📋'),{l:'Tempel Spesial',i:'',sub:menus.paste()},{sep:1},I('Sisipkan…',insertDialog,'⊞'),I('Hapus…',deleteDialog,'⊟'),I('Hapus Isi',()=>clearWhat('contents'),'⌫'),{sep:1},
+    ctx:()=>[I('Potong',()=>copyAct(true),'✂'),I('Salin',()=>copyAct(false),'⎘'),I('Tempel',()=>acts.paste(),'📋'),{l:'Tempel Spesial',i:'',sub:menus.paste()},{sep:1},I('Sisipkan…',insertDialog,'⊞'),I('Hapus…',deleteDialog,'⊟'),I('Hapus Isi',()=>clearWhat('contents'),'⌫'),{sep:1},I(cmAt(cur.sel.ar,cur.sel.ac)?'Edit Komentar':'Sisipkan Komentar',commentDialog,'🗨'),...(cmAt(cur.sel.ar,cur.sel.ac)?[I('Hapus Komentar',commentDelete,'✖')]:[]),{sep:1},
       I('Urutkan A ke Z',()=>quickSort(true),'↓'),I('Lebar Kolom…',acts.colw,'↔'),I('Tinggi Baris…',acts.rowh,'↕'),I('Sembunyikan Baris',acts.hider),I('Sembunyikan Kolom',acts.hidec),{sep:1},I('Format Sel…',()=>formatCells('number'),'▤')],
     sheetctx:()=>[I('Sisipkan Lembar',addSheet,'▭'),I('Hapus',()=>deleteSheet(wb.active),'✖'),I('Ganti Nama',acts.rensheet,'✎'),I('Pindahkan ke Kiri',acts.mvl,'◀'),I('Pindahkan ke Kanan',acts.mvr,'▶'),{l:'Warna Tab',i:'🎨',sub:()=>palette(c=>{tx(()=>{cur.tab=c;},true);drawTabs();},{none:'Tanpa Warna'})}]
   };
@@ -3029,8 +3074,8 @@ function mount(root,opts={}){
 
   const newId=()=>'o'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
   const viewPos=()=>{const k=(cur.objs.length%8)*24;return {x:Math.round(vp.scrollLeft/Z)+60+k,y:Math.round(vp.scrollTop/Z)+40+k};};
-  function addObj(o){tx(()=>{o.id=newId();Object.assign(o,viewPos());cur.objs=[...cur.objs,o];selObj=o.id;selSet=new Set([o.id]);});}
-  function deleteObj(){const ids=new Set(selSet);tx(()=>{cur.objs=cur.objs.filter(o=>!ids.has(o.id));selObj=null;selSet=new Set();});}
+  function addObj(o){if(protBlock('objects'))return;tx(()=>{o.id=newId();Object.assign(o,viewPos());cur.objs=[...cur.objs,o];selObj=o.id;selSet=new Set([o.id]);});}
+  function deleteObj(){if(protBlock('objects'))return;const ids=new Set(selSet);tx(()=>{cur.objs=cur.objs.filter(o=>!ids.has(o.id));selObj=null;selSet=new Set();});}
   function addChart(type){
     let g=rg();if(g.r1===g.r2&&g.c1===g.c2)g=region();
     if(g.r1===g.r2&&g.c1===g.c2&&!hasVal(cur,g.r1,g.c1)){toast('Pilih data yang akan dibuat bagan.');return;}
@@ -3038,7 +3083,7 @@ function mount(root,opts={}){
     addObj({type:'chart',ct:type,src:{r1:g.r1,c1:g.c1,r2:g.r2,c2:g.c2},w:480,h:288,title:null});
   }
   function objEdit(id){
-    const o=cur.objs.find(q=>q.id===id);if(!o)return;selObj=id;selSet=new Set([id]);schedule();
+    const o=cur.objs.find(q=>q.id===id);if(!o)return;if(protBlock('objects'))return;selObj=id;selSet=new Set([id]);schedule();
     const upd=p=>tx(()=>{cur.objs=cur.objs.map(q=>q.id===id?{...q,...p}:q);});
     if(o.type==='text'||o.type==='shape'){
       const d=dlg(o.type==='text'?'Kotak Teks':'Teks Bentuk',`<textarea class="t" rows="4" style="width:300px">${esc(o.text||'')}</textarea>`,d=>{upd({text:d.querySelector('.t').value});});
@@ -3806,6 +3851,140 @@ function mount(root,opts={}){
     ungrpm:()=>[I('Pisahkan Grup…',()=>ungroupSel(),'▢'),I('Hapus Outline',clearOutline,'✖')]
   });
 
+  /* ===== TINJAU: komentar, proteksi, pelacakan ===== */
+  const hash=s=>{let h=5381;for(const ch of String(s))h=((h<<5)+h+ch.charCodeAt(0))>>>0;return h;};
+  const isLocked=(sh,r,c)=>{if((sh.allow||[]).some(a=>r>=a.r1&&r<=a.r2&&c>=a.c1&&c<=a.c2))return false;const cl=sh.cells.get(key(r,c));return !(cl&&cl.st&&cl.st.lock===false);};
+  const protMsg='Sel atau bagan yang Anda coba ubah berada di lembar yang dilindungi. Untuk mengubahnya, cabut proteksi lembar.';
+  const protBlock=(flag,msg)=>{if(cur.prot&&!(flag&&cur.prot.o[flag])){toast(msg||'Operasi ini tidak diizinkan karena lembar dilindungi. Cabut proteksi lembar untuk melanjutkan.');return true;}return false;};
+  const sbBlock=()=>{if(wb.protStruct){toast('Struktur buku kerja dilindungi. Cabut proteksi buku kerja untuk menambah, menghapus, mengganti nama, atau memindahkan lembar.');return true;}return false;};
+  const sameVal=(a,b)=>{const ea=!a||((a.v===null||a.v===undefined)&&(a.f===undefined||a.f===null)),eb=!b||((b.v===null||b.v===undefined)&&(b.f===undefined||b.f===null));if(ea&&eb)return true;if(ea!==eb)return false;return a.v===b.v&&a.f===b.f;};
+  const sameSt=(a,b)=>JSON.stringify((a&&a.st)||null)===JSON.stringify((b&&b.st)||null);
+  function diffSheet(prev,now){
+    const out=[];
+    for(const [k,b] of now.cells){const a=prev.cells.get(k);if(a!==b&&(!a||!sameVal(a,b)||!sameSt(a,b)))out.push({k,a,b});}
+    for(const [k,a] of prev.cells)if(!now.cells.has(k)&&(!sameVal(a,null)||!sameSt(a,null)))out.push({k,a,b:undefined});
+    return out;
+  }
+  function txGuard(s){
+    if(txStruct||!cur||s.sheets.length!==wb.sheets.length||s.active!==wb.active)return true;
+    if(!cur.prot&&!wb.track)return true;
+    const d=diffSheet(s.sheets[wb.active],cur);
+    if(cur.prot){
+      const bad=d.find(x=>{const r=Math.floor(x.k/MAXC),c=x.k%MAXC;if(!isLocked({cells:s.sheets[wb.active].cells,allow:cur.allow},r,c))return false;
+        return !sameVal(x.a,x.b)||(!sameSt(x.a,x.b)&&!cur.prot.o.formatCells);});
+      if(bad){restore(s);toast(protMsg);return false;}
+    }
+    if(wb.track&&!wb.trackPause)logChanges(d);
+    return true;
+  }
+  function logChanges(d){
+    let n=0;
+    for(const x of d){
+      if(sameVal(x.a,x.b))continue;if(++n>300)break;
+      const r=Math.floor(x.k/MAXC),c=x.k%MAXC,nw=x.b?rawText(x.b):'',old=x.a?rawText(x.a):'';
+      const ex=wb.changes.findIndex(e=>e.sh===cur.name&&e.r===r&&e.c===c);
+      if(ex>=0){const e=wb.changes[ex];if(e.old===nw)wb.changes.splice(ex,1);else{e.nw=nw;e.time=new Date();}}
+      else wb.changes.push({sh:cur.name,r,c,old,nw,time:new Date(),user:'Pengguna'});
+    }
+  }
+  /* komentar */
+  const cmAt=(r,c)=>cur.cm.find(x=>x.r===r&&x.c===c);
+  function commentDialog(){
+    const s=cur.sel,m=mergeAt(s.ar,s.ac),r=m?m.r1:s.ar,c=m?m.c1:s.ac,ex=cmAt(r,c);
+    if(cur.prot&&isLocked(cur,r,c)&&!cur.prot.o.objects){toast(protMsg);return;}
+    const d=dlg((ex?'Edit Komentar ':'Komentar Baru ')+addr(r,c),`<textarea class="t" rows="5" style="width:320px" placeholder="Tulis komentar…">${esc(ex?ex.text:'')}</textarea>`,d=>{
+      const t=d.querySelector('.t').value;if(!t.trim()){toast('Komentar tidak boleh kosong.');return false;}
+      tx(()=>{cur.cm=ex?cur.cm.map(x=>x===ex?{...x,text:t}:x):[...cur.cm,{r,c,text:t,author:'Pengguna',w:200,h:70,show:false}];});});
+    d.querySelector('.t').focus();
+  }
+  function commentDelete(){
+    const s=cur.sel,ex=cmAt(s.ar,s.ac);if(!ex){toast('Tidak ada komentar pada sel ini.');return;}
+    tx(()=>{cur.cm=cur.cm.filter(x=>x!==ex);});
+  }
+  function commentNav(dir){
+    if(!cur.cm.length){toast('Tidak ada komentar pada lembar ini.');return;}
+    const L=[...cur.cm].sort((a,b)=>a.r-b.r||a.c-b.c),s=cur.sel;
+    let i=L.findIndex(x=>x.r===s.ar&&x.c===s.ac);
+    if(i<0){i=dir>0?L.findIndex(x=>x.r>s.ar||(x.r===s.ar&&x.c>s.ac)):(()=>{for(let k=L.length-1;k>=0;k--)if(L[k].r<s.ar||(L[k].r===s.ar&&L[k].c<s.ac))return k;return -1;})();if(i<0)i=dir>0?0:L.length-1;}
+    else i=(i+dir+L.length)%L.length;
+    select(L[i].r,L[i].c);
+  }
+  function commentToggle(){
+    const s=cur.sel,ex=cmAt(s.ar,s.ac);if(!ex){toast('Pilih sel yang memiliki komentar.');return;}
+    cur.cm=cur.cm.map(x=>x===ex?{...x,show:!x.show}:x);sync();
+  }
+  /* proteksi lembar */
+  const PROTOPTS=[['formatCells','Format sel'],['formatCols','Format kolom'],['formatRows','Format baris'],['insCols','Sisipkan kolom'],['insRows','Sisipkan baris'],['delCols','Hapus kolom'],['delRows','Hapus baris'],['sort','Urutkan'],['filter','Gunakan AutoFilter'],['objects','Edit objek']];
+  function protectSheet(){
+    if(cur.prot){
+      const pw=cur.prot.pw;
+      if(pw){dlg('Cabut Proteksi Lembar',`<label>Kata sandi: <input type="password" class="p"></label>`,d=>{if(hash(d.querySelector('.p').value)!==cur.prot.h){toast('Kata sandi salah.');return false;}tx(()=>{cur.prot=null;},true);sync();});}
+      else{tx(()=>{cur.prot=null;},true);sync();}
+      return;
+    }
+    dlg('Lindungi Lembar',`<label>Kata sandi (opsional): <input type="password" class="p"></label><div style="font-weight:600">Izinkan semua pengguna lembar ini untuk:</div><div class="fl">${PROTOPTS.map(([k,l])=>`<label><input type="checkbox" data-k="${k}"> ${l}</label>`).join('')}</div><div style="font-size:11px;color:#666;max-width:320px">Sel dikunci secara bawaan. Buka kunci sel lewat Format Sel → tab Proteksi sebelum melindungi lembar. Proteksi ini bersifat perlindungan ringan dan tidak menggantikan keamanan berkas.</div>`,d=>{
+      const o={};d.querySelectorAll('[data-k]').forEach(x=>o[x.dataset.k]=x.checked);
+      const pw=d.querySelector('.p').value;
+      tx(()=>{cur.prot={pw:pw||null,h:pw?hash(pw):null,o};},true);sync();toast('Lembar dilindungi.');});
+  }
+  function protectWb(){
+    if(wb.protStruct){
+      const p=wb.protStruct;
+      if(p.h!==null){dlg('Cabut Proteksi Buku Kerja',`<label>Kata sandi: <input type="password" class="p"></label>`,d=>{if(hash(d.querySelector('.p').value)!==p.h){toast('Kata sandi salah.');return false;}wb.protStruct=null;sync();toast('Proteksi buku kerja dicabut.');});}
+      else{wb.protStruct=null;sync();toast('Proteksi buku kerja dicabut.');}
+      return;
+    }
+    dlg('Lindungi Struktur dan Jendela',`<label><input type="checkbox" checked disabled> Struktur</label><div style="font-size:11px;color:#666">Mencegah penambahan, penghapusan, penggantian nama, atau pemindahan lembar.</div><label>Kata sandi (opsional): <input type="password" class="p"></label>`,d=>{
+      const pw=d.querySelector('.p').value;wb.protStruct={h:pw?hash(pw):null};sync();toast('Struktur buku kerja dilindungi (berlaku selama sesi ini).');});
+  }
+  function allowRanges(){
+    const body=()=>(cur.allow||[]).length?cur.allow.map((a,i)=>`<div class="si" style="display:flex;justify-content:space-between;border-bottom:1px solid #eee;padding:3px 0"><span><b>${esc(a.title)}</b> — ${addr(a.r1,a.c1)}${a.r1===a.r2&&a.c1===a.c2?'':':'+addr(a.r2,a.c2)}</span><button class="bt" data-i="${i}">Hapus</button></div>`).join(''):'<i>Belum ada rentang</i>';
+    const g=expandMerge(rg());
+    const d=dlg('Izinkan Pengguna Mengedit Rentang',`<div class="cl" style="min-width:320px;max-height:140px;overflow:auto"></div><div class="r2"><span>Judul:</span><input type="text" class="ti"><span>Merujuk ke sel:</span><input type="text" class="rg" value="${rngStr(g)}"></div><button class="bt ad">Tambah</button><div style="font-size:11px;color:#666;max-width:330px">Sel di dalam rentang ini tetap bisa diedit saat lembar dilindungi.</div>`,null,'Tutup',true);
+    const cl=d.querySelector('.cl'),draw=()=>{cl.innerHTML=body();};draw();
+    d.querySelector('.ad').onclick=()=>{const q=parseRng(d.querySelector('.rg').value);if(!q){toast('Rentang tidak valid.');return;}const t=d.querySelector('.ti').value.trim()||('Rentang'+((cur.allow||[]).length+1));tx(()=>{cur.allow=[...(cur.allow||[]),{title:t,...q}];},true);draw();};
+    cl.onclick=e=>{const i=e.target.dataset.i;if(i===undefined)return;tx(()=>{cur.allow=cur.allow.filter((_,k)=>k!==+i);},true);draw();};
+  }
+  function changesDialog(){
+    const mine=()=>wb.changes.map((e,i)=>({e,i}));
+    const body=()=>mine().length?`<table style="border-collapse:collapse;font-size:12px;width:100%"><tr style="background:#f3f3f3"><th align="left">Lembar</th><th align="left">Sel</th><th align="left">Lama</th><th align="left">Baru</th><th align="left">Waktu</th></tr>${mine().map(({e,i})=>`<tr data-i="${i}" style="cursor:pointer"><td>${esc(e.sh)}</td><td>${addr(e.r,e.c)}</td><td>${esc(e.old)}</td><td>${esc(e.nw)}</td><td>${e.time.toLocaleTimeString('id-ID')}</td></tr>`).join('')}</table>`:'<i>Tidak ada perubahan yang dilacak.</i>';
+    let sel=-1;
+    const d=dlg('Terima atau Tolak Perubahan',`<div class="cl" style="min-width:420px;max-height:220px;overflow:auto;border:1px solid #bbb"></div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="bt ac">Terima</button><button class="bt rj">Tolak</button><button class="bt aa">Terima Semua</button><button class="bt ra">Tolak Semua</button></div>`,null,'Tutup',true);
+    const cl=d.querySelector('.cl'),draw=()=>{cl.innerHTML=body();cl.querySelectorAll('tr[data-i]').forEach(tr=>{if(+tr.dataset.i===sel)tr.style.background='#d3e8d9';});};draw();
+    cl.onclick=e=>{const tr=e.target.closest('[data-i]');if(tr){sel=+tr.dataset.i;const c=wb.changes[sel];const i=wb.sheets.findIndex(s=>s.name===c.sh);if(i>=0){if(i!==wb.active)switchSheet(i);select(c.r,c.c);}draw();}};
+    const reject=list=>{wb.trackPause=true;try{for(const e of list){const sh=wb.sheets.find(s=>s.name===e.sh);if(!sh)continue;const keep=cur;cur=sh;try{tx(()=>{const old=cellAt(cur,e.r,e.c);putCell(cur,e.r,e.c,mkInput(e.old,old));},true);}finally{cur=keep;}}}finally{wb.trackPause=false;}wb.changes=wb.changes.filter(x=>!list.includes(x));sync();};
+    d.querySelector('.ac').onclick=()=>{if(sel<0){toast('Pilih perubahan terlebih dahulu.');return;}wb.changes.splice(sel,1);sel=-1;draw();sync();};
+    d.querySelector('.rj').onclick=()=>{if(sel<0){toast('Pilih perubahan terlebih dahulu.');return;}reject([wb.changes[sel]]);sel=-1;draw();};
+    d.querySelector('.aa').onclick=()=>{wb.changes=[];sel=-1;draw();sync();};
+    d.querySelector('.ra').onclick=()=>{reject([...wb.changes]);sel=-1;draw();};
+  }
+  /* tooltip komentar / perubahan */
+  const tipEl=document.createElement('div');tipEl.className='cbox';tipEl.hidden=true;tipEl.style.cssText='position:absolute;z-index:15;pointer-events:none';$('.gwrap').appendChild(tipEl);
+  let lastHover='';
+  vp.addEventListener('pointermove',e=>{
+    if(drag||ed||e.pointerType!=='mouse')return;
+    const rc=vp.getBoundingClientRect();if(e.clientX-rc.left>vp.clientWidth||e.clientY-rc.top>vp.clientHeight){tipEl.hidden=true;return;}
+    const h=hit(e),k=h.r+','+h.c;if(k===lastHover)return;lastHover=k;
+    const m=mergeAt(h.r,h.c),r=m?m.r1:h.r,c=m?m.c1:h.c;
+    const cm=cmAt(r,c),ch=wb.changes.find(x=>x.sh===cur.name&&x.r===r&&x.c===c);
+    let html='';
+    if(cm&&!(cm.show||cur.showAllCm))html+=`<b>${esc(cm.author)}:</b><br>${esc(cm.text)}`;
+    if(ch)html+=(html?'<hr style="margin:4px 0">':'')+`<b>${esc(ch.user)}, ${ch.time.toLocaleString('id-ID')}:</b><br>Sel ${addr(r,c)} diubah dari "${esc(ch.old)}" menjadi "${esc(ch.nw)}".`;
+    if(!html){tipEl.hidden=true;return;}
+    tipEl.innerHTML=html;tipEl.style.width='200px';
+    tipEl.style.left=((cur.head===false?0:HW+gutR)+cx(c+1)-vp.scrollLeft+8)+'px';tipEl.style.top=((cur.head===false?0:HH+gutC)+ry(r)-vp.scrollTop)+'px';tipEl.hidden=false;
+  });
+  vp.addEventListener('pointerleave',()=>{tipEl.hidden=true;lastHover='';});
+  vp.addEventListener('scroll',()=>{tipEl.hidden=true;lastHover='';});
+  Object.assign(acts,{
+    cmnew:commentDialog,cmdel:commentDelete,cmprev(){commentNav(-1);},cmnext(){commentNav(1);},cmshow:commentToggle,
+    cmall(){cur.showAllCm=!cur.showAllCm;sync();},
+    protsheet:protectSheet,protwb:protectWb,allowr:allowRanges
+  });
+  Object.assign(menus,{
+    track:()=>[I('Lacak Perubahan saat Mengedit',()=>{wb.track=!wb.track;toast(wb.track?'Pelacakan perubahan aktif. Perubahan sel akan disorot.':'Pelacakan perubahan dimatikan.');sync();},'',{ck:wb.track}),I('Terima atau Tolak Perubahan…',changesDialog,'✔'),{sep:1},I('Hapus Riwayat Perubahan',()=>{wb.changes=[];sync();},'✖',{dis:!wb.changes.length})]
+  });
+
   /* ===== berkas ===== */
   const hex6=c=>c?c.replace('#','').toUpperCase():null;
   const argb=c=>'FF'+hex6(c);
@@ -3858,6 +4037,8 @@ function mount(root,opts={}){
           const al=cell.alignment;if(al){if(al.horizontal&&al.horizontal!=='general')st.ha=al.horizontal==='centerContinuous'?'center':al.horizontal;if(al.vertical&&al.vertical!=='bottom')st.va=al.vertical==='center'?'middle':al.vertical;if(al.wrapText)st.wrap=1;if(al.indent)st.ind=al.indent;if(al.textRotation&&al.textRotation!=='vertical')st.rot=al.textRotation>90?-(al.textRotation-90):al.textRotation;}
           const b=cell.border;if(b){const bd={};for(const [k,n] of [['t','top'],['r','right'],['b','bottom'],['l','left']])if(b[n]&&b[n].style)bd[k]=[BTYPES[b[n].style]?b[n].style:'thin',colorOf(b[n].color)||'#000000'];if(Object.keys(bd).length)st.bd=bd;}
           if(cell.numFmt&&cell.numFmt!=='General')st.fmt=cell.numFmt;
+          {const pr=cell.protection;if(pr){if(pr.locked===false)st.lock=false;if(pr.hidden)st.hide=1;}
+           const nt=cell.note;if(nt){const t=typeof nt==='string'?nt:(nt.texts||[]).map(z=>z.text).join('');const mm=/^([^\n:]{1,40}):\n([\s\S]*)$/.exec(t);s.cm.push({r:rn-1,c:cn-1,author:mm?mm[1]:'Pengguna',text:mm?mm[2]:t,w:200,h:70,show:false});}}
           if(link)st.link=String(link);if(Object.keys(st).length)o.st=st;
           if(o.v!==null||o.f!==undefined||o.st)s.cells.set(key(rn-1,cn-1),o);
         });
@@ -3894,6 +4075,7 @@ function mount(root,opts={}){
           const last=arr[arr.length-1];const k=JSON.stringify(rule);
           if(last&&last.k===k&&last.r.c1===p.c&&last.r.c2===p.c&&last.r.r2===p.r-1)last.r.r2=p.r;else arr.push({k,r:{...rule,r1:p.r,r2:p.r,c1:p.c,c2:p.c}});}
         s.dv=arr.map(x=>x.r);}catch(e){}
+      try{const sp=ws.sheetProtection;if(sp&&(sp.sheet===true||sp.sheet==='1'||sp.sheet===1)){const al=k=>sp[k]===true;s.prot={pw:null,h:null,o:{formatCells:al('formatCells'),formatCols:al('formatColumns'),formatRows:al('formatRows'),insCols:al('insertColumns'),insRows:al('insertRows'),delCols:al('deleteColumns'),delRows:al('deleteRows'),sort:al('sort'),filter:al('autoFilter'),objects:sp.objects===true}};}}catch(e){}
       const tc=ws.properties&&ws.properties.tabColor;if(tc)s.tab=colorOf(tc);
       try{for(const cf of (ws.conditionalFormattings||[])){const p=cf.ref.split(':');const a=parseAddr(p[0]),b=parseAddr(p[1]||p[0]);if(!a||!b)continue;
         for(const rl of cf.rules||[]){const fm={};const sty=rl.style||{};if(sty.fill){const c=colorOf(sty.fill.bgColor)||colorOf(sty.fill.fgColor);if(c)fm.fill=c;}if(sty.font){const c=colorOf(sty.font.color);if(c)fm.color=c;if(sty.font.bold)fm.b=1;}
@@ -3963,6 +4145,7 @@ function mount(root,opts={}){
           else if(cl.v!==null&&cl.v!==undefined)x.value=cl.v;
           if(cl.st&&cl.st.link&&(cl.f===undefined||cl.f===null))x.value={text:String(cl.v??''),hyperlink:cl.st.link};
           const st=cl.st;if(!st)continue;
+          if(st.lock===false||st.hide)x.protection={locked:st.lock!==false,hidden:!!st.hide};
           if(st.font||st.sz||st.b||st.i||st.u||st.s||st.color){x.font={name:st.font||'Calibri',size:st.sz||11,bold:!!st.b,italic:!!st.i,underline:st.u?(st.u===2?'double':true):false,strike:!!st.s,...(st.color?{color:{argb:argb(st.color)}}:{})};}
           if(st.fill)x.fill={type:'pattern',pattern:'solid',fgColor:{argb:argb(st.fill)}};
           if(st.ha||st.va||st.wrap||st.ind||st.rot){x.alignment={horizontal:st.ha,vertical:st.va==='middle'?'middle':st.va,wrapText:!!st.wrap,indent:st.ind||0,textRotation:st.rot?(st.rot===255?255:st.rot>0?st.rot:90-st.rot):0};}
@@ -3988,6 +4171,8 @@ function mount(root,opts={}){
         }
         for(const g of (s.og?s.og.rows:[])){for(let r=g.a;r<=Math.min(g.b,g.a+100000);r++){const row=ws.getRow(r+1);row.outlineLevel=(row.outlineLevel||0)+1;}}
         for(const g of (s.og?s.og.cols:[])){for(let c=g.a;c<=Math.min(g.b,g.a+2000);c++){const col=ws.getColumn(c+1);col.outlineLevel=(col.outlineLevel||0)+1;}}
+        for(const cm of s.cm)try{ws.getCell(cm.r+1,cm.c+1).note=cm.author+':\n'+cm.text;}catch(e){}
+        if(s.prot){const o=s.prot.o;try{await ws.protect(s.prot.pw||'',{selectLockedCells:true,selectUnlockedCells:true,formatCells:!!o.formatCells,formatColumns:!!o.formatCols,formatRows:!!o.formatRows,insertColumns:!!o.insCols,insertRows:!!o.insRows,deleteColumns:!!o.delCols,deleteRows:!!o.delRows,sort:!!o.sort,autoFilter:!!o.filter,objects:!!o.objects});}catch(e){}}
         for(const m of s.merges)try{ws.mergeCells(m.r1+1,m.c1+1,m.r2+1,m.c2+1);}catch(e){}
         if(s.filter)ws.autoFilter={from:{row:s.filter.r1+1,column:s.filter.c1+1},to:{row:s.filter.r2+1,column:s.filter.c2+1}};
         for(const rl of s.cf){
