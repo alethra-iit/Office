@@ -917,6 +917,9 @@ const CSS=`
 .xl .cbox{position:absolute;background:#ffffe1;border:1px solid #666;padding:4px 6px;font-size:11px;color:#222;z-index:4;pointer-events:none;box-shadow:2px 2px 4px rgba(0,0,0,.25);white-space:pre-wrap;word-break:break-word}
 .xl .trk{position:absolute;border:2px solid #4a86e8;pointer-events:none;z-index:2}
 .xl .trk::before{content:"";position:absolute;left:0;top:0;border-top:6px solid #4a86e8;border-right:6px solid transparent}
+.xl .rgn{position:absolute;overflow:hidden;pointer-events:none}
+.xl .rgn>*{position:absolute}
+.xl .rgn .ob{pointer-events:auto}
 .xl.rc .ribbon{display:none}
 @media (pointer:coarse){
  .xl .qat{height:36px}.xl .qat button{width:34px;height:32px;font-size:16px}
@@ -1165,6 +1168,13 @@ RIB.review=
    `<div class="rows t3">${B('🗨','Tampilkan/Sembunyikan Komentar','cmshow','rw','Tampilkan/Sembunyikan Komentar')}${B('🗨','Tampilkan Semua Komentar','cmall','rw','Tampilkan Semua Komentar')}<button class="b rw" disabled title="Tampilkan Tinta (belum tersedia)"><em>✎</em><span>Tampilkan Tinta</span></button></div>`)+
  G('Perubahan',B('🔒','Lindungi Lembar','protsheet','big','Lindungi<br>Lembar')+B('🔒','Lindungi Buku Kerja','protwb','big','Lindungi<br>Buku Kerja')+BD('⇄','Bagikan Buku Kerja','Bagikan<br>Buku Kerja')+
    `<div class="rows t3"><button class="b rw" disabled title="Lindungi dan Bagikan Buku Kerja (belum tersedia)"><em>🔒</em><span>Lindungi dan Bagikan Buku Kerja</span></button>${B('▦','Izinkan Pengguna Mengedit Rentang','allowr','rw','Izinkan Pengguna Mengedit Rentang')}${B('✎','Lacak Perubahan','m:track','rw','Lacak Perubahan',1)}</div>`);
+RIB.view=
+ G('Tampilan Buku Kerja',B('▦','Normal','view:normal','big','Normal')+B('▥','Pratinjau Sela Halaman','view:pbp','big','Pratinjau<br>Sela Halaman')+BD('▭','Tata Letak Halaman','Tata Letak<br>Halaman')+B('👁','Tampilan Kustom','cviews','big','Tampilan<br>Kustom'))+
+ G('Tampilkan',`<div class="rows t3" style="min-width:84px"><div class="row"><label style="opacity:.45"><input type="checkbox" disabled> Penggaris</label></div><div class="row"><label><input type="checkbox" data-s="gview"> Garis Kisi</label></div></div><div class="rows t3" style="min-width:96px"><div class="row"><label><input type="checkbox" data-s="fbar"> Bilah Rumus</label></div><div class="row"><label><input type="checkbox" data-s="hview"> Tajuk</label></div></div>`)+
+ G('Zoom',B('🔍','Zoom','zoomdlg','big','Zoom')+B('100','Zoom 100%','zoom100','big','100%')+B('⊡','Zoom ke Seleksi','zoomsel','big','Zoom ke<br>Seleksi'))+
+ G('Jendela',BD('▤','Jendela Baru','Jendela<br>Baru')+BD('▦','Susun Semua','Susun<br>Semua')+B('❄','Bekukan Panel','m:freeze','big','Bekukan<br>Panel',1)+
+   `<div class="rows t3"><button class="b rw" disabled title="Pisahkan (belum tersedia)"><em>▭</em><span>Pisahkan</span></button><button class="b rw" disabled title="Sembunyikan (belum tersedia)"><em>▭</em><span>Sembunyikan</span></button><button class="b rw" disabled title="Tampilkan (belum tersedia)"><em>▭</em><span>Tampilkan</span></button></div><div class="rows t3"><button class="b rw" disabled title="Tampilan Berdampingan (belum tersedia)"><em>▥</em><span>Tampilan Berdampingan</span></button><button class="b rw" disabled title="Gulir Sinkron (belum tersedia)"><em>⇅</em><span>Gulir Sinkron</span></button><button class="b rw" disabled title="Setel Ulang Posisi Jendela (belum tersedia)"><em>▦</em><span>Setel Ulang Posisi Jendela</span></button></div>`+B('▤','Beralih Jendela','m:switchw','big','Beralih<br>Jendela',1))+
+ G('Makro',BD('▤','Makro','Makro ▾'));
 const SOON='<div class="soon">Menu ini akan dibuat pada tahap berikutnya.</div>';
 
 const PAPER={A4:[210,297],A3:[297,420],A5:[148,210],Letter:[215.9,279.4],Legal:[215.9,355.6]};
@@ -1198,7 +1208,7 @@ function mount(root,opts={}){
       <div class="vp" tabindex="0"><div class="stage"></div><div class="sizer"></div></div><textarea class="ed" hidden spellcheck="false" style="position:absolute"></textarea></div>
     <div class="shbar"><div class="shnav"><button data-a="shprev">◀</button><button data-a="shnext">▶</button></div><div class="shs"></div><button class="shadd" data-a="addsheet" title="Lembar baru">+</button></div>
     <div class="stbar"><div class="s"><span class="mode">SIAP</span><span class="calcs"></span></div><div class="s"><span class="sum"></span></div>
-      <div class="s"><span><button class="on" title="Normal">▦</button><button data-a="soonv" title="Tata Letak Halaman">▭</button><button data-a="soonv" title="Pratinjau Sela Halaman">▥</button></span>
+      <div class="s"><span><button class="on" data-a="view:normal" title="Normal">▦</button><button data-a="soonv" title="Tata Letak Halaman">▭</button><button data-a="view:pbp" title="Pratinjau Sela Halaman">▥</button></span>
       <span><button data-a="zoomd:-10">−</button><input type="range" min="20" max="200" step="10" value="100" class="zr"><button data-a="zoomd:10">+</button> <span class="zv" style="display:inline-block;min-width:34px;text-align:right">100%</span></span></div></div>
     <div class="find" hidden><span>Cari:</span><input type="text" class="f1"><span>Ganti:</span><input type="text" class="f2">
       <div class="fo"><label><input type="checkbox" class="fcase"> Cocokkan huruf besar/kecil</label><label><input type="checkbox" class="fwhole"> Seluruh isi sel</label></div>
@@ -1214,11 +1224,11 @@ function mount(root,opts={}){
   const cornerEl=$('.corner'),nb=$('.nb'),fxi=$('.fx'),fd=$('.find');
 
   /* ===== model ===== */
-  const wb={sheets:[],active:0,ver:0,circ:false,font:'Calibri',theme:0,names:[],conns:[],track:false,changes:[],trackPause:false,protStruct:null,manual:false,stale:false,recent:['SUM','AVERAGE','IF','COUNT','MAX','MIN','VLOOKUP','TODAY','ROUND','CONCATENATE'],watch:[]};
+  const wb={sheets:[],active:0,ver:0,circ:false,font:'Calibri',theme:0,names:[],conns:[],track:false,changes:[],cviews:[],viewMode:'normal',fbar:true,trackPause:false,protStruct:null,manual:false,stale:false,recent:['SUM','AVERAGE','IF','COUNT','MAX','MIN','VLOOKUP','TODAY','ROUND','CONCATENATE'],watch:[]};
   let cur=null,Z=1,name='Buku1.xlsx',showGrid=true,showHead=true;
   let ed=null,clip=null,pointing=null,painting=null,tabStart=null,selObj=null,selSet=new Set(),selpEl=null,watchEl=null,watchSel=-1,gutR=0,gutC=0,txStruct=false;
   let undoS=[],redoS=[],dirty=false;
-  const newSheet=n=>({name:n,cells:new Map(),cw:new Axis(DW,MAXC),rh:new Axis(DH,MAXR),merges:[],cf:[],filter:null,tab:null,objs:[],spark:[],cm:[],prot:null,allow:[],showAllCm:false,og:{rows:[],cols:[],hr:new Set(),hc:new Set()},dv:[],adv:null,circ:false,grid:true,head:true,bg:null,page:newPage(),
+  const newSheet=n=>({name:n,cells:new Map(),cw:new Axis(DW,MAXC),rh:new Axis(DH,MAXR),merges:[],cf:[],filter:null,tab:null,objs:[],spark:[],freeze:null,cm:[],prot:null,allow:[],showAllCm:false,og:{rows:[],cols:[],hr:new Set(),hc:new Set()},dv:[],adv:null,circ:false,grid:true,head:true,bg:null,page:newPage(),
     sel:{ar:0,ac:0,fr:0,fc:0},sx:0,sy:0});
   const uniqueName=(base,except)=>{let n=base,i=1;while(wb.sheets.some(s=>s!==except&&s.name.toLowerCase()===n.toLowerCase()))n=base.replace(/\d+$/,'')+(++i);return n;};
   const DF=()=>wb.font||'Calibri';
@@ -1245,7 +1255,7 @@ function mount(root,opts={}){
   const rawText=cell=>!cell?'':cell.f!==undefined&&cell.f!==null?'='+cell.f:cell.v===null||cell.v===undefined?'':typeof cell.v==='boolean'?(cell.v?'TRUE':'FALSE'):typeof cell.v==='number'?(isDateCode(cell.st&&cell.st.fmt||'')?fmtValue(cell.v,cell.st.fmt).t:String(cell.v).replace('.',',')):String(cell.v);
   const recalcAll=()=>{wb.ver++;if(wb.manual){wb.stale=true;updCalcLabel();return;}recalc(wb);};
   const updCalcLabel=()=>{const e=$('.calcs');if(e)e.textContent=wb.manual&&wb.stale?'Hitung':'';};
-  function shotSheet(s){return {name:s.name,cells:new Map(s.cells),cw:s.cw.clone(),rh:s.rh.clone(),merges:s.merges.map(m=>({...m})),cf:[...s.cf],filter:s.filter?{...s.filter,crit:{...s.filter.crit}}:null,tab:s.tab,cm:(s.cm||[]).map(x=>({...x})),prot:s.prot?JSON.parse(JSON.stringify(s.prot)):null,allow:(s.allow||[]).map(x=>({...x})),showAllCm:s.showAllCm,og:s.og?{rows:s.og.rows.map(g=>({...g})),cols:s.og.cols.map(g=>({...g})),hr:new Set(s.og.hr),hc:new Set(s.og.hc)}:{rows:[],cols:[],hr:new Set(),hc:new Set()},dv:(s.dv||[]).map(d=>({...d})),adv:s.adv?new Set(s.adv):null,circ:s.circ,grid:s.grid,showF:s.showF,head:s.head,bg:s.bg,page:JSON.parse(JSON.stringify(s.page||newPage())),objs:(s.objs||[]).map(o=>({...o,src:o.src&&typeof o.src==='object'?{...o.src}:o.src})),spark:(s.spark||[]).map(o=>({...o,src:{...o.src}})),sel:{...s.sel}};}
+  function shotSheet(s){return {name:s.name,cells:new Map(s.cells),cw:s.cw.clone(),rh:s.rh.clone(),merges:s.merges.map(m=>({...m})),cf:[...s.cf],filter:s.filter?{...s.filter,crit:{...s.filter.crit}}:null,tab:s.tab,freeze:s.freeze?{...s.freeze}:null,cm:(s.cm||[]).map(x=>({...x})),prot:s.prot?JSON.parse(JSON.stringify(s.prot)):null,allow:(s.allow||[]).map(x=>({...x})),showAllCm:s.showAllCm,og:s.og?{rows:s.og.rows.map(g=>({...g})),cols:s.og.cols.map(g=>({...g})),hr:new Set(s.og.hr),hc:new Set(s.og.hc)}:{rows:[],cols:[],hr:new Set(),hc:new Set()},dv:(s.dv||[]).map(d=>({...d})),adv:s.adv?new Set(s.adv):null,circ:s.circ,grid:s.grid,showF:s.showF,head:s.head,bg:s.bg,page:JSON.parse(JSON.stringify(s.page||newPage())),objs:(s.objs||[]).map(o=>({...o,src:o.src&&typeof o.src==='object'?{...o.src}:o.src})),spark:(s.spark||[]).map(o=>({...o,src:{...o.src}})),sel:{...s.sel}};}
   const snapshot=()=>({sheets:wb.sheets.map(shotSheet),active:wb.active,names:wb.names.map(n=>({...n,ast:undefined,depth:0}))});
   function restore(sn){
     wb.sheets=sn.sheets.map(shotSheet);if(sn.names)wb.names=sn.names.map(n=>({...n,ast:undefined}));wb.active=Math.min(sn.active,wb.sheets.length-1);
@@ -1287,9 +1297,9 @@ function mount(root,opts={}){
   function reveal(r,c){
     const m=mergeAt(r,c);if(m){r=m.r1;c=m.c1;}
     const W=vp.clientWidth,H=vp.clientHeight;
-    const x1=cx(c),x2=cx(c+1),y1=ry(r),y2=ry(r+1);
-    if(x1<vp.scrollLeft)vp.scrollLeft=x1;else if(x2>vp.scrollLeft+W-17)vp.scrollLeft=Math.min(x1,x2-W+17);
-    if(y1<vp.scrollTop)vp.scrollTop=y1;else if(y2>vp.scrollTop+H-17)vp.scrollTop=Math.min(y1,y2-H+17);
+    const x1=cx(c),x2=cx(c+1),y1=ry(r),y2=ry(r+1),fz=frzOf();
+    if(c>=fz.c){if(x1<vp.scrollLeft+fz.W)vp.scrollLeft=Math.max(0,x1-fz.W);else if(x2>vp.scrollLeft+W-17)vp.scrollLeft=Math.min(x1-fz.W,x2-W+17);}
+    if(r>=fz.r){if(y1<vp.scrollTop+fz.H)vp.scrollTop=Math.max(0,y1-fz.H);else if(y2>vp.scrollTop+H-17)vp.scrollTop=Math.min(y1-fz.H,y2-H+17);}
   }
 
   /* ===== geometri ===== */
@@ -1382,7 +1392,16 @@ function mount(root,opts={}){
     if(!cur)return;
     const W=vp.clientWidth,H=vp.clientHeight,sl=vp.scrollLeft,st0=vp.scrollTop;
     stage.style.width=W+'px';stage.style.height=H+'px';
-    const hw=Math.round(HW*Z*(Z<1?1:1)),hh=HH;
+    const hh=HH;
+    const fz=frzOf(),FW=fz.W,FH=fz.H;
+    const mapX=x=>x<FW?x:x-sl,mapY=y=>y<FH?y:y-st0;
+    const mapRect=q=>{const x1=mapX(q.x),y1=mapY(q.y);let x2=mapX(q.x+q.w),y2=mapY(q.y+q.h);if(q.x+q.w<=FW)x2=q.x+q.w;if(q.y+q.h<=FH)y2=q.y+q.h;return {x:x1,y:y1,w:Math.max(0,x2-x1),h:Math.max(0,y2-y1)};};
+    let c0=cur.cw.at((sl+FW)/Z),r0=cur.rh.at((st0+FH)/Z);
+    let c1=c0,r1=r0;while(c1<MAXC-1&&cx(c1)-sl<W)c1++;while(r1<MAXR-1&&ry(r1)-st0<H)r1++;
+    const colList=[],rowList=[];
+    for(let c=c0;c<=c1;c++)colList.push(c);for(let c=0;c<fz.c;c++)colList.push(c);
+    for(let r=r0;r<=r1;r++)rowList.push(r);for(let r=0;r<fz.r;r++)rowList.push(r);
+    const content=(sl,st0,W,H,main)=>{
     let c0=cur.cw.at(sl/Z),r0=cur.rh.at(st0/Z);
     let c1=c0,r1=r0;while(c1<MAXC-1&&cx(c1)-sl<W)c1++;while(r1<MAXR-1&&ry(r1)-st0<H)r1++;
     const cs=Math.max(0,c0-1),rs=Math.max(0,r0-1);
@@ -1488,34 +1507,40 @@ function mount(root,opts={}){
       const w=cwid(sp.c),h=rhei(sp.r);if(w<=0||h<=0)continue;
       html+=`<div class="cb" style="left:${cx(sp.c)-sl}px;top:${ry(sp.r)-st0}px;width:${w}px;height:${h}px">${sparkSvg(sp,w,h)}</div>`;
     }
-    for(const o of cur.objs){
+    if(main)for(const o of cur.objs){
       const x=Math.round(o.x*Z)-sl,y=Math.round(o.y*Z)-st0,w=Math.round(o.w*Z),h=Math.round(o.h*Z);
       if(x+w<-20||y+h<-20||x>W+20||y>H+20)continue;
       html+=objHtml(o,x,y,w,h);
     }
+    return html;};
+    let html='';
+    {const reg=(l,t,w,h,sl2,st2,main,fr)=>w>0&&h>0?`<div class="rgn" style="left:${l}px;top:${t}px;width:${w}px;height:${h}px${fr?';background:#fff':''}">${content(sl2,st2,w,h,main)}</div>`:'';
+      if(FW||FH)html+=reg(FW,FH,W-FW,H-FH,sl+FW,st0+FH,true,false)+reg(FW,0,W-FW,FH,sl+FW,0,false,true)+reg(0,FH,FW,H-FH,0,st0+FH,false,true)+reg(0,0,FW,FH,0,0,false,true);
+      else html+=reg(0,0,W,H,sl,st0,true,false);}
     /* filter */
     if(cur.filter){const f=cur.filter;
       for(let c=f.c1;c<=f.c2;c++){if(c<c0||c>c1||ry(f.r1)-st0>H||ry(f.r1+1)<st0)continue;
-        const x=cx(c+1)-sl-17,y=ry(f.r1+1)-st0-17;
+        const x=mapX(cx(c+1))-17,y=mapY(ry(f.r1+1))-17;
         html+=`<button class="fdd${f.crit[c]?' on':''}" data-fc="${c}" style="left:${x}px;top:${y}px">${f.crit[c]?'⧩':'▾'}</button>`;}}
     if(cur.tr){
       if(cur.tr.ver!==wb.ver)computeTrace();
       let ar='';
-      const cc=(r,c)=>[cx(c)+cwid(c)/2-sl,ry(r)+rhei(r)/2-st0];
+      const cc=(r,c)=>[mapX(cx(c)+cwid(c)/2),mapY(ry(r)+rhei(r)/2)];
       for(const a of cur.tr.arrows){
         const f=a.from,[x2,y2]=cc(a.to.r,a.to.c);
-        const multi=f.r1!==f.r2||f.c1!==f.c2,q=rectOf(f.r1,f.c1,f.r2,f.c2);
-        if(multi)ar+=`<rect x="${q.x-sl}" y="${q.y-st0}" width="${q.w}" height="${q.h}" fill="none" stroke="#2f5aa6" stroke-width="1.5"/>`;
-        const [x1,y1]=multi?[q.x-sl+3,q.y-st0+3]:cc(f.r1,f.c1);
+        const multi=f.r1!==f.r2||f.c1!==f.c2,q=mapRect(rectOf(f.r1,f.c1,f.r2,f.c2));
+        if(multi)ar+=`<rect x="${q.x}" y="${q.y}" width="${q.w}" height="${q.h}" fill="none" stroke="#2f5aa6" stroke-width="1.5"/>`;
+        const [x1,y1]=multi?[q.x+3,q.y+3]:cc(f.r1,f.c1);
         ar+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#2f5aa6" stroke-width="1.5" marker-end="url(#xlah)"/><circle cx="${x1}" cy="${y1}" r="3" fill="#2f5aa6"/>`;
       }
       if(ar)html+=`<svg style="position:absolute;left:0;top:0;pointer-events:none;z-index:3" width="${W}" height="${H}"><defs><marker id="xlah" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8z" fill="#2f5aa6"/></marker></defs>${ar}</svg>`;
     }
+    if(wb.viewMode==='pbp')html+=pbpOverlay(W,H,mapX,mapY);
     /* seleksi */
     const g0=rg(),g=expandMerge(g0),s=cur.sel;
     const ac=mergeAt(s.ar,s.ac),ar=ac?{r1:ac.r1,c1:ac.c1,r2:ac.r2,c2:ac.c2}:{r1:s.ar,c1:s.ac,r2:s.ar,c2:s.ac};
-    const R=rectOf(g.r1,g.c1,g.r2,g.c2),A=rectOf(ar.r1,ar.c1,ar.r2,ar.c2);
-    const rx=R.x-sl,ryy=R.y-st0,ax=A.x-sl,ay=A.y-st0;
+    const R=mapRect(rectOf(g.r1,g.c1,g.r2,g.c2)),A=mapRect(rectOf(ar.r1,ar.c1,ar.r2,ar.c2));
+    const rx=R.x,ryy=R.y,ax=A.x,ay=A.y;
     const multi=g.r1!==g.r2||g.c1!==g.c2;
     const multiNotMerge=multi&&!(ac&&ac.r1===g.r1&&ac.r2===g.r2&&ac.c1===g.c1&&ac.c2===g.c2);
     if(multiNotMerge){ /* arsiran di sekitar sel aktif */
@@ -1523,8 +1548,8 @@ function mount(root,opts={}){
       html+=T(rx,ryy,R.w,ay-ryy)+T(rx,ay+A.h,R.w,ryy+R.h-ay-A.h)+T(rx,ay,ax-rx,A.h)+T(ax+A.w,ay,rx+R.w-ax-A.w,A.h);
     }
     html+=`<div class="selb" style="left:${rx-1}px;top:${ryy-1}px;width:${R.w+1}px;height:${R.h+1}px"></div>`;
-    if(clip&&clip.sh===cur){const q=rectOf(clip.r1,clip.c1,clip.r2,clip.c2);html+=`<div class="cpy" style="left:${q.x-sl-1}px;top:${q.y-st0-1}px;width:${q.w+1}px;height:${q.h+1}px"></div>`;}
-    if(pointing){const q=rectOf(pointing.r1,pointing.c1,pointing.r2,pointing.c2);html+=`<div class="pnt" style="left:${q.x-sl-1}px;top:${q.y-st0-1}px;width:${q.w+1}px;height:${q.h+1}px"></div>`;}
+    if(clip&&clip.sh===cur){const q=mapRect(rectOf(clip.r1,clip.c1,clip.r2,clip.c2));html+=`<div class="cpy" style="left:${q.x-1}px;top:${q.y-1}px;width:${q.w+1}px;height:${q.h+1}px"></div>`;}
+    if(pointing){const q=mapRect(rectOf(pointing.r1,pointing.c1,pointing.r2,pointing.c2));html+=`<div class="pnt" style="left:${q.x-1}px;top:${q.y-1}px;width:${q.w+1}px;height:${q.h+1}px"></div>`;}
     {const rule=!ed?dvAt(s.ar,s.ac):null;
       if(rule){
         if(rule.type==='list')html+=`<button class="fdd" data-dvl="1" style="left:${ax+A.w-17}px;top:${ay+A.h-17}px;z-index:5">▾</button>`;
@@ -1534,6 +1559,8 @@ function mount(root,opts={}){
           ci+=`<ellipse cx="${cx(c)+cwid(c)/2-sl}" cy="${ry(r)+rhei(r)/2-st0}" rx="${cwid(c)/2+2}" ry="${rhei(r)/2+1}" fill="none" stroke="#e00" stroke-width="2"/>`;}
         if(ci)html+=`<svg style="position:absolute;left:0;top:0;pointer-events:none;z-index:3" width="${W}" height="${H}">${ci}</svg>`;}}
     if(!ed)html+=`<div class="fh" style="left:${rx+R.w-5}px;top:${ryy+R.h-5}px" data-fill="1"></div>`;
+    if(FW)html+=`<div style="position:absolute;left:${FW-1}px;top:0;width:1px;height:${H}px;background:#808080;z-index:3;pointer-events:none"></div>`;
+    if(FH)html+=`<div style="position:absolute;top:${FH-1}px;left:0;height:1px;width:${W}px;background:#808080;z-index:3;pointer-events:none"></div>`;
     stage.innerHTML=html;
     if(ed)placeEditor();
     /* tajuk */
@@ -1542,17 +1569,17 @@ function mount(root,opts={}){
     const rgut=14*ogl.rows.reduce((m,x)=>Math.max(m,ogDepth(ogl.rows,x)),0),cgut=14*ogl.cols.reduce((m,x)=>Math.max(m,ogDepth(ogl.cols,x)),0);
     gutR=cur.head===false?0:rgut;gutC=cur.head===false?0:cgut;
     const all=g.r1===0&&g.r2===MAXR-1,allc=g.c1===0&&g.c2===MAXC-1;
-    for(let c=c0;c<=c1;c++){const w=cwid(c);const on=c>=g.c1&&c<=g.c2;if(w<=0){ch+=`<div class="hc hd" style="left:${cx(c)-sl-1}px;width:3px;top:${cgut}px;height:${hh}px"></div>`;continue;}
-      ch+=`<div class="hc${on?(all?' a':' s'):''}" data-h="c${c}" style="left:${cx(c)-sl}px;width:${w}px;top:${cgut}px;height:${hh}px">${colName(c)}</div>`;}
-    for(let r=r0;r<=r1;r++){const h=rhei(r);const on=r>=g.r1&&r<=g.r2;if(h<=0){rh2+=`<div class="hc hd" style="top:${ry(r)-st0-1}px;height:3px;left:${rgut}px;width:${HW}px"></div>`;continue;}
-      rh2+=`<div class="hc${on?(allc?' a':' s'):''}" data-h="r${r}" style="top:${ry(r)-st0}px;height:${h}px;left:${rgut}px;width:${HW}px;font-size:${Math.max(8,12*Math.min(1,Z))}px">${r+1}</div>`;}
+    for(const c of colList){const w=cwid(c);const on=c>=g.c1&&c<=g.c2;if(w<=0){ch+=`<div class="hc hd" style="left:${mapX(cx(c))-1}px;width:3px;top:${cgut}px;height:${hh}px"></div>`;continue;}
+      ch+=`<div class="hc${on?(all?' a':' s'):''}" data-h="c${c}" style="left:${mapX(cx(c))}px;width:${w}px;top:${cgut}px;height:${hh}px">${colName(c)}</div>`;}
+    for(const r of rowList){const h=rhei(r);const on=r>=g.r1&&r<=g.r2;if(h<=0){rh2+=`<div class="hc hd" style="top:${mapY(ry(r))-1}px;height:3px;left:${rgut}px;width:${HW}px"></div>`;continue;}
+      rh2+=`<div class="hc${on?(allc?' a':' s'):''}" data-h="r${r}" style="top:${mapY(ry(r))}px;height:${h}px;left:${rgut}px;width:${HW}px;font-size:${Math.max(8,12*Math.min(1,Z))}px">${r+1}</div>`;}
     ogl.rows.forEach((x,i)=>{
-      const d=ogDepth(ogl.rows,x),xo=(d-1)*14+3,y1=ry(x.a)-st0,y2=ry(x.b+1)-st0;if(y2<-30||y1>H+30)return;const sh2=rhei(x.b+1);
+      const d=ogDepth(ogl.rows,x),xo=(d-1)*14+3,y1=mapY(ry(x.a)),y2=mapY(ry(x.b+1));if(y2<-30||y1>H+30)return;const sh2=rhei(x.b+1);
       if(y2>y1)rh2+=`<div class="ogl" style="left:${xo+5}px;top:${y1}px;width:1px;height:${y2-y1}px"></div>`;
       rh2+=`<div class="ogl" style="left:${xo+5}px;top:${y2-1}px;width:7px;height:1px"></div>`;
       if(sh2>0)rh2+=`<button class="ogb" data-og="r:${i}" style="left:${xo}px;top:${y2+(sh2-11)/2}px">${x.cl?'+':'−'}</button>`;});
     ogl.cols.forEach((x,i)=>{
-      const d=ogDepth(ogl.cols,x),yo=(d-1)*14+3,x1=cx(x.a)-sl,x2=cx(x.b+1)-sl;if(x2<-30||x1>W+30)return;const sw=cwid(x.b+1);
+      const d=ogDepth(ogl.cols,x),yo=(d-1)*14+3,x1=mapX(cx(x.a)),x2=mapX(cx(x.b+1));if(x2<-30||x1>W+30)return;const sw=cwid(x.b+1);
       if(x2>x1)ch+=`<div class="ogl" style="top:${yo+5}px;left:${x1}px;height:1px;width:${x2-x1}px"></div>`;
       ch+=`<div class="ogl" style="top:${yo+5}px;left:${x2-1}px;height:7px;width:1px"></div>`;
       if(sw>0)ch+=`<button class="ogb" data-og="c:${i}" style="top:${yo}px;left:${x2+(sw-11)/2}px">${x.cl?'+':'−'}</button>`;});
@@ -1597,8 +1624,10 @@ function mount(root,opts={}){
     const P=cur.page;
     setSel2('fitw',P.fitW);setSel2('fith',P.fitH);
     const sc=root.querySelector('[data-s=scale]');if(sc){if(document.activeElement!==sc)sc.value=P.scale;sc.disabled=!!(P.fitW||P.fitH);}
-    const C=(n,v)=>{const e=root.querySelector(`[data-s=${n}]`);if(e)e.checked=!!v;};
-    C('gview',cur.grid!==false);C('gprint',P.pg);C('hview',cur.head!==false);C('hprint',P.ph);
+    const C=(n,v)=>{root.querySelectorAll(`[data-s=${n}]`).forEach(e=>{e.checked=!!v;});};
+    C('gview',cur.grid!==false);C('gprint',P.pg);C('hview',cur.head!==false);C('hprint',P.ph);C('fbar',wb.fbar!==false);
+    root.querySelectorAll('[data-a="view:normal"]').forEach(b=>b.classList.toggle('on',wb.viewMode!=='pbp'));
+    root.querySelectorAll('[data-a="view:pbp"]').forEach(b=>b.classList.toggle('on',wb.viewMode==='pbp'));
     const bg=root.querySelector('[data-a=bg] span');if(bg)bg.innerHTML=cur.bg?'Hapus Latar<br>Belakang':'Latar<br>Belakang';
     $('.gwrap').classList.toggle('nh',cur.head===false);
     vp.style.backgroundImage=cur.bg?`url(${cur.bg})`:'';vp.style.backgroundAttachment='local';
@@ -1641,7 +1670,8 @@ function mount(root,opts={}){
     const m=mergeAt(ed.r,ed.c);
     const rr=m?m.r2:ed.r,cc=m?m.c2:ed.c;
     const hwid=cur.head===false?0:HW+gutR,hhei=cur.head===false?0:HH+gutC;
-    const x=hwid+cx(ed.c)-sl,y=hhei+ry(ed.r)-sy,w0=cx(cc+1)-cx(ed.c),h0=ry(rr+1)-ry(ed.r);
+    const fe=frzOf();
+    const x=hwid+(ed.c<fe.c?cx(ed.c):cx(ed.c)-sl),y=hhei+(ed.r<fe.r?ry(ed.r):ry(ed.r)-sy),w0=cx(cc+1)-cx(ed.c),h0=ry(rr+1)-ry(ed.r);
     const sz=(st.sz||11)*4/3*Z;
     edEl.style.fontSize=sz+'px';edEl.style.fontFamily=(st.font||DF())+',Carlito,sans-serif';
     edEl.style.fontWeight=st.b?'700':'400';edEl.style.fontStyle=st.i?'italic':'normal';edEl.style.color=st.color||'#000';
@@ -1847,7 +1877,7 @@ function mount(root,opts={}){
 
   /* ===== penunjuk (mouse/sentuh) di lembar ===== */
   const hit=(ev)=>{const rc=vp.getBoundingClientRect();const x=ev.clientX-rc.left,y=ev.clientY-rc.top;
-    return {x,y,c:cur.cw.at((x+vp.scrollLeft)/Z),r:cur.rh.at((y+vp.scrollTop)/Z)};};
+    const f=frzOf();return {x,y,c:cur.cw.at((x<f.W?x:x+vp.scrollLeft)/Z),r:cur.rh.at((y<f.H?y:y+vp.scrollTop)/Z)};};
   let drag=null,dragTimer=0,lastEv=null;
   function extendTo(ev){
     const h=hit(ev);
@@ -2035,7 +2065,8 @@ function mount(root,opts={}){
   let rsz=null;
   function hdrHit(ev,kind){
     const rc=(kind==='c'?colh:rowh).getBoundingClientRect();
-    const p=kind==='c'?ev.clientX-rc.left+vp.scrollLeft:ev.clientY-rc.top+vp.scrollTop;
+    const fzz=frzOf(),base=kind==='c'?ev.clientX-rc.left:ev.clientY-rc.top,fzs=kind==='c'?fzz.W:fzz.H;
+    const p=base<fzs?base:base+(kind==='c'?vp.scrollLeft:vp.scrollTop);
     const ax=kind==='c'?cur.cw:cur.rh;
     const i=ax.at(p/Z),edge=Math.round(ax.pos(i+1)*Z);
     let near=null;if(Math.abs(p-edge)<=4)near=i;else{const left=Math.round(ax.pos(i)*Z);if(i>0&&Math.abs(p-left)<=4)near=i-1;}
@@ -3985,6 +4016,84 @@ function mount(root,opts={}){
     track:()=>[I('Lacak Perubahan saat Mengedit',()=>{wb.track=!wb.track;toast(wb.track?'Pelacakan perubahan aktif. Perubahan sel akan disorot.':'Pelacakan perubahan dimatikan.');sync();},'',{ck:wb.track}),I('Terima atau Tolak Perubahan…',changesDialog,'✔'),{sep:1},I('Hapus Riwayat Perubahan',()=>{wb.changes=[];sync();},'✖',{dis:!wb.changes.length})]
   });
 
+  /* ===== TAMPILAN ===== */
+  const frzOf=()=>{const f=cur.freeze||{r:0,c:0};return {r:f.r||0,c:f.c||0,W:f.c?cx(f.c):0,H:f.r?ry(f.r):0};};
+  function setFreeze(r,c){
+    tx(()=>{cur.freeze=(r||c)?{r,c}:null;},true);
+    vp.scrollLeft=0;vp.scrollTop=0;sync();
+  }
+  function pbpOverlay(W,H,mapX,mapY){
+    const P=cur.page,u=usedRange(cur);
+    const g=P.area?{...P.area}:(u.any?{r1:0,c1:0,r2:u.r2,c2:u.c2}:{r1:0,c1:0,r2:0,c2:0});
+    let [pw,ph]=PAPER[P.paper]||PAPER.A4;if(P.orient==='landscape')[pw,ph]=[ph,pw];
+    let totW=0,totH=0;for(let c=g.c1;c<=g.c2;c++)totW+=cur.cw.size(c);for(let r=g.r1;r<=g.r2;r++)totH+=cur.rh.size(r);
+    const aW0=(pw/25.4-P.m.l-P.m.r)*96,aH0=(ph/25.4-P.m.t-P.m.b)*96;
+    let zoom=P.scale/100;if(P.fitW||P.fitH)zoom=Math.min(1,P.fitW?aW0*P.fitW/Math.max(1,totW):Infinity,P.fitH?aH0*P.fitH/Math.max(1,totH):Infinity);
+    const aW=aW0/zoom,aH=aH0/zoom,colB=[g.c1],rowB=[g.r1];
+    let acc=0;for(let c=g.c1;c<=g.c2;c++){const w=cur.cw.size(c);if(acc+w>aW+.5&&acc>0){colB.push(c);acc=0;}acc+=w;}
+    acc=0;for(let r=g.r1;r<=g.r2;r++){const h=cur.rh.size(r);if(acc+h>aH+.5&&acc>0){rowB.push(r);acc=0;}acc+=h;}
+    colB.push(g.c2+1);rowB.push(g.r2+1);
+    const X=c=>mapX(cx(c)),Y=r=>mapY(ry(r));
+    const x1=X(g.c1),x2=X(g.c2+1),y1=Y(g.r1),y2=Y(g.r2+1);
+    const R=(x,y,w,h,st)=>w>0&&h>0?`<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;pointer-events:none;${st}"></div>`:'';
+    const gray='background:rgba(110,110,110,.45)';
+    let h=R(0,0,W,Math.max(0,y1),gray)+R(0,y2,W,Math.max(0,H-y2),gray)+R(0,Math.max(0,y1),Math.max(0,x1),y2-Math.max(0,y1),gray)+R(x2,Math.max(0,y1),Math.max(0,W-x2),y2-Math.max(0,y1),gray);
+    for(let i=1;i<colB.length-1;i++)h+=R(X(colB[i])-1,y1,2,y2-y1,'background:repeating-linear-gradient(to bottom,#1f4e9e 0 7px,transparent 7px 11px)');
+    for(let j=1;j<rowB.length-1;j++)h+=R(x1,Y(rowB[j])-1,x2-x1,2,'background:repeating-linear-gradient(to right,#1f4e9e 0 7px,transparent 7px 11px)');
+    h+=R(x1-1,y1-1,x2-x1+1,y2-y1+1,'border:2px solid #1f4e9e');
+    let n=1;
+    for(let i=0;i<colB.length-1;i++)for(let j=0;j<rowB.length-1;j++){
+      const a=X(colB[i]),b=X(colB[i+1]),c=Y(rowB[j]),d=Y(rowB[j+1]);
+      if(b>0&&a<W&&d>0&&c<H&&b>a&&d>c){const fs=Math.max(12,Math.min(64,(b-a)/9,(d-c)/6));const ty=Math.max(c,0),th=Math.min(d,H)-ty,tx2=Math.max(a,0),tw=Math.min(b,W)-tx2;h+=`<div style="position:absolute;left:${tx2}px;top:${ty}px;width:${tw}px;height:${th}px;display:flex;align-items:center;justify-content:center;font-size:${fs}px;white-space:nowrap;color:rgba(110,110,110,.45);font-weight:700;pointer-events:none;overflow:hidden">Halaman ${n}</div>`;}
+      n++;
+    }
+    return h;
+  }
+  function zoomDialog(){
+    const cur0=Math.round(Z*100);
+    dlg('Zoom',`<label><input type="radio" name="z" value="200"> 200%</label><label><input type="radio" name="z" value="100"> 100%</label><label><input type="radio" name="z" value="75"> 75%</label><label><input type="radio" name="z" value="50"> 50%</label><label><input type="radio" name="z" value="25"> 25%</label><label><input type="radio" name="z" value="fit"> Muatkan ke seleksi</label><label><input type="radio" name="z" value="c"> Kustom: <input type="number" class="cz" min="20" max="200" value="${cur0}" style="width:70px"> %</label>`,d=>{
+      const v=d.querySelector('input[name=z]:checked');if(!v)return;
+      if(v.value==='fit')zoomSel();else if(v.value==='c')setZoom(Math.max(20,Math.min(200,+d.querySelector('.cz').value||100)));else setZoom(+v.value);});
+    const pre=document.querySelector(`.xl .ov input[name=z][value="${[200,100,75,50,25].includes(cur0)?cur0:'c'}"]`);if(pre)pre.checked=true;
+  }
+  function zoomSel(){
+    const g=expandMerge(rg());
+    const w=cur.cw.pos(g.c2+1)-cur.cw.pos(g.c1),h=cur.rh.pos(g.r2+1)-cur.rh.pos(g.r1);
+    const vw=vp.clientWidth-20,vh=vp.clientHeight-20;
+    const z=Math.max(20,Math.min(200,Math.floor(Math.min(vw/Math.max(w,1),vh/Math.max(h,1))*100/5)*5));
+    setZoom(z);vp.scrollLeft=cx(g.c1);vp.scrollTop=ry(g.r1);schedule();
+  }
+  function customViews(){
+    const body=()=>wb.cviews.length?wb.cviews.map((v,i)=>`<div class="si" data-i="${i}" style="display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid #eee;padding:3px 0;cursor:pointer"><span>${esc(v.name)} <small style="color:#888">(${esc(v.sheet)}, ${v.z}%)</small></span></div>`).join(''):'<i>Belum ada tampilan kustom.</i>';
+    let sel=-1;
+    const d=dlg('Tampilan Kustom',`<div class="cl" style="min-width:320px;max-height:150px;overflow:auto;border:1px solid #bbb;padding:4px"></div><div class="r2"><span>Nama:</span><input type="text" class="nm"></div><div style="display:flex;gap:6px"><button class="bt ad">Tambah</button><button class="bt sh">Tampilkan</button><button class="bt dl">Hapus</button></div><div style="font-size:11px;color:#666;max-width:330px">Menyimpan zoom, garis kisi, tajuk, bilah rumus, baris/kolom tersembunyi, panel beku, dan posisi sel untuk lembar aktif.</div>`,null,'Tutup',true);
+    const cl=d.querySelector('.cl'),draw=()=>{cl.innerHTML=body();cl.querySelectorAll('[data-i]').forEach(x=>{if(+x.dataset.i===sel)x.style.background='#d3e8d9';});};draw();
+    cl.onclick=e=>{const t=e.target.closest('[data-i]');if(t){sel=+t.dataset.i;draw();}};
+    d.querySelector('.ad').onclick=()=>{
+      const n=d.querySelector('.nm').value.trim();if(!n){toast('Isi nama tampilan.');return;}
+      const v={name:n,sheet:cur.name,z:Math.round(Z*100),grid:cur.grid!==false,head:cur.head!==false,fbar:wb.fbar!==false,showF:!!cur.showF,hr:[...cur.rh.hid],hc:[...cur.cw.hid],freeze:cur.freeze?{...cur.freeze}:null,sel:{...cur.sel},mode:wb.viewMode||'normal'};
+      wb.cviews=[...wb.cviews.filter(x=>x.name.toLowerCase()!==n.toLowerCase()),v];d.querySelector('.nm').value='';draw();toast('Tampilan "'+n+'" disimpan.');};
+    d.querySelector('.sh').onclick=()=>{
+      if(sel<0){toast('Pilih tampilan terlebih dahulu.');return;}
+      const v=wb.cviews[sel],i=wb.sheets.findIndex(s=>s.name===v.sheet);if(i<0){toast('Lembar untuk tampilan ini sudah tidak ada.');return;}
+      if(i!==wb.active)switchSheet(i);
+      cur.grid=v.grid;cur.head=v.head;cur.showF=v.showF;wb.fbar=v.fbar;wb.viewMode=v.mode;cur.freeze=v.freeze?{...v.freeze}:null;
+      cur.rh.hid=new Set(v.hr);cur.cw.hid=new Set(v.hc);cur.rh.dirty=true;cur.cw.dirty=true;
+      cur.sel={...v.sel};setZoom(v.z);vp.scrollLeft=0;vp.scrollTop=0;sync();reveal(v.sel.ar,v.sel.ac);d.remove();};
+    d.querySelector('.dl').onclick=()=>{if(sel<0)return;wb.cviews.splice(sel,1);sel=-1;draw();};
+  }
+  const applyFbar=()=>{$('.fbar').hidden=wb.fbar===false;};
+  Object.assign(sels,{fbar:v=>{wb.fbar=!!v;applyFbar();sync();}});
+  Object.assign(acts,{
+    view(v){wb.viewMode=v;sync();},
+    zoomdlg:zoomDialog,zoom100(){setZoom(100);},zoomsel:zoomSel,cviews:customViews
+  });
+  Object.assign(menus,{
+    freeze:()=>{const f=frzOf(),on=f.r||f.c;return [on?I('Lepas Pembekuan Panel',()=>setFreeze(0,0),'❄'):I('Bekukan Panel',()=>{const s=cur.sel;setFreeze(s.ar,s.ac);},'❄'),I('Bekukan Baris Teratas',()=>setFreeze(1,0),'☰'),I('Bekukan Kolom Pertama',()=>setFreeze(0,1),'▥')];},
+    switchw:()=>[I(name,()=>{},'▦',{ck:true})]
+  });
+  applyFbar();
+
   /* ===== berkas ===== */
   const hex6=c=>c?c.replace('#','').toUpperCase():null;
   const argb=c=>'FF'+hex6(c);
@@ -4004,7 +4113,7 @@ function mount(root,opts={}){
     try{const nm=[];for(const d of (w.definedNames.model||[])){if(!d.name||!d.ranges||!d.ranges.length||/^_xlnm/.test(d.name))continue;const rr=d.ranges[0];if(/^'?[^!]+'?!\$?[A-Za-z]+\$?\d+(:\$?[A-Za-z]+\$?\d+)?$/.test(rr)&&validName(d.name))nm.push({name:d.name,ref:'='+rr});}wb.names=nm;}catch(e){wb.names=[];}
     for(const ws of w.worksheets){
       const s=newSheet(ws.name);
-      try{const v=ws.views&&ws.views[0];if(v){if(v.showGridLines===false)s.grid=false;if(v.showRowColHeaders===false)s.head=false;}
+      try{const v=ws.views&&ws.views[0];if(v){if(v.showGridLines===false)s.grid=false;if(v.showRowColHeaders===false)s.head=false;if(v.state==='frozen'&&(v.xSplit||v.ySplit))s.freeze={r:v.ySplit||0,c:v.xSplit||0};}
         const ps=ws.pageSetup;if(ps){const P=s.page;P.paper={9:'A4',8:'A3',11:'A5',1:'Letter',5:'Legal'}[ps.paperSize]||'A4';P.orient=ps.orientation==='landscape'?'landscape':'portrait';
           if(ps.margins){for(const [k,n] of [['t','top'],['b','bottom'],['l','left'],['r','right']])if(typeof ps.margins[n]==='number')P.m[k]=ps.margins[n];}
           P.pg=!!ps.showGridLines;P.ph=!!ps.showRowColHeaders;
@@ -4129,7 +4238,7 @@ function mount(root,opts={}){
       await lib('exceljs',()=>window.ExcelJS);
       const w=new ExcelJS.Workbook();w.creator='Office Web';let unsup=0;
       for(const s of wb.sheets){
-        const ws=w.addWorksheet(s.name,{properties:s.tab?{tabColor:{argb:argb(s.tab)}}:{},views:[{showGridLines:s.grid!==false,showRowColHeaders:s.head!==false}]});
+        const ws=w.addWorksheet(s.name,{properties:s.tab?{tabColor:{argb:argb(s.tab)}}:{},views:[{...(s.freeze&&(s.freeze.r||s.freeze.c)?{state:'frozen',xSplit:s.freeze.c,ySplit:s.freeze.r}:{}),showGridLines:s.grid!==false,showRowColHeaders:s.head!==false}]});
         if(s.cw.def!==DW)ws.properties.defaultColWidth=(s.cw.def-5)/7;
         {const P=s.page||newPage();
           ws.pageSetup={paperSize:{A4:9,A3:8,A5:11,Letter:1,Legal:5}[P.paper]||9,orientation:P.orient==='landscape'?'landscape':'portrait',margins:{left:P.m.l,right:P.m.r,top:P.m.t,bottom:P.m.b,header:.3,footer:.3},showGridLines:!!P.pg,showRowColHeaders:!!P.ph,
